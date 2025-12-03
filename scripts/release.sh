@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_NAME="ClipMoar"
+CONFIG="${1:-debug}"
+BUILD_DIR=".build/$CONFIG"
+APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
+
+echo "Building ClipMoar ($CONFIG)..."
+swift build -c "$CONFIG"
+
+echo "Creating app bundle..."
+rm -rf "$APP_BUNDLE"
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+mkdir -p "$APP_BUNDLE/Contents/Resources"
+
+cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/"
+cp ClipMoar/Resources/Info.plist "$APP_BUNDLE/Contents/"
+
+cat > "$APP_BUNDLE/Contents/PkgInfo" << 'EOF'
+APPL????
+EOF
+
+# Copy CoreData model bundle
+BUNDLE_NAME="${APP_NAME}_${APP_NAME}.bundle"
+if [ -d "$BUILD_DIR/$BUNDLE_NAME" ]; then
+    cp -R "$BUILD_DIR/$BUNDLE_NAME" "$APP_BUNDLE/Contents/Resources/"
+fi
+
+echo "App bundle created: $APP_BUNDLE"
