@@ -1,16 +1,16 @@
 import Cocoa
 import CoreData
 
-private let listWidth: CGFloat = 420
+private let listWidth: CGFloat = 460
 private let previewWidth: CGFloat = 260
-private let rowHeight: CGFloat = 24
-private let panelHeight: CGFloat = 274
+private let rowHeight: CGFloat = 32
+private let panelHeight: CGFloat = 32 * 9 + 36 + 20
 
 final class FloatingClipboardViewController: NSViewController,
-    NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
+    NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
 
-    private let searchField = NSSearchField()
-    private let tableView = NSTableView()
+    private let searchField = NSTextField()
+    let tableView = NSTableView()
     private let scrollView = NSScrollView()
     private let metaLabel = NSTextField(labelWithString: "")
 
@@ -27,7 +27,11 @@ final class FloatingClipboardViewController: NSViewController,
         view = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: panelHeight))
         view.appearance = NSAppearance(named: .darkAqua)
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor(calibratedWhite: 0.15, alpha: 1.0).cgColor
+        view.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
+
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.heightAnchor.constraint(equalToConstant: panelHeight).isActive = true
+        view.widthAnchor.constraint(greaterThanOrEqualToConstant: listWidth).isActive = true
     }
 
     override func viewDidLoad() {
@@ -43,33 +47,47 @@ final class FloatingClipboardViewController: NSViewController,
 
     private func setupSearchField() {
         searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.placeholderString = "Search clipboard history..."
+        searchField.placeholderString = "Type to search..."
         searchField.delegate = self
         searchField.focusRingType = .none
+        searchField.drawsBackground = false
+        searchField.isBordered = false
+        searchField.isBezeled = false
+        searchField.font = .systemFont(ofSize: 16)
+        searchField.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
         searchField.appearance = NSAppearance(named: .darkAqua)
         view.addSubview(searchField)
 
+        let separator = NSBox()
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        separator.boxType = .separator
+        view.addSubview(separator)
+
         NSLayoutConstraint.activate([
-            searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            searchField.widthAnchor.constraint(equalToConstant: listWidth - 16),
-            searchField.heightAnchor.constraint(equalToConstant: 26)
+            searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 6),
+            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            searchField.widthAnchor.constraint(equalToConstant: listWidth - 24),
+            searchField.heightAnchor.constraint(equalToConstant: 28),
+
+            separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 2),
+            separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            separator.widthAnchor.constraint(equalToConstant: listWidth)
         ])
     }
 
     private func setupMetaLabel() {
         metaLabel.translatesAutoresizingMaskIntoConstraints = false
         metaLabel.isEditable = false
-        metaLabel.textColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
-        metaLabel.font = .systemFont(ofSize: 10)
+        metaLabel.textColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)
+        metaLabel.font = .systemFont(ofSize: 11)
         metaLabel.alignment = .right
         metaLabel.drawsBackground = false
         view.addSubview(metaLabel)
 
         NSLayoutConstraint.activate([
-            metaLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            metaLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             metaLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4),
-            metaLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            metaLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             metaLabel.heightAnchor.constraint(equalToConstant: 16)
         ])
     }
@@ -77,7 +95,7 @@ final class FloatingClipboardViewController: NSViewController,
     private func setupPreviewContainer() {
         previewContainer.translatesAutoresizingMaskIntoConstraints = false
         previewContainer.wantsLayer = true
-        previewContainer.layer?.backgroundColor = NSColor(calibratedWhite: 0.12, alpha: 1.0).cgColor
+        previewContainer.layer?.backgroundColor = NSColor(calibratedWhite: 0.10, alpha: 1.0).cgColor
         view.addSubview(previewContainer)
 
         previewWidthConstraint = previewContainer.widthAnchor.constraint(equalToConstant: 0)
@@ -89,7 +107,6 @@ final class FloatingClipboardViewController: NSViewController,
             previewWidthConstraint
         ])
 
-        // Text preview
         previewScrollView.translatesAutoresizingMaskIntoConstraints = false
         previewScrollView.hasVerticalScroller = true
         previewScrollView.drawsBackground = false
@@ -106,7 +123,6 @@ final class FloatingClipboardViewController: NSViewController,
         previewTextView.isHorizontallyResizable = false
         previewTextView.textContainer?.widthTracksTextView = true
 
-        // Image preview
         previewImageView.translatesAutoresizingMaskIntoConstraints = false
         previewImageView.imageScaling = .scaleProportionallyDown
         previewImageView.imageAlignment = .alignTop
@@ -163,12 +179,12 @@ final class FloatingClipboardViewController: NSViewController,
             guard let self = self,
                   self.view.window?.isVisible == true else { return event }
 
-            if event.keyCode == 53 { // Escape
+            if event.keyCode == 53 {
                 FloatingPanelController.shared.dismiss()
                 return nil
             }
 
-            if event.keyCode == 36 { // Return
+            if event.keyCode == 36 {
                 self.pasteSelected()
                 return nil
             }
@@ -180,7 +196,7 @@ final class FloatingClipboardViewController: NSViewController,
                 return nil
             }
 
-            if event.keyCode == 51 { // Backspace
+            if event.keyCode == 51 {
                 if self.view.window?.firstResponder !== self.searchField.currentEditor() {
                     self.view.window?.makeFirstResponder(self.searchField)
                 }
@@ -206,7 +222,7 @@ final class FloatingClipboardViewController: NSViewController,
         }
     }
 
-    // MARK: - Preview Panel
+    // MARK: - Preview
 
     private func showPreview(for item: ClipboardItem) {
         if item.contentType == "image", let data = item.imageData {
@@ -223,13 +239,8 @@ final class FloatingClipboardViewController: NSViewController,
             isPreviewVisible = true
             guard let window = view.window else { return }
             let frame = window.frame
-            let newWidth = listWidth + previewWidth
-            let newFrame = NSRect(
-                x: frame.origin.x,
-                y: frame.origin.y,
-                width: newWidth,
-                height: frame.height
-            )
+            let newFrame = NSRect(x: frame.origin.x, y: frame.origin.y,
+                                  width: listWidth + previewWidth, height: frame.height)
             window.animator().setFrame(newFrame, display: true)
             previewWidthConstraint.animator().constant = previewWidth
         }
@@ -243,12 +254,8 @@ final class FloatingClipboardViewController: NSViewController,
 
         guard let window = view.window else { return }
         let frame = window.frame
-        let newFrame = NSRect(
-            x: frame.origin.x,
-            y: frame.origin.y,
-            width: listWidth,
-            height: frame.height
-        )
+        let newFrame = NSRect(x: frame.origin.x, y: frame.origin.y,
+                              width: listWidth, height: frame.height)
         previewWidthConstraint.animator().constant = 0
         window.animator().setFrame(newFrame, display: true)
     }
@@ -263,6 +270,9 @@ final class FloatingClipboardViewController: NSViewController,
 
     func focusOnList() {
         view.window?.makeFirstResponder(tableView)
+        if tableView.numberOfRows > 0 && tableView.selectedRow < 0 {
+            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        }
     }
 
     // MARK: - Data
@@ -298,19 +308,13 @@ final class FloatingClipboardViewController: NSViewController,
         }
 
         let item = items[row]
-
-        // Meta
         var parts: [String] = []
         if let content = item.content {
             let words = content.split(separator: " ").count
             parts.append("\(words) words; \(content.count) chars")
         } else if item.contentType == "image", let data = item.imageData {
             let kb = Double(data.count) / 1024.0
-            if kb > 1024 {
-                parts.append(String(format: "%.1f MB", kb / 1024.0))
-            } else {
-                parts.append(String(format: "%.0f KB", kb))
-            }
+            parts.append(kb > 1024 ? String(format: "%.1f MB", kb / 1024.0) : String(format: "%.0f KB", kb))
         }
         if let date = item.createdAt {
             let formatter = DateFormatter()
@@ -319,7 +323,6 @@ final class FloatingClipboardViewController: NSViewController,
         }
         metaLabel.stringValue = parts.joined(separator: "  ")
 
-        // Preview
         let hasPreview = (item.contentType == "image" && item.imageData != nil)
             || (item.content != nil && (item.content?.count ?? 0) > 50)
         if hasPreview {
@@ -388,24 +391,21 @@ final class FloatingClipboardViewController: NSViewController,
         if let imageView = cellView.imageView {
             imageView.image = item.sourceAppIcon
                 ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-            imageView.image?.size = NSSize(width: 16, height: 16)
+            imageView.image?.size = NSSize(width: 22, height: 22)
         }
 
         cellView.textField?.stringValue = item.displayTitle
         cellView.textField?.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
+        cellView.textField?.font = item.isPinned
+            ? .boldSystemFont(ofSize: 15)
+            : .systemFont(ofSize: 15)
 
         let shortcutLabel = cellView.viewWithTag(100) as? NSTextField
         if row < 9 {
-            shortcutLabel?.stringValue = "Cmd+\(row + 1)"
+            shortcutLabel?.stringValue = "\u{2318}\(row + 1)"
             shortcutLabel?.isHidden = false
         } else {
             shortcutLabel?.isHidden = true
-        }
-
-        if item.isPinned {
-            cellView.textField?.font = .boldSystemFont(ofSize: 13)
-        } else {
-            cellView.textField?.font = .systemFont(ofSize: 13)
         }
 
         return cellView
@@ -439,7 +439,6 @@ final class FloatingClipboardViewController: NSViewController,
 
         let shortcut = NSTextField(labelWithString: "")
         shortcut.translatesAutoresizingMaskIntoConstraints = false
-        shortcut.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         shortcut.textColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)
         shortcut.alignment = .right
         shortcut.drawsBackground = false
@@ -447,18 +446,18 @@ final class FloatingClipboardViewController: NSViewController,
         cell.addSubview(shortcut)
 
         NSLayoutConstraint.activate([
-            icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+            icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 10),
             icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 16),
-            icon.heightAnchor.constraint(equalToConstant: 16),
+            icon.widthAnchor.constraint(equalToConstant: 22),
+            icon.heightAnchor.constraint(equalToConstant: 22),
 
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 10),
             title.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            title.trailingAnchor.constraint(equalTo: shortcut.leadingAnchor, constant: -4),
+            title.trailingAnchor.constraint(equalTo: shortcut.leadingAnchor, constant: -8),
 
-            shortcut.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            shortcut.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -12),
             shortcut.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            shortcut.widthAnchor.constraint(equalToConstant: 44)
+            shortcut.widthAnchor.constraint(equalToConstant: 36)
         ])
 
         return cell
@@ -474,7 +473,7 @@ final class FloatingClipboardViewController: NSViewController,
 final class ClipTableRowView: NSTableRowView {
     override func drawSelection(in dirtyRect: NSRect) {
         if selectionHighlightStyle != .none {
-            NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.7, alpha: 0.8).setFill()
+            NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9).setFill()
             bounds.fill()
         }
     }

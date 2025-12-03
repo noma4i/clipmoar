@@ -23,6 +23,16 @@ final class ClipboardService {
         lastChangeCount = pasteboard.changeCount
 
         let context = CoreDataStack.shared.viewContext
+
+        let hasText = pasteboard.string(forType: .string) != nil
+        let hasImage = pasteboard.data(forType: .tiff) != nil || pasteboard.data(forType: .png) != nil
+        let isEmpty = (pasteboard.pasteboardItems ?? []).isEmpty || (!hasText && !hasImage)
+
+        if isEmpty {
+            removeLastUnpinnedItem(in: context)
+            return
+        }
+
         let frontmostBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 
         if let string = pasteboard.string(forType: .string), !string.isEmpty {
@@ -35,6 +45,17 @@ final class ClipboardService {
         }
 
         trimHistory(in: context)
+    }
+
+    private func removeLastUnpinnedItem(in context: NSManagedObjectContext) {
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.predicate = NSPredicate(format: "isPinned == NO")
+        request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+        request.fetchLimit = 1
+
+        guard let item = try? context.fetch(request).first else { return }
+        context.delete(item)
+        CoreDataStack.shared.save()
     }
 
     private func isDuplicate(text: String, in context: NSManagedObjectContext) -> Bool {

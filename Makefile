@@ -3,7 +3,8 @@
 build:
 	swift build
 
-run: build
+run:
+	-pkill -x ClipMoar 2>/dev/null; sleep 0.5
 	./scripts/release.sh debug
 	open .build/debug/ClipMoar.app
 
