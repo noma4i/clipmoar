@@ -24,18 +24,24 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        FloatingPanelController.shared.dismiss()
+        orderOut(nil)
     }
 }
 
 final class FloatingPanelController: NSWindowController {
-    static let shared = FloatingPanelController()
-    private let clipViewController = FloatingClipboardViewController()
+    private let clipViewController: FloatingClipboardViewController
 
-    private convenience init() {
+    init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
         let panel = FloatingPanel()
-        self.init(window: panel)
+        self.clipViewController = FloatingClipboardViewController(
+            repository: repository,
+            actionService: actionService
+        )
+        super.init(window: panel)
+        panel.contentView = clipViewController.view
     }
+
+    required init?(coder: NSCoder) { nil }
 
     var isVisible: Bool {
         window?.isVisible ?? false
@@ -54,8 +60,7 @@ final class FloatingPanelController: NSWindowController {
 
         clipViewController.refresh()
 
-        panel.contentView = clipViewController.view
-        panel.setContentSize(NSSize(width: 460, height: 344))
+        panel.setFrame(NSRect(x: 0, y: 0, width: 460, height: 344), display: false)
         panel.center()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

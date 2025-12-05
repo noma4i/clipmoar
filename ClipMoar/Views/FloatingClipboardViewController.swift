@@ -21,17 +21,25 @@ final class FloatingClipboardViewController: NSViewController,
     private var previewWidthConstraint: NSLayoutConstraint!
     private var isPreviewVisible = false
 
+    private let repository: ClipboardRepository
+    private let actionService: ClipboardActionServicing
     private var items: [ClipboardItem] = []
 
-    override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: panelHeight))
-        view.appearance = NSAppearance(named: .darkAqua)
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
+    init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
+        self.repository = repository
+        self.actionService = actionService
+        super.init(nibName: nil, bundle: nil)
+    }
 
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.heightAnchor.constraint(equalToConstant: panelHeight).isActive = true
-        view.widthAnchor.constraint(greaterThanOrEqualToConstant: listWidth).isActive = true
+    required init?(coder: NSCoder) { nil }
+
+    override func loadView() {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: panelHeight))
+        v.appearance = NSAppearance(named: .darkAqua)
+        v.wantsLayer = true
+        v.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
+        v.autoresizingMask = [.width, .height]
+        self.view = v
     }
 
     override func viewDidLoad() {
@@ -180,7 +188,7 @@ final class FloatingClipboardViewController: NSViewController,
                   self.view.window?.isVisible == true else { return event }
 
             if event.keyCode == 53 {
-                FloatingPanelController.shared.dismiss()
+                self.view.window?.orderOut(nil)
                 return nil
             }
 
@@ -193,6 +201,13 @@ final class FloatingClipboardViewController: NSViewController,
                let char = event.characters,
                let num = Int(char), num >= 1, num <= 9 {
                 self.pasteItem(at: num - 1)
+                return nil
+            }
+
+            // Arrow up/down always go to table
+            if event.keyCode == 125 || event.keyCode == 126 {
+                self.view.window?.makeFirstResponder(self.tableView)
+                self.tableView.keyDown(with: event)
                 return nil
             }
 
@@ -239,10 +254,11 @@ final class FloatingClipboardViewController: NSViewController,
             isPreviewVisible = true
             guard let window = view.window else { return }
             let frame = window.frame
-            let newFrame = NSRect(x: frame.origin.x, y: frame.origin.y,
-                                  width: listWidth + previewWidth, height: frame.height)
-            window.animator().setFrame(newFrame, display: true)
-            previewWidthConstraint.animator().constant = previewWidth
+            let newWidth = listWidth + previewWidth
+            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
+                                   width: newWidth, height: frame.height), display: true)
+            previewWidthConstraint.constant = previewWidth
+            view.layoutSubtreeIfNeeded()
         }
     }
 
@@ -254,10 +270,10 @@ final class FloatingClipboardViewController: NSViewController,
 
         guard let window = view.window else { return }
         let frame = window.frame
-        let newFrame = NSRect(x: frame.origin.x, y: frame.origin.y,
-                              width: listWidth, height: frame.height)
-        previewWidthConstraint.animator().constant = 0
-        window.animator().setFrame(newFrame, display: true)
+        previewWidthConstraint.constant = 0
+        window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
+                               width: listWidth, height: frame.height), display: true)
+        view.layoutSubtreeIfNeeded()
     }
 
     // MARK: - Public
@@ -278,17 +294,7 @@ final class FloatingClipboardViewController: NSViewController,
     // MARK: - Data
 
     private func fetchItems(filter: String = "") {
-        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
-        request.sortDescriptors = [
-            NSSortDescriptor(key: "isPinned", ascending: false),
-            NSSortDescriptor(key: "createdAt", ascending: false)
-        ]
-
-        if !filter.isEmpty {
-            request.predicate = NSPredicate(format: "content CONTAINS[cd] %@", filter)
-        }
-
-        items = (try? CoreDataStack.shared.viewContext.fetch(request)) ?? []
+        items = repository.fetchItems(filter: filter)
         tableView.reloadData()
 
         if !items.isEmpty {
@@ -342,30 +348,8 @@ final class FloatingClipboardViewController: NSViewController,
         guard index >= 0, index < items.count else { return }
         let item = items[index]
 
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        if item.contentType == "image", let data = item.imageData {
-            pasteboard.setData(data, forType: .tiff)
-        } else if let content = item.content {
-            pasteboard.setString(content, forType: .string)
-        }
-
-        FloatingPanelController.shared.dismiss()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.simulatePaste()
-        }
-    }
-
-    private func simulatePaste() {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
+        view.window?.orderOut(nil)
+        actionService.pasteFromPasteboard(item: item)
     }
 
     // MARK: - NSTableViewDataSource
@@ -389,9 +373,14 @@ final class FloatingClipboardViewController: NSViewController,
         }
 
         if let imageView = cellView.imageView {
-            imageView.image = item.sourceAppIcon
-                ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-            imageView.image?.size = NSSize(width: 22, height: 22)
+            if item.contentType == "image", let data = item.imageData, let thumb = NSImage(data: data) {
+                thumb.size = NSSize(width: 22, height: 22)
+                imageView.image = thumb
+            } else {
+                imageView.image = item.sourceAppIcon
+                    ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+                imageView.image?.size = NSSize(width: 22, height: 22)
+            }
         }
 
         cellView.textField?.stringValue = item.displayTitle

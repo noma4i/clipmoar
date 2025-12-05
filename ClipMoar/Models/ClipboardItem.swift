@@ -16,8 +16,8 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
     }
 
     var displayTitle: String {
-        switch contentType {
-        case "image":
+        switch ClipboardItemType.from(contentType) {
+        case .image:
             guard let data = imageData else { return "Image" }
             let sizeStr: String
             let kb = Double(data.count) / 1024.0
@@ -36,6 +36,10 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
             return content?.components(separatedBy: .newlines).first ?? ""
         }
     }
+
+    var itemType: ClipboardItemType { ClipboardItemType.from(contentType) }
+    var isImage: Bool { itemType == .image }
+    var isText: Bool { itemType == .text }
 
     var sourceAppIcon: NSImage? {
         guard let bundleId = sourceAppBundleId,

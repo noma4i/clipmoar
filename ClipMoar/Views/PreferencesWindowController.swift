@@ -2,9 +2,11 @@ import Carbon
 import Cocoa
 
 final class PreferencesWindowController: NSWindowController {
-    static let shared = PreferencesWindowController()
-
-    private convenience init() {
+    convenience init(
+        settings: SettingsStore,
+        onVisibilityChange: @escaping () -> Void,
+        onHotkeyChange: @escaping () -> Void
+    ) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 320),
             styleMask: [.titled, .closable],
@@ -13,13 +15,19 @@ final class PreferencesWindowController: NSWindowController {
         )
         window.title = "Preferences"
         window.center()
-        window.contentViewController = PreferencesViewController()
+        let vc = PreferencesViewController()
+        vc.onVisibilityChange = onVisibilityChange
+        vc.onHotkeyChange = onHotkeyChange
+        window.contentViewController = vc
 
         self.init(window: window)
     }
 }
 
 final class PreferencesViewController: NSViewController {
+    var onVisibilityChange: (() -> Void)?
+    var onHotkeyChange: (() -> Void)?
+
     private let showInDockCheckbox = NSButton(checkboxWithTitle: "Show in Dock", target: nil, action: nil)
     private let showInMenuBarCheckbox = NSButton(checkboxWithTitle: "Show in Menu Bar", target: nil, action: nil)
     private let storeImagesCheckbox = NSButton(checkboxWithTitle: "Store images in history", target: nil, action: nil)
@@ -134,7 +142,7 @@ final class PreferencesViewController: NSViewController {
         UserDefaults.standard.set(showInDock, forKey: Settings.showInDock)
         UserDefaults.standard.set(showInMenuBar, forKey: Settings.showInMenuBar)
 
-        (NSApp.delegate as? AppDelegate)?.applyVisibilitySettings()
+        onVisibilityChange?()
     }
 
     @objc private func storeImagesChanged() {
@@ -167,7 +175,7 @@ final class PreferencesViewController: NSViewController {
                 self.localMonitor = nil
             }
 
-            (NSApp.delegate as? AppDelegate)?.reregisterHotkey()
+            self.onHotkeyChange?()
             return nil
         }
     }

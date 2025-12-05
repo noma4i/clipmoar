@@ -58,7 +58,7 @@ final class CoreDataStack {
         let container = NSPersistentContainer(name: "ClipMoar", managedObjectModel: managedObjectModel)
         container.loadPersistentStores { _, error in
             if let error = error {
-                fatalError("CoreData failed to load: \(error)")
+                NSLog("CoreData failed to load: \(error)")
             }
         }
         container.viewContext.automaticallyMergesChangesFromParent = true
@@ -69,9 +69,17 @@ final class CoreDataStack {
         persistentContainer.viewContext
     }
 
-    func save() {
+    func save() throws {
         let context = viewContext
         guard context.hasChanges else { return }
-        try? context.save()
+        try context.save()
+    }
+
+    func saveIfNeeded() {
+        do {
+            try save()
+        } catch {
+            NSLog("CoreData save failed: \(error)")
+        }
     }
 }

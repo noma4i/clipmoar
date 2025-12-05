@@ -17,6 +17,9 @@ Package.resolved
 *.lock
 profile
 
+# Dist
+dist/
+
 # Archive
 *.xcarchive
 *.ipa

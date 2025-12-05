@@ -2,9 +2,21 @@ import Cocoa
 import CoreData
 
 final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+    private let repository: ClipboardRepository
+    private let actionService: ClipboardActionServicing
+    private let context: NSManagedObjectContext
     private let tableView = NSTableView()
     private let scrollView = NSScrollView()
     private var fetchedResultsController: NSFetchedResultsController<ClipboardItem>?
+
+    init(repository: ClipboardRepository, actionService: ClipboardActionServicing, context: NSManagedObjectContext) {
+        self.repository = repository
+        self.actionService = actionService
+        self.context = context
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { nil }
 
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 600))
