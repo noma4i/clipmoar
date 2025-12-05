@@ -38,7 +38,7 @@ final class FloatingClipboardViewController: NSViewController,
         v.appearance = NSAppearance(named: .darkAqua)
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
-        v.autoresizingMask = [.width, .height]
+        v.autoresizingMask = [.width]
         self.view = v
     }
 
@@ -94,7 +94,7 @@ final class FloatingClipboardViewController: NSViewController,
 
         NSLayoutConstraint.activate([
             metaLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            metaLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4),
+            metaLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
             metaLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             metaLabel.heightAnchor.constraint(equalToConstant: 16)
         ])
@@ -135,6 +135,8 @@ final class FloatingClipboardViewController: NSViewController,
         previewImageView.imageScaling = .scaleProportionallyDown
         previewImageView.imageAlignment = .alignTop
         previewImageView.isHidden = true
+        previewImageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        previewImageView.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         previewContainer.addSubview(previewScrollView)
         previewContainer.addSubview(previewImageView)
@@ -148,7 +150,7 @@ final class FloatingClipboardViewController: NSViewController,
             previewImageView.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
             previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 4),
             previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -4),
-            previewImageView.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -4)
+            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 16)
         ])
     }
 
@@ -174,11 +176,13 @@ final class FloatingClipboardViewController: NSViewController,
         tableView.selectionHighlightStyle = .regular
         tableView.appearance = NSAppearance(named: .darkAqua)
 
+        let scrollHeight = rowHeight * 9
+
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            scrollView.bottomAnchor.constraint(equalTo: metaLabel.topAnchor)
+            scrollView.heightAnchor.constraint(equalToConstant: scrollHeight)
         ])
     }
 
@@ -201,6 +205,15 @@ final class FloatingClipboardViewController: NSViewController,
                let char = event.characters,
                let num = Int(char), num >= 1, num <= 9 {
                 self.pasteItem(at: num - 1)
+                return nil
+            }
+
+            // Arrow right - open in Quick Look / associated app
+            if event.keyCode == 124 {
+                let row = self.tableView.selectedRow
+                if row >= 0, row < self.items.count {
+                    self.openInPreview(self.items[row])
+                }
                 return nil
             }
 
@@ -240,13 +253,16 @@ final class FloatingClipboardViewController: NSViewController,
     // MARK: - Preview
 
     private func showPreview(for item: ClipboardItem) {
-        if item.contentType == "image", let data = item.imageData {
+        previewImageView.image = nil
+        previewTextView.string = ""
+
+        if item.isImage, let data = item.imageData {
             previewScrollView.isHidden = true
             previewImageView.isHidden = false
             previewImageView.image = NSImage(data: data)
         } else {
-            previewScrollView.isHidden = false
             previewImageView.isHidden = true
+            previewScrollView.isHidden = false
             previewTextView.string = item.content ?? ""
         }
 
@@ -254,11 +270,9 @@ final class FloatingClipboardViewController: NSViewController,
             isPreviewVisible = true
             guard let window = view.window else { return }
             let frame = window.frame
-            let newWidth = listWidth + previewWidth
-            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
-                                   width: newWidth, height: frame.height), display: true)
             previewWidthConstraint.constant = previewWidth
-            view.layoutSubtreeIfNeeded()
+            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
+                                   width: listWidth + previewWidth, height: panelHeight), display: true)
         }
     }
 
@@ -272,8 +286,7 @@ final class FloatingClipboardViewController: NSViewController,
         let frame = window.frame
         previewWidthConstraint.constant = 0
         window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
-                               width: listWidth, height: frame.height), display: true)
-        view.layoutSubtreeIfNeeded()
+                               width: listWidth, height: panelHeight), display: true)
     }
 
     // MARK: - Public
@@ -329,9 +342,7 @@ final class FloatingClipboardViewController: NSViewController,
         }
         metaLabel.stringValue = parts.joined(separator: "  ")
 
-        let hasPreview = (item.contentType == "image" && item.imageData != nil)
-            || (item.content != nil && (item.content?.count ?? 0) > 50)
-        if hasPreview {
+        if item.isImage, item.imageData != nil {
             showPreview(for: item)
         } else {
             hidePreview()
@@ -350,6 +361,22 @@ final class FloatingClipboardViewController: NSViewController,
 
         view.window?.orderOut(nil)
         actionService.pasteFromPasteboard(item: item)
+    }
+
+    private func openInPreview(_ item: ClipboardItem) {
+        guard item.isImage, let data = item.imageData else { return }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let filename = "ClipMoar_\(item.uuid?.uuidString ?? "temp").png"
+        let url = tempDir.appendingPathComponent(filename)
+
+        guard let image = NSImage(data: data),
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+
+        try? png.write(to: url)
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: - NSTableViewDataSource

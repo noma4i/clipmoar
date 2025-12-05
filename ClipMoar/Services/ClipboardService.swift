@@ -37,6 +37,7 @@ final class ClipboardService {
     private var timer: Timer?
     private var lastChangeCount: Int = 0
     private let monitorInterval: TimeInterval
+    private var skipNextChange = false
 
     init(
         repository: ClipboardRepository = CoreDataClipboardRepository(),
@@ -63,9 +64,18 @@ final class ClipboardService {
         timer = nil
     }
 
+    func skipNext() {
+        skipNextChange = true
+    }
+
     private func checkForChanges() {
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
+
+        if skipNextChange {
+            skipNextChange = false
+            return
+        }
 
         if pasteboard.isEmpty() {
             repository.removeLastUnpinnedItem()

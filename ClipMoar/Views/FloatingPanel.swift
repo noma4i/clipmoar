@@ -58,10 +58,11 @@ final class FloatingPanelController: NSWindowController {
     func present() {
         guard let panel = window else { return }
 
-        clipViewController.refresh()
-
         panel.setFrame(NSRect(x: 0, y: 0, width: 460, height: 344), display: false)
         panel.center()
+
+        clipViewController.refresh()
+
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
