@@ -31,6 +31,11 @@ final class FloatingPanel: NSPanel {
 final class FloatingPanelController: NSWindowController {
     private let clipViewController: FloatingClipboardViewController
 
+    var onOpenPreferences: (() -> Void)? {
+        get { clipViewController.onOpenPreferences }
+        set { clipViewController.onOpenPreferences = newValue }
+    }
+
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
         let panel = FloatingPanel()
         self.clipViewController = FloatingClipboardViewController(

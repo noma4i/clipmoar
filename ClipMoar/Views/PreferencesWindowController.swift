@@ -1,100 +1,147 @@
 import Carbon
 import Cocoa
 
-final class PreferencesWindowController: NSWindowController {
-    convenience init(
-        settings: SettingsStore,
-        onVisibilityChange: @escaping () -> Void,
-        onHotkeyChange: @escaping () -> Void
-    ) {
+final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
+    private let settings: SettingsStore
+    private var onVisibilityChange: () -> Void
+    private var onHotkeyChange: () -> Void
+
+    private let tabIdentifiers = ["general", "hotkey", "rules", "about"]
+    private lazy var tabViews: [String: NSViewController] = [
+        "general": GeneralPrefsViewController(settings: settings, onVisibilityChange: onVisibilityChange),
+        "hotkey": HotkeyPrefsViewController(settings: settings, onHotkeyChange: onHotkeyChange),
+        "rules": RulesPrefsViewController(),
+        "about": AboutPrefsViewController()
+    ]
+
+    init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, onHotkeyChange: @escaping () -> Void) {
+        self.settings = settings
+        self.onVisibilityChange = onVisibilityChange
+        self.onHotkeyChange = onHotkeyChange
+
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 300),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Preferences"
+        window.title = "ClipMoar"
         window.center()
-        let vc = PreferencesViewController()
-        vc.onVisibilityChange = onVisibilityChange
-        vc.onHotkeyChange = onHotkeyChange
-        window.contentViewController = vc
 
-        self.init(window: window)
+        super.init(window: window)
+
+        let toolbar = NSToolbar(identifier: "PrefsToolbar")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconAndLabel
+        toolbar.selectedItemIdentifier = NSToolbarItem.Identifier("general")
+        window.toolbar = toolbar
+        window.toolbarStyle = .preference
+
+        switchTab(to: "general")
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    @objc private func toolbarItemClicked(_ sender: NSToolbarItem) {
+        switchTab(to: sender.itemIdentifier.rawValue)
+        window?.toolbar?.selectedItemIdentifier = sender.itemIdentifier
+    }
+
+    private func switchTab(to id: String) {
+        guard let vc = tabViews[id] else { return }
+        window?.contentViewController = vc
+    }
+
+    // MARK: - NSToolbarDelegate
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        tabIdentifiers.map { NSToolbarItem.Identifier($0) }
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        tabIdentifiers.map { NSToolbarItem.Identifier($0) }
+    }
+
+    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        tabIdentifiers.map { NSToolbarItem.Identifier($0) }
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+        item.target = self
+        item.action = #selector(toolbarItemClicked)
+
+        switch itemIdentifier.rawValue {
+        case "general":
+            item.label = "General"
+            item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "General")
+        case "hotkey":
+            item.label = "Hotkey"
+            item.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Hotkey")
+        case "rules":
+            item.label = "Rules"
+            item.image = NSImage(systemSymbolName: "list.bullet.rectangle", accessibilityDescription: "Rules")
+        case "about":
+            item.label = "About"
+            item.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "About")
+        default:
+            break
+        }
+
+        return item
     }
 }
 
-final class PreferencesViewController: NSViewController {
-    var onVisibilityChange: (() -> Void)?
-    var onHotkeyChange: (() -> Void)?
+// MARK: - General Tab
+
+final class GeneralPrefsViewController: NSViewController {
+    private let settings: SettingsStore
+    private let onVisibilityChange: () -> Void
 
     private let showInDockCheckbox = NSButton(checkboxWithTitle: "Show in Dock", target: nil, action: nil)
     private let showInMenuBarCheckbox = NSButton(checkboxWithTitle: "Show in Menu Bar", target: nil, action: nil)
     private let storeImagesCheckbox = NSButton(checkboxWithTitle: "Store images in history", target: nil, action: nil)
     private let historySizeField = NSTextField()
-    private let hotkeyField = NSTextField(labelWithString: "")
-    private var isRecordingHotkey = false
-    private var localMonitor: Any?
+
+    init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void) {
+        self.settings = settings
+        self.onVisibilityChange = onVisibilityChange
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { nil }
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 320))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 260))
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupUI()
-        loadSettings()
-    }
 
-    private func setupUI() {
-        // Visibility section
         let visibilityLabel = makeSectionLabel("Visibility")
-
-        // History section
         let historyLabel = makeSectionLabel("History")
         let historySizeLabel = NSTextField(labelWithString: "Max items:")
-        historySizeField.translatesAutoresizingMaskIntoConstraints = false
         historySizeField.placeholderString = "500"
         historySizeField.widthAnchor.constraint(equalToConstant: 80).isActive = true
+
         let historyRow = NSStackView(views: [historySizeLabel, historySizeField])
         historyRow.spacing = 8
 
-        // Hotkey section
-        let hotkeyLabel = makeSectionLabel("Hotkey")
-        hotkeyField.translatesAutoresizingMaskIntoConstraints = false
-        hotkeyField.alignment = .center
-        hotkeyField.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
-        hotkeyField.wantsLayer = true
-        hotkeyField.layer?.cornerRadius = 4
-        hotkeyField.layer?.borderWidth = 1
-        hotkeyField.layer?.borderColor = NSColor.separatorColor.cgColor
-        hotkeyField.widthAnchor.constraint(equalToConstant: 160).isActive = true
-        hotkeyField.heightAnchor.constraint(equalToConstant: 24).isActive = true
-
-        let recordButton = NSButton(title: "Record Hotkey", target: self, action: #selector(startRecordingHotkey))
-        let hotkeyRow = NSStackView(views: [hotkeyField, recordButton])
-        hotkeyRow.spacing = 8
-
         let stack = NSStackView(views: [
-            visibilityLabel,
-            showInDockCheckbox,
-            showInMenuBarCheckbox,
-            historyLabel,
-            historyRow,
-            storeImagesCheckbox,
-            hotkeyLabel,
-            hotkeyRow
+            visibilityLabel, showInDockCheckbox, showInMenuBarCheckbox,
+            makeSpacer(),
+            historyLabel, historyRow, storeImagesCheckbox
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
+        stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
-
         view.addSubview(stack)
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24)
         ])
 
         showInDockCheckbox.target = self
@@ -105,6 +152,32 @@ final class PreferencesViewController: NSViewController {
         storeImagesCheckbox.action = #selector(storeImagesChanged)
         historySizeField.target = self
         historySizeField.action = #selector(historySizeChanged)
+
+        loadSettings()
+    }
+
+    private func loadSettings() {
+        showInDockCheckbox.state = settings.showInDock ? .on : .off
+        showInMenuBarCheckbox.state = settings.showInMenuBar ? .on : .off
+        storeImagesCheckbox.state = settings.storeImages ? .on : .off
+        historySizeField.integerValue = settings.maxHistorySize
+    }
+
+    @objc private func visibilityChanged(_ sender: NSButton) {
+        let showInDock = showInDockCheckbox.state == .on
+        let showInMenuBar = showInMenuBarCheckbox.state == .on
+        if !showInDock && !showInMenuBar { sender.state = .on; return }
+        settings.showInDock = showInDock
+        settings.showInMenuBar = showInMenuBar
+        onVisibilityChange()
+    }
+
+    @objc private func storeImagesChanged() {
+        settings.storeImages = storeImagesCheckbox.state == .on
+    }
+
+    @objc private func historySizeChanged() {
+        settings.maxHistorySize = max(10, historySizeField.integerValue)
     }
 
     private func makeSectionLabel(_ title: String) -> NSTextField {
@@ -113,102 +186,156 @@ final class PreferencesViewController: NSViewController {
         return label
     }
 
-    private func loadSettings() {
-        let defaults = UserDefaults.standard
-        showInDockCheckbox.state = defaults.bool(forKey: Settings.showInDock) ? .on : .off
-        showInMenuBarCheckbox.state = defaults.bool(forKey: Settings.showInMenuBar) ? .on : .off
-        storeImagesCheckbox.state = defaults.bool(forKey: Settings.storeImages) ? .on : .off
-        historySizeField.integerValue = defaults.integer(forKey: Settings.maxHistorySize)
+    private func makeSpacer() -> NSView {
+        let v = NSView()
+        v.heightAnchor.constraint(equalToConstant: 8).isActive = true
+        return v
+    }
+}
+
+// MARK: - Hotkey Tab
+
+final class HotkeyPrefsViewController: NSViewController {
+    private let settings: SettingsStore
+    private let onHotkeyChange: () -> Void
+    private let hotkeyField = NSTextField(labelWithString: "")
+    private var isRecording = false
+    private var localMonitor: Any?
+
+    init(settings: SettingsStore, onHotkeyChange: @escaping () -> Void) {
+        self.settings = settings
+        self.onHotkeyChange = onHotkeyChange
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func loadView() {
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 260))
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        let label = NSTextField(labelWithString: "Global shortcut to show clipboard:")
+        label.font = .systemFont(ofSize: 13)
+
+        hotkeyField.alignment = .center
+        hotkeyField.font = .monospacedSystemFont(ofSize: 14, weight: .medium)
+        hotkeyField.wantsLayer = true
+        hotkeyField.layer?.cornerRadius = 4
+        hotkeyField.layer?.borderWidth = 1
+        hotkeyField.layer?.borderColor = NSColor.separatorColor.cgColor
+        hotkeyField.widthAnchor.constraint(equalToConstant: 180).isActive = true
+        hotkeyField.heightAnchor.constraint(equalToConstant: 28).isActive = true
+
+        let recordButton = NSButton(title: "Record Hotkey", target: self, action: #selector(startRecording))
+
+        let hotkeyRow = NSStackView(views: [hotkeyField, recordButton])
+        hotkeyRow.spacing = 12
+
+        let stack = NSStackView(views: [label, hotkeyRow])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24)
+        ])
+
         updateHotkeyLabel()
     }
 
     private func updateHotkeyLabel() {
-        let keyCode = UserDefaults.standard.integer(forKey: Settings.hotkeyKeyCode)
-        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(UserDefaults.standard.integer(forKey: Settings.hotkeyModifiers)))
-        hotkeyField.stringValue = hotkeyString(keyCode: keyCode, modifiers: modifiers)
+        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(settings.hotkeyModifiers))
+        hotkeyField.stringValue = KeyboardShortcutFormatter.string(for: settings.hotkeyKeyCode, modifiers: modifiers)
     }
 
-    // MARK: - Actions
-
-    @objc private func visibilityChanged(_ sender: NSButton) {
-        let showInDock = showInDockCheckbox.state == .on
-        let showInMenuBar = showInMenuBarCheckbox.state == .on
-
-        if !showInDock && !showInMenuBar {
-            sender.state = .on
-            return
-        }
-
-        UserDefaults.standard.set(showInDock, forKey: Settings.showInDock)
-        UserDefaults.standard.set(showInMenuBar, forKey: Settings.showInMenuBar)
-
-        onVisibilityChange?()
-    }
-
-    @objc private func storeImagesChanged() {
-        UserDefaults.standard.set(storeImagesCheckbox.state == .on, forKey: Settings.storeImages)
-    }
-
-    @objc private func historySizeChanged() {
-        let value = max(10, historySizeField.integerValue)
-        UserDefaults.standard.set(value, forKey: Settings.maxHistorySize)
-    }
-
-    @objc private func startRecordingHotkey() {
-        isRecordingHotkey = true
+    @objc private func startRecording() {
+        isRecording = true
         hotkeyField.stringValue = "Press shortcut..."
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self, self.isRecordingHotkey else { return event }
-
+            guard let self = self, self.isRecording else { return event }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
             guard !modifiers.isEmpty else { return nil }
 
-            UserDefaults.standard.set(Int(event.keyCode), forKey: Settings.hotkeyKeyCode)
-            UserDefaults.standard.set(Int(modifiers.rawValue), forKey: Settings.hotkeyModifiers)
-
+            self.settings.hotkeyKeyCode = Int(event.keyCode)
+            self.settings.hotkeyModifiers = UInt32(modifiers.rawValue)
             self.updateHotkeyLabel()
-            self.isRecordingHotkey = false
+            self.isRecording = false
 
             if let monitor = self.localMonitor {
                 NSEvent.removeMonitor(monitor)
                 self.localMonitor = nil
             }
 
-            self.onHotkeyChange?()
+            self.onHotkeyChange()
             return nil
         }
     }
+}
 
-    // MARK: - Hotkey Display
+// MARK: - Rules Tab
 
-    private func hotkeyString(keyCode: Int, modifiers: NSEvent.ModifierFlags) -> String {
-        var parts: [String] = []
-        if modifiers.contains(.control) { parts.append("Ctrl") }
-        if modifiers.contains(.option) { parts.append("Opt") }
-        if modifiers.contains(.shift) { parts.append("Shift") }
-        if modifiers.contains(.command) { parts.append("Cmd") }
-        parts.append(keyName(for: keyCode))
-        return parts.joined(separator: "+")
+final class RulesPrefsViewController: NSViewController {
+    override func loadView() {
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 260))
     }
 
-    private func keyName(for keyCode: Int) -> String {
-        let names: [Int: String] = [
-            kVK_ANSI_A: "A", kVK_ANSI_B: "B", kVK_ANSI_C: "C", kVK_ANSI_D: "D",
-            kVK_ANSI_E: "E", kVK_ANSI_F: "F", kVK_ANSI_G: "G", kVK_ANSI_H: "H",
-            kVK_ANSI_I: "I", kVK_ANSI_J: "J", kVK_ANSI_K: "K", kVK_ANSI_L: "L",
-            kVK_ANSI_M: "M", kVK_ANSI_N: "N", kVK_ANSI_O: "O", kVK_ANSI_P: "P",
-            kVK_ANSI_Q: "Q", kVK_ANSI_R: "R", kVK_ANSI_S: "S", kVK_ANSI_T: "T",
-            kVK_ANSI_U: "U", kVK_ANSI_V: "V", kVK_ANSI_W: "W", kVK_ANSI_X: "X",
-            kVK_ANSI_Y: "Y", kVK_ANSI_Z: "Z",
-            kVK_ANSI_0: "0", kVK_ANSI_1: "1", kVK_ANSI_2: "2", kVK_ANSI_3: "3",
-            kVK_ANSI_4: "4", kVK_ANSI_5: "5", kVK_ANSI_6: "6", kVK_ANSI_7: "7",
-            kVK_ANSI_8: "8", kVK_ANSI_9: "9",
-            kVK_Space: "Space", kVK_Return: "Return", kVK_Tab: "Tab",
-            kVK_Delete: "Delete", kVK_Escape: "Esc",
-            kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4",
-            kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7", kVK_F8: "F8"
-        ]
-        return names[keyCode] ?? "Key\(keyCode)"
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        let label = NSTextField(labelWithString: "Clipboard rules will be available in a future version.")
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = .secondaryLabelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
+}
+
+// MARK: - About Tab
+
+final class AboutPrefsViewController: NSViewController {
+    override func loadView() {
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 260))
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        let appName = NSTextField(labelWithString: "ClipMoar")
+        appName.font = .boldSystemFont(ofSize: 24)
+
+        let version = NSTextField(labelWithString: "Version 0.1.0")
+        version.font = .systemFont(ofSize: 13)
+        version.textColor = .secondaryLabelColor
+
+        let description = NSTextField(labelWithString: "Clipboard manager for macOS")
+        description.font = .systemFont(ofSize: 13)
+
+        let copyright = NSTextField(labelWithString: "MIT License - 2026 noma4i")
+        copyright.font = .systemFont(ofSize: 11)
+        copyright.textColor = .tertiaryLabelColor
+
+        let stack = NSStackView(views: [appName, version, description, copyright])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
     }
 }

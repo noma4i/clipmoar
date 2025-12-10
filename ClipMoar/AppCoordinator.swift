@@ -38,6 +38,7 @@ final class AppCoordinator {
         setupHotkey()
         applyVisibilitySettings()
         clipboardService.startMonitoring()
+        floatingPanelController.onOpenPreferences = { [weak self] in self?.showPreferences() }
     }
 
     func stop() {

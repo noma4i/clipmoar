@@ -1,10 +1,11 @@
 import Cocoa
-import CoreData
 
 private let listWidth: CGFloat = 460
 private let previewWidth: CGFloat = 260
 private let rowHeight: CGFloat = 32
 private let panelHeight: CGFloat = 32 * 9 + 36 + 20
+private let cellFont = NSFont.systemFont(ofSize: 15)
+private let availableTextWidth: CGFloat = 460 - 80
 
 final class FloatingClipboardViewController: NSViewController,
     NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
@@ -21,13 +22,11 @@ final class FloatingClipboardViewController: NSViewController,
     private var previewWidthConstraint: NSLayoutConstraint!
     private var isPreviewVisible = false
 
-    private let repository: ClipboardRepository
-    private let actionService: ClipboardActionServicing
-    private var items: [ClipboardItem] = []
+    private let dataSource: FloatingPanelDataSource
+    var onOpenPreferences: (() -> Void)?
 
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
-        self.repository = repository
-        self.actionService = actionService
+        self.dataSource = FloatingPanelDataSource(repository: repository, actionService: actionService)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -49,6 +48,29 @@ final class FloatingClipboardViewController: NSViewController,
         setupPreviewContainer()
         setupTableView()
         setupKeyHandling()
+    }
+
+    // MARK: - Public
+
+    func refresh() {
+        searchField.stringValue = ""
+        hidePreview()
+        dataSource.fetch()
+        tableView.reloadData()
+
+        if !dataSource.items.isEmpty {
+            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+            updateSelection(for: 0)
+        } else {
+            metaLabel.stringValue = ""
+        }
+    }
+
+    func focusOnList() {
+        view.window?.makeFirstResponder(tableView)
+        if tableView.numberOfRows > 0 && tableView.selectedRow < 0 {
+            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        }
     }
 
     // MARK: - Setup
@@ -176,13 +198,11 @@ final class FloatingClipboardViewController: NSViewController,
         tableView.selectionHighlightStyle = .regular
         tableView.appearance = NSAppearance(named: .darkAqua)
 
-        let scrollHeight = rowHeight * 9
-
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            scrollView.heightAnchor.constraint(equalToConstant: scrollHeight)
+            scrollView.heightAnchor.constraint(equalToConstant: rowHeight * 9)
         ])
     }
 
@@ -191,62 +211,65 @@ final class FloatingClipboardViewController: NSViewController,
             guard let self = self,
                   self.view.window?.isVisible == true else { return event }
 
-            if event.keyCode == 53 {
+            switch event.keyCode {
+            case 53: // Escape
                 self.view.window?.orderOut(nil)
                 return nil
-            }
 
-            if event.keyCode == 36 {
+            case 36: // Return
                 self.pasteSelected()
                 return nil
-            }
 
-            if event.modifierFlags.contains(.command),
-               let char = event.characters,
-               let num = Int(char), num >= 1, num <= 9 {
-                self.pasteItem(at: num - 1)
-                return nil
-            }
-
-            // Arrow right - open in Quick Look / associated app
-            if event.keyCode == 124 {
-                let row = self.tableView.selectedRow
-                if row >= 0, row < self.items.count {
-                    self.openInPreview(self.items[row])
+            case 124: // Arrow right
+                if let item = self.dataSource.item(at: self.tableView.selectedRow) {
+                    self.dataSource.openInExternalPreview(item)
                 }
                 return nil
-            }
 
-            // Arrow up/down always go to table
-            if event.keyCode == 125 || event.keyCode == 126 {
+            case 125, 126: // Arrow up/down
                 self.view.window?.makeFirstResponder(self.tableView)
                 self.tableView.keyDown(with: event)
                 return nil
-            }
 
-            if event.keyCode == 51 {
+            case 51: // Backspace
                 if self.view.window?.firstResponder !== self.searchField.currentEditor() {
                     self.view.window?.makeFirstResponder(self.searchField)
                 }
                 if !self.searchField.stringValue.isEmpty {
                     self.searchField.stringValue = String(self.searchField.stringValue.dropLast())
-                    self.fetchItems(filter: self.searchField.stringValue)
+                    self.performSearch()
                 }
                 return nil
-            }
 
-            let navKeys: Set<UInt16> = [125, 126, 116, 121, 115, 119, 123, 124]
-            if !navKeys.contains(event.keyCode),
-               !event.modifierFlags.contains(.command),
-               let chars = event.characters, !chars.isEmpty,
-               chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) {
-                self.view.window?.makeFirstResponder(self.searchField)
-                self.searchField.stringValue += chars
-                self.fetchItems(filter: self.searchField.stringValue)
-                return nil
-            }
+            default:
+                // Cmd+, opens preferences
+                if event.modifierFlags.contains(.command), event.characters == "," {
+                    self.onOpenPreferences?()
+                    return nil
+                }
 
-            return event
+                // Cmd+1..9
+                if event.modifierFlags.contains(.command),
+                   let char = event.characters,
+                   let num = Int(char), num >= 1, num <= 9 {
+                    self.pasteAt(num - 1)
+                    return nil
+                }
+
+                // Typing goes to search
+                let navKeys: Set<UInt16> = [125, 126, 116, 121, 115, 119, 123, 124]
+                if !navKeys.contains(event.keyCode),
+                   !event.modifierFlags.contains(.command),
+                   let chars = event.characters, !chars.isEmpty,
+                   chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) {
+                    self.view.window?.makeFirstResponder(self.searchField)
+                    self.searchField.stringValue += chars
+                    self.performSearch()
+                    return nil
+                }
+
+                return event
+            }
         }
     }
 
@@ -289,28 +312,13 @@ final class FloatingClipboardViewController: NSViewController,
                                width: listWidth, height: panelHeight), display: true)
     }
 
-    // MARK: - Public
+    // MARK: - Private
 
-    func refresh() {
-        searchField.stringValue = ""
-        hidePreview()
-        fetchItems()
-    }
-
-    func focusOnList() {
-        view.window?.makeFirstResponder(tableView)
-        if tableView.numberOfRows > 0 && tableView.selectedRow < 0 {
-            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-        }
-    }
-
-    // MARK: - Data
-
-    private func fetchItems(filter: String = "") {
-        items = repository.fetchItems(filter: filter)
+    private func performSearch() {
+        dataSource.fetch(filter: searchField.stringValue)
         tableView.reloadData()
 
-        if !items.isEmpty {
+        if !dataSource.items.isEmpty {
             tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
             updateSelection(for: 0)
         } else {
@@ -320,111 +328,51 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     private func updateSelection(for row: Int) {
-        guard row >= 0, row < items.count else {
+        guard let item = dataSource.item(at: row) else {
             metaLabel.stringValue = ""
             hidePreview()
             return
         }
 
-        let item = items[row]
-        var parts: [String] = []
-        if let content = item.content {
-            let words = content.split(separator: " ").count
-            parts.append("\(words) words; \(content.count) chars")
-        } else if item.contentType == "image", let data = item.imageData {
-            let kb = Double(data.count) / 1024.0
-            parts.append(kb > 1024 ? String(format: "%.1f MB", kb / 1024.0) : String(format: "%.0f KB", kb))
-        }
-        if let date = item.createdAt {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            parts.append("Copied Today \(formatter.string(from: date))")
-        }
-        metaLabel.stringValue = parts.joined(separator: "  ")
+        let meta = dataSource.meta(for: item, availableTextWidth: availableTextWidth, font: cellFont)
+        metaLabel.stringValue = meta.text
 
-        if item.isImage, item.imageData != nil {
+        if meta.needsPreview {
             showPreview(for: item)
         } else {
             hidePreview()
         }
     }
 
-    // MARK: - Actions
-
     @objc private func pasteSelected() {
-        pasteItem(at: tableView.selectedRow)
+        pasteAt(tableView.selectedRow)
     }
 
-    private func pasteItem(at index: Int) {
-        guard index >= 0, index < items.count else { return }
-        let item = items[index]
-
+    private func pasteAt(_ index: Int) {
         view.window?.orderOut(nil)
-        actionService.pasteFromPasteboard(item: item)
-    }
-
-    private func openInPreview(_ item: ClipboardItem) {
-        guard item.isImage, let data = item.imageData else { return }
-
-        let tempDir = FileManager.default.temporaryDirectory
-        let filename = "ClipMoar_\(item.uuid?.uuidString ?? "temp").png"
-        let url = tempDir.appendingPathComponent(filename)
-
-        guard let image = NSImage(data: data),
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:]) else { return }
-
-        try? png.write(to: url)
-        NSWorkspace.shared.open(url)
+        dataSource.paste(at: index)
     }
 
     // MARK: - NSTableViewDataSource
 
     func numberOfRows(in tableView: NSTableView) -> Int {
-        items.count
+        dataSource.items.count
     }
 
     // MARK: - NSTableViewDelegate
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard row < items.count else { return nil }
-        let item = items[row]
+        guard let item = dataSource.item(at: row) else { return nil }
 
-        let identifier = NSUserInterfaceItemIdentifier("FloatingClipCell")
-        let cellView: NSTableCellView
-        if let reused = tableView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView {
-            cellView = reused
+        let cell: ClipTableCellView
+        if let reused = tableView.makeView(withIdentifier: ClipTableCellView.identifier, owner: nil) as? ClipTableCellView {
+            cell = reused
         } else {
-            cellView = makeClipCell(identifier: identifier)
+            cell = ClipTableCellView()
         }
 
-        if let imageView = cellView.imageView {
-            if item.contentType == "image", let data = item.imageData, let thumb = NSImage(data: data) {
-                thumb.size = NSSize(width: 22, height: 22)
-                imageView.image = thumb
-            } else {
-                imageView.image = item.sourceAppIcon
-                    ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-                imageView.image?.size = NSSize(width: 22, height: 22)
-            }
-        }
-
-        cellView.textField?.stringValue = item.displayTitle
-        cellView.textField?.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
-        cellView.textField?.font = item.isPinned
-            ? .boldSystemFont(ofSize: 15)
-            : .systemFont(ofSize: 15)
-
-        let shortcutLabel = cellView.viewWithTag(100) as? NSTextField
-        if row < 9 {
-            shortcutLabel?.stringValue = "\u{2318}\(row + 1)"
-            shortcutLabel?.isHidden = false
-        } else {
-            shortcutLabel?.isHidden = true
-        }
-
-        return cellView
+        cell.configure(with: item, row: row)
+        return cell
     }
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
@@ -435,67 +383,9 @@ final class FloatingClipboardViewController: NSViewController,
         updateSelection(for: tableView.selectedRow)
     }
 
-    // MARK: - Cell Factory
-
-    private func makeClipCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
-        let cell = NSTableCellView()
-        cell.identifier = identifier
-
-        let icon = NSImageView()
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(icon)
-        cell.imageView = icon
-
-        let title = NSTextField(labelWithString: "")
-        title.translatesAutoresizingMaskIntoConstraints = false
-        title.lineBreakMode = .byTruncatingTail
-        title.drawsBackground = false
-        cell.addSubview(title)
-        cell.textField = title
-
-        let shortcut = NSTextField(labelWithString: "")
-        shortcut.translatesAutoresizingMaskIntoConstraints = false
-        shortcut.textColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)
-        shortcut.alignment = .right
-        shortcut.drawsBackground = false
-        shortcut.tag = 100
-        cell.addSubview(shortcut)
-
-        NSLayoutConstraint.activate([
-            icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 10),
-            icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 22),
-            icon.heightAnchor.constraint(equalToConstant: 22),
-
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 10),
-            title.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            title.trailingAnchor.constraint(equalTo: shortcut.leadingAnchor, constant: -8),
-
-            shortcut.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -12),
-            shortcut.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            shortcut.widthAnchor.constraint(equalToConstant: 36)
-        ])
-
-        return cell
-    }
-
-    // MARK: - NSSearchFieldDelegate
+    // MARK: - NSTextFieldDelegate
 
     func controlTextDidChange(_ obj: Notification) {
-        fetchItems(filter: searchField.stringValue)
-    }
-}
-
-final class ClipTableRowView: NSTableRowView {
-    override func drawSelection(in dirtyRect: NSRect) {
-        if selectionHighlightStyle != .none {
-            NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9).setFill()
-            bounds.fill()
-        }
-    }
-
-    override func drawBackground(in dirtyRect: NSRect) {
-        NSColor.clear.setFill()
-        bounds.fill()
+        performSearch()
     }
 }
