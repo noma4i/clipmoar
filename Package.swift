@@ -9,6 +9,11 @@ let package = Package(
             name: "ClipMoar",
             path: "ClipMoar",
             exclude: ["Resources"]
+        ),
+        .testTarget(
+            name: "ClipMoarTests",
+            dependencies: ["ClipMoar"],
+            path: "Tests"
         )
     ]
 )

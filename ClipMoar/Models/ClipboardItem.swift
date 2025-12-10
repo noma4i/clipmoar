@@ -10,6 +10,7 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
     @NSManaged public var createdAt: Date?
     @NSManaged public var isPinned: Bool
     @NSManaged public var sourceAppBundleId: String?
+    @NSManaged public var fingerprint: String?
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<ClipboardItem> {
         NSFetchRequest<ClipboardItem>(entityName: "ClipboardItem")
@@ -18,22 +19,13 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
     var displayTitle: String {
         switch ClipboardItemType.from(contentType) {
         case .image:
-            guard let data = imageData else { return "Image" }
-            let sizeStr: String
-            let kb = Double(data.count) / 1024.0
-            if kb > 1024 {
-                sizeStr = String(format: "%.1f MB", kb / 1024.0)
-            } else {
-                sizeStr = String(format: "%.0f KB", kb)
-            }
-            if let img = NSImage(data: data) {
-                let w = Int(img.representations.first?.pixelsWide ?? Int(img.size.width))
-                let h = Int(img.representations.first?.pixelsHigh ?? Int(img.size.height))
-                return "Image: \(w)x\(h) (\(sizeStr))"
-            }
-            return "Image (\(sizeStr))"
+            return "Image"
         default:
-            return content?.components(separatedBy: .newlines).first ?? ""
+            guard let text = content else { return "" }
+            let firstLine = text.components(separatedBy: .newlines)
+                .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                ?? ""
+            return firstLine.trimmingCharacters(in: .whitespaces)
         }
     }
 

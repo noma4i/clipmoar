@@ -15,10 +15,16 @@ final class AppCoordinator {
         repository: repository,
         actionService: clipboardActions
     )
+    private lazy var hotkeyRecorder = HotkeyRecorder(
+        settings: settings,
+        onSuspend: { [weak self] in self?.hotkeyService.suspend() },
+        onResume: { [weak self] in self?.hotkeyService.resume() },
+        onHotkeyChange: { [weak self] in self?.reregisterHotkey() }
+    )
     private lazy var preferencesWindowController = PreferencesWindowController(
         settings: settings,
         onVisibilityChange: { [weak self] in self?.applyVisibilitySettings() },
-        onHotkeyChange: { [weak self] in self?.reregisterHotkey() }
+        hotkeyRecorder: hotkeyRecorder
     )
 
     init(

@@ -19,6 +19,7 @@ final class FloatingClipboardViewController: NSViewController,
     private let previewTextView = NSTextView()
     private let previewScrollView = NSScrollView()
     private let previewImageView = NSImageView()
+    private let previewMetaLabel = NSTextField(labelWithString: "")
     private var previewWidthConstraint: NSLayoutConstraint!
     private var isPreviewVisible = false
 
@@ -160,19 +161,31 @@ final class FloatingClipboardViewController: NSViewController,
         previewImageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         previewImageView.setContentHuggingPriority(.defaultLow, for: .vertical)
 
+        previewMetaLabel.translatesAutoresizingMaskIntoConstraints = false
+        previewMetaLabel.font = .systemFont(ofSize: 11)
+        previewMetaLabel.textColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
+        previewMetaLabel.isEditable = false
+        previewMetaLabel.drawsBackground = false
+        previewMetaLabel.isHidden = true
+
+        previewContainer.addSubview(previewMetaLabel)
         previewContainer.addSubview(previewScrollView)
         previewContainer.addSubview(previewImageView)
 
         NSLayoutConstraint.activate([
+            previewMetaLabel.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 6),
+            previewMetaLabel.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
+            previewMetaLabel.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+
             previewScrollView.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
             previewScrollView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 4),
             previewScrollView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -4),
             previewScrollView.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -4),
 
-            previewImageView.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
+            previewImageView.topAnchor.constraint(equalTo: previewMetaLabel.bottomAnchor, constant: 4),
             previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 4),
             previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -4),
-            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 16)
+            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 30)
         ])
     }
 
@@ -232,6 +245,21 @@ final class FloatingClipboardViewController: NSViewController,
                 return nil
 
             case 51: // Backspace
+                if event.modifierFlags.contains(.command) {
+                    // Cmd+Delete - remove selected item
+                    let row = self.tableView.selectedRow
+                    if row >= 0 {
+                        self.dataSource.remove(at: row)
+                        self.tableView.reloadData()
+                        let newRow = min(row, self.dataSource.items.count - 1)
+                        if newRow >= 0 {
+                            self.tableView.selectRowIndexes(IndexSet(integer: newRow), byExtendingSelection: false)
+                            self.updateSelection(for: newRow)
+                        }
+                    }
+                    return nil
+                }
+
                 if self.view.window?.firstResponder !== self.searchField.currentEditor() {
                     self.view.window?.makeFirstResponder(self.searchField)
                 }
@@ -282,9 +310,12 @@ final class FloatingClipboardViewController: NSViewController,
         if item.isImage, let data = item.imageData {
             previewScrollView.isHidden = true
             previewImageView.isHidden = false
+            previewMetaLabel.isHidden = false
             previewImageView.image = NSImage(data: data)
+            previewMetaLabel.stringValue = dataSource.imageMetadata(for: item)
         } else {
             previewImageView.isHidden = true
+            previewMetaLabel.isHidden = true
             previewScrollView.isHidden = false
             previewTextView.string = item.content ?? ""
         }

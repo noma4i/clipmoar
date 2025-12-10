@@ -10,6 +10,12 @@ final class FloatingPanelDataSource {
     private let actionService: ClipboardActionServicing
     private(set) var items: [ClipboardItem] = []
 
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
         self.repository = repository
         self.actionService = actionService
@@ -30,24 +36,41 @@ final class FloatingPanelDataSource {
         if let content = item.content {
             let words = content.split(separator: " ").count
             parts.append("\(words) words; \(content.count) chars")
-        } else if item.isImage, let data = item.imageData {
-            let kb = Double(data.count) / 1024.0
-            parts.append(kb > 1024 ? String(format: "%.1f MB", kb / 1024.0) : String(format: "%.0f KB", kb))
         }
 
         if let date = item.createdAt {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            parts.append("Copied Today \(formatter.string(from: date))")
+            parts.append("Copied Today \(Self.timeFormatter.string(from: date))")
         }
 
         let needsPreview = isPreviewNeeded(for: item, availableWidth: availableTextWidth, font: font)
         return ClipboardItemMeta(text: parts.joined(separator: "  "), needsPreview: needsPreview)
     }
 
+    func imageMetadata(for item: ClipboardItem) -> String {
+        guard item.isImage, let data = item.imageData else { return "" }
+
+        var parts: [String] = []
+        if let img = NSImage(data: data) {
+            let w = Int(img.representations.first?.pixelsWide ?? Int(img.size.width))
+            let h = Int(img.representations.first?.pixelsHigh ?? Int(img.size.height))
+            parts.append("\(w)x\(h)")
+        }
+        let kb = Double(data.count) / 1024.0
+        parts.append(kb > 1024 ? String(format: "%.1f MB", kb / 1024.0) : String(format: "%.0f KB", kb))
+        return parts.joined(separator: " - ")
+    }
+
     func paste(at index: Int) {
         guard let item = item(at: index) else { return }
         actionService.pasteFromPasteboard(item: item)
+    }
+
+    func remove(at index: Int) {
+        guard let item = item(at: index),
+              !item.isPinned,
+              let uuid = item.uuid else { return }
+        repository.removeItem(uuid: uuid)
+        items.remove(at: index)
     }
 
     func openInExternalPreview(_ item: ClipboardItem) {

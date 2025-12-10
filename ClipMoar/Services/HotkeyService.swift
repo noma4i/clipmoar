@@ -5,6 +5,8 @@ protocol HotkeyServiceProtocol: AnyObject {
     func register(onTrigger: @escaping () -> Void)
     func reregister()
     func unregister()
+    func suspend()
+    func resume()
 }
 
 final class HotkeyService: HotkeyServiceProtocol {
@@ -37,6 +39,18 @@ final class HotkeyService: HotkeyServiceProtocol {
             eventHandler = nil
         }
         onTrigger = nil
+    }
+
+    func suspend() {
+        if let ref = eventHotKey {
+            UnregisterEventHotKey(ref)
+            eventHotKey = nil
+        }
+    }
+
+    func resume() {
+        guard onTrigger != nil else { return }
+        registerHotkey()
     }
 
     private func registerHotkey() {

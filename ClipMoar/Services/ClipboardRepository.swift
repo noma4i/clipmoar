@@ -3,12 +3,11 @@ import Foundation
 
 protocol ClipboardRepository: AnyObject {
     func fetchItems(filter: String) -> [ClipboardItem]
-    func duplicateTextItem(_ text: String) -> ClipboardItem?
-    func updateCreatedAt(for item: ClipboardItem, date: Date)
-    func insertText(_ text: String, sourceAppBundleId: String?)
-    func insertImage(_ data: Data, sourceAppBundleId: String?)
+    func isDuplicate(fingerprint: String) -> Bool
+    @discardableResult func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
+    @discardableResult func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
+    func removeItem(uuid: UUID)
     func trimHistory(maxSize: Int)
-    func removeLastUnpinnedItem()
 }
 
 final class CoreDataClipboardRepository: ClipboardRepository {
@@ -25,45 +24,59 @@ final class CoreDataClipboardRepository: ClipboardRepository {
             NSSortDescriptor(key: "createdAt", ascending: false)
         ]
 
-        if !filter.isEmpty {
+        if filter.lowercased() == "image" {
+            request.predicate = NSPredicate(format: "contentType == %@", ClipboardItemType.image.rawValue)
+        } else if !filter.isEmpty {
             request.predicate = NSPredicate(format: "content CONTAINS[cd] %@", filter)
         }
 
         return (try? context.fetch(request)) ?? []
     }
 
-    func duplicateTextItem(_ text: String) -> ClipboardItem? {
+    func isDuplicate(fingerprint: String) -> Bool {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
-        request.predicate = NSPredicate(format: "content == %@ AND contentType == %@", text, ClipboardItemType.text.rawValue)
+        request.predicate = NSPredicate(format: "fingerprint == %@", fingerprint)
         request.fetchLimit = 1
-        request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
-        return try? context.fetch(request).first
+        return ((try? context.count(for: request)) ?? 0) > 0
     }
 
-    func updateCreatedAt(for item: ClipboardItem, date: Date) {
-        item.createdAt = date
-        CoreDataStack.shared.saveIfNeeded()
-    }
-
-    func insertText(_ text: String, sourceAppBundleId: String?) {
+    @discardableResult
+    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        let id = UUID()
         let item = ClipboardItem(context: context)
-        item.uuid = UUID()
+        item.uuid = id
         item.content = text
         item.contentType = ClipboardItemType.text.rawValue
         item.createdAt = Date()
         item.isPinned = false
         item.sourceAppBundleId = sourceAppBundleId
+        item.fingerprint = fingerprint
         CoreDataStack.shared.saveIfNeeded()
+        return id
     }
 
-    func insertImage(_ data: Data, sourceAppBundleId: String?) {
+    @discardableResult
+    func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        let id = UUID()
         let item = ClipboardItem(context: context)
-        item.uuid = UUID()
+        item.uuid = id
         item.contentType = ClipboardItemType.image.rawValue
         item.imageData = data
         item.createdAt = Date()
         item.isPinned = false
         item.sourceAppBundleId = sourceAppBundleId
+        item.fingerprint = fingerprint
+        CoreDataStack.shared.saveIfNeeded()
+        return id
+    }
+
+    func removeItem(uuid: UUID) {
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.predicate = NSPredicate(format: "uuid == %@", uuid as CVarArg)
+        request.fetchLimit = 1
+
+        guard let item = try? context.fetch(request).first else { return }
+        context.delete(item)
         CoreDataStack.shared.saveIfNeeded()
     }
 
@@ -78,17 +91,6 @@ final class CoreDataClipboardRepository: ClipboardRepository {
             context.delete(item)
         }
 
-        CoreDataStack.shared.saveIfNeeded()
-    }
-
-    func removeLastUnpinnedItem() {
-        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
-        request.predicate = NSPredicate(format: "isPinned == NO")
-        request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
-        request.fetchLimit = 1
-
-        guard let item = try? context.fetch(request).first else { return }
-        context.delete(item)
         CoreDataStack.shared.saveIfNeeded()
     }
 }
