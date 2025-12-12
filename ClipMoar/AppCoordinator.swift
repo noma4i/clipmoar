@@ -13,7 +13,8 @@ final class AppCoordinator {
     private var mainWindowController: MainWindowController?
     private lazy var floatingPanelController = FloatingPanelController(
         repository: repository,
-        actionService: clipboardActions
+        actionService: clipboardActions,
+        settings: settings
     )
     private lazy var hotkeyRecorder = HotkeyRecorder(
         settings: settings,

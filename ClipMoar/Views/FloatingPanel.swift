@@ -30,14 +30,16 @@ final class FloatingPanel: NSPanel {
 
 final class FloatingPanelController: NSWindowController {
     private let clipViewController: FloatingClipboardViewController
+    private let settings: SettingsStore
 
     var onOpenPreferences: (() -> Void)? {
         get { clipViewController.onOpenPreferences }
         set { clipViewController.onOpenPreferences = newValue }
     }
 
-    init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
+    init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
         let panel = FloatingPanel()
+        self.settings = settings
         self.clipViewController = FloatingClipboardViewController(
             repository: repository,
             actionService: actionService
@@ -61,10 +63,17 @@ final class FloatingPanelController: NSWindowController {
     }
 
     func present() {
-        guard let panel = window else { return }
+        guard let panel = window,
+              let screen = targetScreen() else { return }
 
-        panel.setFrame(NSRect(x: 0, y: 0, width: 460, height: 344), display: false)
-        panel.center()
+        let panelWidth: CGFloat = 460
+        let panelHeight: CGFloat = 352
+        let screenFrame = screen.visibleFrame
+
+        let x = screenFrame.origin.x + (screenFrame.width - panelWidth) * settings.panelPositionX
+        let y = screenFrame.origin.y + (screenFrame.height - panelHeight) * settings.panelPositionY
+
+        panel.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: false)
 
         clipViewController.refresh()
 
@@ -78,5 +87,18 @@ final class FloatingPanelController: NSWindowController {
 
     func dismiss() {
         window?.orderOut(nil)
+    }
+
+    private func targetScreen() -> NSScreen? {
+        let mode = PanelScreenMode(rawValue: settings.panelScreenMode) ?? .defaultScreen
+        switch mode {
+        case .defaultScreen:
+            return NSScreen.main
+        case .mouseScreen:
+            let mouseLocation = NSEvent.mouseLocation
+            return NSScreen.screens.first { NSMouseInRect(mouseLocation, $0.frame, false) } ?? NSScreen.main
+        case .activeScreen:
+            return NSApp.keyWindow?.screen ?? NSScreen.main
+        }
     }
 }

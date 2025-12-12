@@ -210,6 +210,8 @@ final class GeneralPrefsViewController: NSViewController {
     private let showInMenuBarCheckbox = NSButton(checkboxWithTitle: "Show in Menu Bar", target: nil, action: nil)
     private let storeImagesCheckbox = NSButton(checkboxWithTitle: "Store images in history", target: nil, action: nil)
     private let historySizeField = NSTextField()
+    private let positionPicker = ScreenPositionPicker()
+    private let screenModePopup = NSPopUpButton()
 
     init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void) {
         self.settings = settings
@@ -234,9 +236,35 @@ final class GeneralPrefsViewController: NSViewController {
         let historyRow = NSStackView(views: [historySizeLabel, historySizeField])
         historyRow.spacing = 8
 
+        let positionLabel = makeSectionLabel("Panel Position")
+        positionPicker.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            positionPicker.widthAnchor.constraint(equalToConstant: 200),
+            positionPicker.heightAnchor.constraint(equalToConstant: 125)
+        ])
+        positionPicker.positionX = settings.panelPositionX
+        positionPicker.positionY = settings.panelPositionY
+        positionPicker.onChange = { [weak self] x, y in
+            self?.settings.panelPositionX = x
+            self?.settings.panelPositionY = y
+        }
+
+        let screenLabel = NSTextField(labelWithString: "Show on:")
+        screenModePopup.removeAllItems()
+        for mode in PanelScreenMode.allCases {
+            screenModePopup.addItem(withTitle: mode.title)
+        }
+        screenModePopup.selectItem(at: settings.panelScreenMode)
+        screenModePopup.target = self
+        screenModePopup.action = #selector(screenModeChanged)
+
+        let screenRow = NSStackView(views: [screenLabel, screenModePopup])
+        screenRow.spacing = 8
+
         let stack = NSStackView(views: [
             visibilityLabel, showInDockCheckbox, showInMenuBarCheckbox,
-            makeSpacer(), historyLabel, historyRow, storeImagesCheckbox
+            makeSpacer(), historyLabel, historyRow, storeImagesCheckbox,
+            makeSpacer(), positionLabel, positionPicker, screenRow
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -278,6 +306,7 @@ final class GeneralPrefsViewController: NSViewController {
     }
 
     @objc private func storeImagesChanged() { settings.storeImages = storeImagesCheckbox.state == .on }
+    @objc private func screenModeChanged() { settings.panelScreenMode = screenModePopup.indexOfSelectedItem }
     @objc private func historySizeChanged() { settings.maxHistorySize = max(10, historySizeField.integerValue) }
 
     private func makeSectionLabel(_ t: String) -> NSTextField { let l = NSTextField(labelWithString: t); l.font = .boldSystemFont(ofSize: 13); return l }

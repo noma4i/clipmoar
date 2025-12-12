@@ -8,8 +8,25 @@ protocol SettingsStore: AnyObject {
     var hotkeyKeyCode: Int { get set }
     var hotkeyModifiers: UInt32 { get set }
     var storeImages: Bool { get set }
+    var panelPositionX: Double { get set }
+    var panelPositionY: Double { get set }
+    var panelScreenMode: Int { get set }
 
     func registerDefaults()
+}
+
+enum PanelScreenMode: Int, CaseIterable {
+    case defaultScreen = 0
+    case mouseScreen = 1
+    case activeScreen = 2
+
+    var title: String {
+        switch self {
+        case .defaultScreen: return "Default Screen"
+        case .mouseScreen: return "Mouse Screen"
+        case .activeScreen: return "Active Screen"
+        }
+    }
 }
 
 enum Settings {
@@ -19,6 +36,9 @@ enum Settings {
     static let hotkeyKeyCode = "hotkeyKeyCode"
     static let hotkeyModifiers = "hotkeyModifiers"
     static let storeImages = "storeImages"
+    static let panelPositionX = "panelPositionX"
+    static let panelPositionY = "panelPositionY"
+    static let panelScreenMode = "panelScreenMode"
 }
 
 final class UserDefaultsSettingsStore: SettingsStore {
@@ -58,6 +78,21 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.storeImages) }
     }
 
+    var panelPositionX: Double {
+        get { defaults.double(forKey: Settings.panelPositionX) }
+        set { defaults.set(newValue, forKey: Settings.panelPositionX) }
+    }
+
+    var panelPositionY: Double {
+        get { defaults.double(forKey: Settings.panelPositionY) }
+        set { defaults.set(newValue, forKey: Settings.panelPositionY) }
+    }
+
+    var panelScreenMode: Int {
+        get { defaults.integer(forKey: Settings.panelScreenMode) }
+        set { defaults.set(newValue, forKey: Settings.panelScreenMode) }
+    }
+
     func registerDefaults() {
         defaults.register(defaults: [
             Settings.showInDock: true,
@@ -65,7 +100,10 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.maxHistorySize: 500,
             Settings.hotkeyKeyCode: kVK_ANSI_V,
             Settings.hotkeyModifiers: NSEvent.ModifierFlags.shift.rawValue | NSEvent.ModifierFlags.command.rawValue,
-            Settings.storeImages: true
+            Settings.storeImages: true,
+            Settings.panelPositionX: 0.5,
+            Settings.panelPositionY: 0.65,
+            Settings.panelScreenMode: PanelScreenMode.defaultScreen.rawValue
         ])
     }
 }

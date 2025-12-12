@@ -20,7 +20,14 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
         switch ClipboardItemType.from(contentType) {
         case .image:
             return "Image"
-        default:
+        case .file:
+            guard let paths = content else { return "File" }
+            let files = paths.components(separatedBy: "\n")
+            if files.count == 1 {
+                return (files[0] as NSString).lastPathComponent
+            }
+            return "\(files.count) files"
+        case .text:
             guard let text = content else { return "" }
             let firstLine = text.components(separatedBy: .newlines)
                 .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -32,6 +39,12 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
     var itemType: ClipboardItemType { ClipboardItemType.from(contentType) }
     var isImage: Bool { itemType == .image }
     var isText: Bool { itemType == .text }
+    var isFile: Bool { itemType == .file }
+
+    var fileURLs: [URL]? {
+        guard isFile, let paths = content else { return nil }
+        return paths.components(separatedBy: "\n").map { URL(fileURLWithPath: $0) }
+    }
 
     var sourceAppIcon: NSImage? {
         guard let bundleId = sourceAppBundleId,

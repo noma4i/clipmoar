@@ -15,6 +15,10 @@ final class ClipTableCellView: NSTableCellView {
         if item.isImage, let data = item.imageData, let thumb = NSImage(data: data) {
             thumb.size = NSSize(width: 22, height: 22)
             imageView?.image = thumb
+        } else if item.isFile, let urls = item.fileURLs, let first = urls.first {
+            let icon = NSWorkspace.shared.icon(forFile: first.path)
+            icon.size = NSSize(width: 22, height: 22)
+            imageView?.image = icon
         } else {
             imageView?.image = item.sourceAppIcon
                 ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)

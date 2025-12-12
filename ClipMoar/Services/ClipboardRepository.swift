@@ -6,6 +6,7 @@ protocol ClipboardRepository: AnyObject {
     func isDuplicate(fingerprint: String) -> Bool
     @discardableResult func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
     @discardableResult func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
+    @discardableResult func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
     func removeItem(uuid: UUID)
     func trimHistory(maxSize: Int)
 }
@@ -25,10 +26,19 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         ]
 
         if !filter.isEmpty {
+            let lower = filter.lowercased()
             let textPredicate = NSPredicate(format: "content CONTAINS[cd] %@", filter)
-            if "image".hasPrefix(filter.lowercased()) {
-                let imagePredicate = NSPredicate(format: "contentType == %@", ClipboardItemType.image.rawValue)
-                request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [imagePredicate, textPredicate])
+            var extraPredicates: [NSPredicate] = []
+
+            if "image".hasPrefix(lower) {
+                extraPredicates.append(NSPredicate(format: "contentType == %@", ClipboardItemType.image.rawValue))
+            }
+            if "file".hasPrefix(lower) || "files".hasPrefix(lower) {
+                extraPredicates.append(NSPredicate(format: "contentType == %@", ClipboardItemType.file.rawValue))
+            }
+
+            if !extraPredicates.isEmpty {
+                request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: extraPredicates + [textPredicate])
             } else {
                 request.predicate = textPredicate
             }
@@ -66,6 +76,21 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         item.uuid = id
         item.contentType = ClipboardItemType.image.rawValue
         item.imageData = data
+        item.createdAt = Date()
+        item.isPinned = false
+        item.sourceAppBundleId = sourceAppBundleId
+        item.fingerprint = fingerprint
+        CoreDataStack.shared.saveIfNeeded()
+        return id
+    }
+
+    @discardableResult
+    func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        let id = UUID()
+        let item = ClipboardItem(context: context)
+        item.uuid = id
+        item.content = paths
+        item.contentType = ClipboardItemType.file.rawValue
         item.createdAt = Date()
         item.isPinned = false
         item.sourceAppBundleId = sourceAppBundleId

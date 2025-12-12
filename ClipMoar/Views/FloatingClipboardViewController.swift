@@ -215,7 +215,7 @@ final class FloatingClipboardViewController: NSViewController,
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            scrollView.heightAnchor.constraint(equalToConstant: rowHeight * 9)
+            scrollView.bottomAnchor.constraint(equalTo: metaLabel.topAnchor, constant: -6)
         ])
     }
 

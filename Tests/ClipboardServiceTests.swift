@@ -5,6 +5,7 @@ final class MockPasteboard: PasteboardReadable {
     var _changeCount = 0
     var _string: String?
     var _imageData: Data?
+    var _fileURLs: [URL]?
     var _hasMarker = false
     var _hasIgnoredSystemType = false
 
@@ -13,7 +14,8 @@ final class MockPasteboard: PasteboardReadable {
 
     func stringValue() -> String? { _string }
     func imageData() -> Data? { _imageData }
-    func isEmpty() -> Bool { _string == nil && _imageData == nil }
+    func fileURLs() -> [URL]? { _fileURLs }
+    func isEmpty() -> Bool { _string == nil && _imageData == nil && _fileURLs == nil }
     func hasMarkerType() -> Bool { _hasMarker }
     func hasIgnoredSystemType() -> Bool { _hasIgnoredSystemType }
 
@@ -78,6 +80,7 @@ final class MockRepository: ClipboardRepository {
     // Simplified for testing - track inserts/removes
     var insertedTexts: [(text: String, fingerprint: String, uuid: UUID)] = []
     var insertedImages: [(dataCount: Int, fingerprint: String, uuid: UUID)] = []
+    var insertedFiles: [(paths: String, fingerprint: String, uuid: UUID)] = []
     var removedUUIDs: [UUID] = []
     var fingerprints: Set<String> = []
 
@@ -93,6 +96,14 @@ final class MockRepository: ClipboardRepository {
     func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID {
         let id = UUID()
         insertedImages.append((data.count, fingerprint, id))
+        fingerprints.insert(fingerprint)
+        return id
+    }
+
+    @discardableResult
+    func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        let id = UUID()
+        insertedFiles.append((paths, fingerprint, id))
         fingerprints.insert(fingerprint)
         return id
     }
@@ -117,6 +128,9 @@ final class MockSettings: SettingsStore {
     var hotkeyKeyCode = 0
     var hotkeyModifiers: UInt32 = 0
     var storeImages = true
+    var panelPositionX: Double = 0.5
+    var panelPositionY: Double = 0.65
+    var panelScreenMode: Int = 0
     func registerDefaults() {}
 }
 

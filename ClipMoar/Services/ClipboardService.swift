@@ -7,6 +7,7 @@ protocol PasteboardReadable {
     func stringValue() -> String?
     func imageData() -> Data?
     func isEmpty() -> Bool
+    func fileURLs() -> [URL]?
     func hasMarkerType() -> Bool
     func hasIgnoredSystemType() -> Bool
 }
@@ -29,9 +30,16 @@ final class NSPasteboardGateway: PasteboardReadable {
         NSPasteboard.general.data(forType: .tiff) ?? NSPasteboard.general.data(forType: .png)
     }
 
+    func fileURLs() -> [URL]? {
+        guard let urls = NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true
+        ]) as? [URL], !urls.isEmpty else { return nil }
+        return urls
+    }
+
     func isEmpty() -> Bool {
         guard let items = NSPasteboard.general.pasteboardItems, !items.isEmpty else { return true }
-        return stringValue() == nil && imageData() == nil
+        return stringValue() == nil && imageData() == nil && fileURLs() == nil
     }
 
     func hasMarkerType() -> Bool {
@@ -112,7 +120,22 @@ final class ClipboardService {
 
         let sourceAppBundleId = pasteboard.frontmostBundleId
 
-        if let string = pasteboard.stringValue(), !string.isEmpty {
+        if let urls = pasteboard.fileURLs() {
+            let paths = urls.map { $0.path }.joined(separator: "\n")
+            let fingerprint = ContentFingerprint.hash(text: "file:" + paths)
+
+            if repository.isDuplicate(fingerprint: fingerprint) {
+                if gap > 1, let uuid = lastInsertedUUID {
+                    repository.removeItem(uuid: uuid)
+                    lastInsertedUUID = nil
+                }
+                return
+            }
+
+            let uuid = repository.insertFile(paths, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+            lastInsertedUUID = uuid
+
+        } else if let string = pasteboard.stringValue(), !string.isEmpty {
             let processed = ruleEngine.apply(to: string)
             let fingerprint = ContentFingerprint.hash(text: processed)
 

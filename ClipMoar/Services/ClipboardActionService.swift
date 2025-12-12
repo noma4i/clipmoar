@@ -12,7 +12,9 @@ final class ClipboardActionService: ClipboardActionServicing {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
-        if item.isImage, let data = item.imageData {
+        if item.isFile, let urls = item.fileURLs {
+            pasteboard.writeObjects(urls as [NSURL])
+        } else if item.isImage, let data = item.imageData {
             pasteboard.setData(data, forType: .tiff)
         } else if let content = item.content {
             pasteboard.setString(content, forType: .string)
