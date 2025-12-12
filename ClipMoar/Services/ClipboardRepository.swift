@@ -24,10 +24,14 @@ final class CoreDataClipboardRepository: ClipboardRepository {
             NSSortDescriptor(key: "createdAt", ascending: false)
         ]
 
-        if filter.lowercased() == "image" {
-            request.predicate = NSPredicate(format: "contentType == %@", ClipboardItemType.image.rawValue)
-        } else if !filter.isEmpty {
-            request.predicate = NSPredicate(format: "content CONTAINS[cd] %@", filter)
+        if !filter.isEmpty {
+            let textPredicate = NSPredicate(format: "content CONTAINS[cd] %@", filter)
+            if "image".hasPrefix(filter.lowercased()) {
+                let imagePredicate = NSPredicate(format: "contentType == %@", ClipboardItemType.image.rawValue)
+                request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [imagePredicate, textPredicate])
+            } else {
+                request.predicate = textPredicate
+            }
         }
 
         return (try? context.fetch(request)) ?? []

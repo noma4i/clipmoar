@@ -6,6 +6,7 @@ final class MockPasteboard: PasteboardReadable {
     var _string: String?
     var _imageData: Data?
     var _hasMarker = false
+    var _hasIgnoredSystemType = false
 
     var changeCount: Int { _changeCount }
     var frontmostBundleId: String? { "com.test.app" }
@@ -14,12 +15,22 @@ final class MockPasteboard: PasteboardReadable {
     func imageData() -> Data? { _imageData }
     func isEmpty() -> Bool { _string == nil && _imageData == nil }
     func hasMarkerType() -> Bool { _hasMarker }
+    func hasIgnoredSystemType() -> Bool { _hasIgnoredSystemType }
 
     func simulateCopy(text: String) {
         _changeCount += 1
         _string = text
         _imageData = nil
         _hasMarker = false
+        _hasIgnoredSystemType = false
+    }
+
+    func simulateTransientCopy(text: String) {
+        _changeCount += 1
+        _string = text
+        _imageData = nil
+        _hasMarker = false
+        _hasIgnoredSystemType = true
     }
 
     func simulateCopy(imageData: Data) {
@@ -27,6 +38,7 @@ final class MockPasteboard: PasteboardReadable {
         _string = nil
         _imageData = imageData
         _hasMarker = false
+        _hasIgnoredSystemType = false
     }
 
     func simulateClear() {
@@ -34,6 +46,7 @@ final class MockPasteboard: PasteboardReadable {
         _string = nil
         _imageData = nil
         _hasMarker = false
+        _hasIgnoredSystemType = false
     }
 
     func simulateMarkerWrite(text: String) {
@@ -41,6 +54,7 @@ final class MockPasteboard: PasteboardReadable {
         _string = text
         _imageData = nil
         _hasMarker = true
+        _hasIgnoredSystemType = false
     }
 
     func simulateExternalDeleteAndSetNext(text: String) {
@@ -48,6 +62,7 @@ final class MockPasteboard: PasteboardReadable {
         _string = text
         _imageData = nil
         _hasMarker = false
+        _hasIgnoredSystemType = false
     }
 }
 
@@ -238,6 +253,44 @@ final class ClipboardServiceTests: XCTestCase {
         pasteboard.simulateCopy(imageData: imageData)
         triggerCheck(service)
         XCTAssertEqual(repo.insertedImages.count, 1, "Duplicate image should not be inserted")
+    }
+
+    func testTransientTypeIsSkipped() {
+        let pasteboard = MockPasteboard()
+        let repo = MockRepository()
+        let service = ClipboardService(
+            repository: repo,
+            settings: MockSettings(),
+            pasteboard: pasteboard
+        )
+        service.startMonitoring()
+
+        pasteboard.simulateTransientCopy(text: "Transient text")
+        triggerCheck(service)
+
+        XCTAssertEqual(repo.insertedTexts.count, 0, "Transient writes should be skipped")
+    }
+
+    func testTransientDoesNotAffectLastInsertedUUID() {
+        let pasteboard = MockPasteboard()
+        let repo = MockRepository()
+        let service = ClipboardService(
+            repository: repo,
+            settings: MockSettings(),
+            pasteboard: pasteboard
+        )
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(text: "Real text")
+        triggerCheck(service)
+        XCTAssertEqual(repo.insertedTexts.count, 1)
+
+        pasteboard.simulateTransientCopy(text: "Transient")
+        triggerCheck(service)
+
+        pasteboard.simulateClear()
+        triggerCheck(service)
+        XCTAssertEqual(repo.removedUUIDs.count, 1, "Should remove real item, not be confused by transient")
     }
 
     private func triggerCheck(_ service: ClipboardService) {

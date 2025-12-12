@@ -9,14 +9,88 @@ protocol HotkeyServiceProtocol: AnyObject {
     func resume()
 }
 
-final class HotkeyService: HotkeyServiceProtocol {
+protocol CarbonHotkeyBackend: AnyObject {
+    var isHotkeyRegistered: Bool { get }
+    var isHandlerInstalled: Bool { get }
+    func installHandler(service: HotkeyService)
+    func registerHotkey(keyCode: UInt32, modifiers: UInt32)
+    func unregisterHotkey()
+    func removeHandler()
+}
+
+final class RealCarbonBackend: CarbonHotkeyBackend {
     private var eventHotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
-    private var onTrigger: (() -> Void)?
-    private var settings: SettingsStore = UserDefaultsSettingsStore()
 
-    init(settings: SettingsStore = UserDefaultsSettingsStore()) {
+    var isHotkeyRegistered: Bool { eventHotKey != nil }
+    var isHandlerInstalled: Bool { eventHandler != nil }
+
+    func installHandler(service: HotkeyService) {
+        guard eventHandler == nil else { return }
+        var handlerRef: EventHandlerRef?
+        var spec = EventTypeSpec()
+        spec.eventClass = OSType(kEventClassKeyboard)
+        spec.eventKind = UInt32(kEventHotKeyPressed)
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, _, userData -> OSStatus in
+                guard let userData else { return OSStatus(eventNotHandledErr) }
+                let svc = Unmanaged<HotkeyService>.fromOpaque(userData).takeUnretainedValue()
+                DispatchQueue.main.async { svc.fireTrigger() }
+                return noErr
+            },
+            1,
+            &spec,
+            Unmanaged.passUnretained(service).toOpaque(),
+            &handlerRef
+        )
+        eventHandler = handlerRef
+    }
+
+    func registerHotkey(keyCode: UInt32, modifiers: UInt32) {
+        var hotKeyID = EventHotKeyID()
+        hotKeyID.signature = OSType(0x434C5052)
+        hotKeyID.id = 1
+        RegisterEventHotKey(
+            keyCode,
+            modifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &eventHotKey
+        )
+    }
+
+    func unregisterHotkey() {
+        if let ref = eventHotKey {
+            UnregisterEventHotKey(ref)
+            eventHotKey = nil
+        }
+    }
+
+    func removeHandler() {
+        if let handler = eventHandler {
+            RemoveEventHandler(handler)
+            eventHandler = nil
+        }
+    }
+}
+
+final class HotkeyService: HotkeyServiceProtocol {
+    private var onTrigger: (() -> Void)?
+    private let settings: SettingsStore
+    private let backend: CarbonHotkeyBackend
+
+    init(
+        settings: SettingsStore = UserDefaultsSettingsStore(),
+        backend: CarbonHotkeyBackend = RealCarbonBackend()
+    ) {
         self.settings = settings
+        self.backend = backend
+    }
+
+    func fireTrigger() {
+        onTrigger?()
     }
 
     func register(onTrigger: @escaping () -> Void) {
@@ -25,27 +99,17 @@ final class HotkeyService: HotkeyServiceProtocol {
     }
 
     func reregister() {
-        unregister()
+        unregisterCarbon()
         registerHotkey()
     }
 
     func unregister() {
-        if let ref = eventHotKey {
-            UnregisterEventHotKey(ref)
-            eventHotKey = nil
-        }
-        if let handler = eventHandler {
-            RemoveEventHandler(handler)
-            eventHandler = nil
-        }
+        unregisterCarbon()
         onTrigger = nil
     }
 
     func suspend() {
-        if let ref = eventHotKey {
-            UnregisterEventHotKey(ref)
-            eventHotKey = nil
-        }
+        backend.unregisterHotkey()
     }
 
     func resume() {
@@ -53,41 +117,17 @@ final class HotkeyService: HotkeyServiceProtocol {
         registerHotkey()
     }
 
+    private func unregisterCarbon() {
+        backend.unregisterHotkey()
+        backend.removeHandler()
+    }
+
     private func registerHotkey() {
         let keyCode = settings.hotkeyKeyCode
         let modifiers = Int(settings.hotkeyModifiers)
         let carbonModifiers = carbonFlags(from: NSEvent.ModifierFlags(rawValue: UInt(modifiers)))
-
-        var hotKeyID = EventHotKeyID()
-        hotKeyID.signature = OSType(0x434C5052) // "CLPR"
-        hotKeyID.id = 1
-
-        if eventHandler == nil {
-            var handlerRef: EventHandlerRef?
-            var spec = eventTypeSpec()
-            InstallEventHandler(
-                GetApplicationEventTarget(),
-                hotkeyEventHandler(),
-                1,
-                &spec,
-                Unmanaged.passUnretained(self).toOpaque(),
-                &handlerRef
-            )
-            eventHandler = handlerRef
-        }
-
-        var eventType = EventTypeSpec()
-        eventType.eventClass = OSType(kEventClassKeyboard)
-        eventType.eventKind = UInt32(kEventHotKeyPressed)
-
-        RegisterEventHotKey(
-            UInt32(keyCode),
-            UInt32(carbonModifiers),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &eventHotKey
-        )
+        backend.installHandler(service: self)
+        backend.registerHotkey(keyCode: UInt32(keyCode), modifiers: UInt32(carbonModifiers))
     }
 
     private func carbonFlags(from flags: NSEvent.ModifierFlags) -> Int {
@@ -97,23 +137,5 @@ final class HotkeyService: HotkeyServiceProtocol {
         if flags.contains(.control) { result |= controlKey }
         if flags.contains(.shift) { result |= shiftKey }
         return result
-    }
-
-    private func eventTypeSpec() -> EventTypeSpec {
-        var eventType = EventTypeSpec()
-        eventType.eventClass = OSType(kEventClassKeyboard)
-        eventType.eventKind = UInt32(kEventHotKeyPressed)
-        return eventType
-    }
-
-    private func hotkeyEventHandler() -> EventHandlerUPP {
-        { _, _, userData in
-            guard let userData else { return OSStatus(eventNotHandledErr) }
-            let service = Unmanaged<HotkeyService>.fromOpaque(userData).takeUnretainedValue()
-            DispatchQueue.main.async {
-                service.onTrigger?()
-            }
-            return noErr
-        }
     }
 }

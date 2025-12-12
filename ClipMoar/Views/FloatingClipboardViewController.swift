@@ -3,7 +3,7 @@ import Cocoa
 private let listWidth: CGFloat = 460
 private let previewWidth: CGFloat = 260
 private let rowHeight: CGFloat = 32
-private let panelHeight: CGFloat = 32 * 9 + 36 + 20
+private let panelHeight: CGFloat = 32 * 9 + 36 + 28
 private let cellFont = NSFont.systemFont(ofSize: 15)
 private let availableTextWidth: CGFloat = 460 - 80
 
@@ -95,12 +95,12 @@ final class FloatingClipboardViewController: NSViewController,
         view.addSubview(separator)
 
         NSLayoutConstraint.activate([
-            searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 6),
+            searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
             searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             searchField.widthAnchor.constraint(equalToConstant: listWidth - 24),
             searchField.heightAnchor.constraint(equalToConstant: 28),
 
-            separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 2),
+            separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             separator.widthAnchor.constraint(equalToConstant: listWidth)
         ])
@@ -117,7 +117,7 @@ final class FloatingClipboardViewController: NSViewController,
 
         NSLayoutConstraint.activate([
             metaLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            metaLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
+            metaLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
             metaLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             metaLabel.heightAnchor.constraint(equalToConstant: 16)
         ])
@@ -173,18 +173,18 @@ final class FloatingClipboardViewController: NSViewController,
         previewContainer.addSubview(previewImageView)
 
         NSLayoutConstraint.activate([
-            previewMetaLabel.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 6),
-            previewMetaLabel.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
-            previewMetaLabel.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+            previewMetaLabel.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 12),
+            previewMetaLabel.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 12),
+            previewMetaLabel.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -12),
 
-            previewScrollView.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
-            previewScrollView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 4),
-            previewScrollView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -4),
-            previewScrollView.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -4),
+            previewScrollView.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 12),
+            previewScrollView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
+            previewScrollView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+            previewScrollView.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -12),
 
-            previewImageView.topAnchor.constraint(equalTo: previewMetaLabel.bottomAnchor, constant: 4),
-            previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 4),
-            previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -4),
+            previewImageView.topAnchor.constraint(equalTo: previewMetaLabel.bottomAnchor, constant: 8),
+            previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
+            previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
             previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 30)
         ])
     }
