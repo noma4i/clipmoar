@@ -6,12 +6,15 @@ import Cocoa
 final class PreferencesWindowController: NSWindowController {
     init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 420),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Settings"
+        window.title = ""
+        window.titlebarAppearsTransparent = true
+        window.minSize = NSSize(width: 860, height: 540)
+        window.setAccessibilityIdentifier("preferences_window")
 
         let splitVC = PreferencesSplitViewController(
             settings: settings,
@@ -39,16 +42,25 @@ final class PreferencesSplitViewController: NSSplitViewController {
 
     init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder) {
         self.tabs = [
-            PreferencesTab(id: "general", title: "General", icon: "gear",
+            PreferencesTab(id: "general", title: "General", icon: "gearshape",
                            vc: GeneralPrefsViewController(settings: settings, onVisibilityChange: onVisibilityChange)),
             PreferencesTab(id: "hotkey", title: "Hotkeys", icon: "keyboard",
                            vc: HotkeyPrefsViewController(recorder: hotkeyRecorder)),
-            PreferencesTab(id: "rules", title: "Rules", icon: "list.bullet.rectangle",
+            PreferencesTab(id: "rules", title: "Rules", icon: "wand.and.stars",
                            vc: RulesPrefsViewController()),
             PreferencesTab(id: "about", title: "About", icon: "info.circle",
                            vc: AboutPrefsViewController())
         ]
-        self.sidebarVC = PreferencesSidebarViewController(tabs: tabs)
+
+        let sidebarItems: [SidebarItem] = [
+            .tab(tabs[0]),
+            .tab(tabs[1]),
+            .separator,
+            .tab(tabs[2]),
+            .separator,
+            .tab(tabs[3])
+        ]
+        self.sidebarVC = PreferencesSidebarViewController(items: sidebarItems, tabs: tabs)
 
         super.init(nibName: nil, bundle: nil)
     }
@@ -59,8 +71,8 @@ final class PreferencesSplitViewController: NSSplitViewController {
         super.viewDidLoad()
 
         let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarVC)
-        sidebarItem.minimumThickness = 220
-        sidebarItem.maximumThickness = 220
+        sidebarItem.minimumThickness = 160
+        sidebarItem.maximumThickness = 160
         sidebarItem.canCollapse = false
         addSplitViewItem(sidebarItem)
 
@@ -82,6 +94,11 @@ final class PreferencesSplitViewController: NSSplitViewController {
 
 // MARK: - Tab Model
 
+enum SidebarItem {
+    case tab(PreferencesTab)
+    case separator
+}
+
 struct PreferencesTab {
     let id: String
     let title: String
@@ -92,11 +109,13 @@ struct PreferencesTab {
 // MARK: - Sidebar
 
 final class PreferencesSidebarViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+    private let items: [SidebarItem]
     private let tabs: [PreferencesTab]
     private let tableView = NSTableView()
     var onSelect: ((Int) -> Void)?
 
-    init(tabs: [PreferencesTab]) {
+    init(items: [SidebarItem], tabs: [PreferencesTab]) {
+        self.items = items
         self.tabs = tabs
         super.init(nibName: nil, bundle: nil)
     }
@@ -104,16 +123,11 @@ final class PreferencesSidebarViewController: NSViewController, NSTableViewDataS
     required init?(coder: NSCoder) { nil }
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 220, height: 420))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 540))
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        let titleLabel = NSTextField(labelWithString: "Settings")
-        titleLabel.font = .boldSystemFont(ofSize: 18)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(titleLabel)
 
         let scrollView = NSScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -129,16 +143,14 @@ final class PreferencesSidebarViewController: NSViewController, NSTableViewDataS
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
-        tableView.rowHeight = 32
+        tableView.rowHeight = 30
         tableView.style = .plain
         tableView.selectionHighlightStyle = .regular
         tableView.intercellSpacing = NSSize(width: 0, height: 2)
+        tableView.setAccessibilityIdentifier("sidebar_table")
 
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-
-            scrollView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -147,25 +159,57 @@ final class PreferencesSidebarViewController: NSViewController, NSTableViewDataS
         tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
     }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { tabs.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { items.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let tab = tabs[row]
-        let id = NSUserInterfaceItemIdentifier("SidebarCell")
-        let cell: NSTableCellView
-        if let reused = tableView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView {
-            cell = reused
-        } else {
-            cell = makeSidebarCell(identifier: id)
+        switch items[row] {
+        case .separator:
+            let sep = NSView()
+            let line = NSBox()
+            line.boxType = .separator
+            line.translatesAutoresizingMaskIntoConstraints = false
+            sep.addSubview(line)
+            NSLayoutConstraint.activate([
+                line.leadingAnchor.constraint(equalTo: sep.leadingAnchor, constant: 16),
+                line.trailingAnchor.constraint(equalTo: sep.trailingAnchor, constant: -16),
+                line.centerYAnchor.constraint(equalTo: sep.centerYAnchor)
+            ])
+            return sep
+        case .tab(let tab):
+            let id = NSUserInterfaceItemIdentifier("SidebarCell")
+            let cell: NSTableCellView
+            if let reused = tableView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView {
+                cell = reused
+            } else {
+                cell = makeSidebarCell(identifier: id)
+            }
+            cell.imageView?.image = NSImage(systemSymbolName: tab.icon, accessibilityDescription: tab.title)
+            cell.imageView?.contentTintColor = .secondaryLabelColor
+            cell.textField?.stringValue = tab.title
+            cell.setAccessibilityIdentifier("sidebar_\(tab.id)")
+            cell.setAccessibilityLabel(tab.title)
+            return cell
         }
+    }
 
-        cell.imageView?.image = NSImage(systemSymbolName: tab.icon, accessibilityDescription: tab.title)
-        cell.textField?.stringValue = tab.title
-        return cell
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        switch items[row] {
+        case .separator: return 12
+        case .tab: return 30
+        }
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        if case .separator = items[row] { return false }
+        return true
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        onSelect?(tableView.selectedRow)
+        let row = tableView.selectedRow
+        guard row >= 0, case .tab(let tab) = items[row] else { return }
+        if let tabIndex = tabs.firstIndex(where: { $0.id == tab.id }) {
+            onSelect?(tabIndex)
+        }
     }
 
     private func makeSidebarCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
@@ -182,19 +226,19 @@ final class PreferencesSidebarViewController: NSViewController, NSTableViewDataS
         title.drawsBackground = false
         title.isBordered = false
         title.isEditable = false
-        title.font = .systemFont(ofSize: 13)
+        title.font = .systemFont(ofSize: 14)
         cell.addSubview(title)
         cell.textField = title
 
         NSLayoutConstraint.activate([
-            icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
+            icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
             icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: 18),
             icon.heightAnchor.constraint(equalToConstant: 18),
 
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
             title.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            title.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8)
+            title.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -12)
         ])
 
         return cell
@@ -222,11 +266,14 @@ final class GeneralPrefsViewController: NSViewController {
     required init?(coder: NSCoder) { nil }
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 380))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 400))
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        let titleLabel = NSTextField(labelWithString: "General")
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
 
         let visibilityLabel = makeSectionLabel("Visibility")
         let historyLabel = makeSectionLabel("History")
@@ -261,21 +308,40 @@ final class GeneralPrefsViewController: NSViewController {
         let screenRow = NSStackView(views: [screenLabel, screenModePopup])
         screenRow.spacing = 8
 
-        let stack = NSStackView(views: [
+        let leftColumn = NSStackView(views: [
             visibilityLabel, showInDockCheckbox, showInMenuBarCheckbox,
-            makeSpacer(), historyLabel, historyRow, storeImagesCheckbox,
-            makeSpacer(), positionLabel, positionPicker, screenRow
+            makeSpacer(), historyLabel, historyRow, storeImagesCheckbox
         ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 10
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        leftColumn.orientation = .vertical
+        leftColumn.alignment = .leading
+        leftColumn.spacing = 10
 
+        let rightColumn = NSStackView(views: [
+            positionLabel, positionPicker, screenRow
+        ])
+        rightColumn.orientation = .vertical
+        rightColumn.alignment = .leading
+        rightColumn.spacing = 10
+
+        let columns = NSStackView(views: [leftColumn, rightColumn])
+        columns.orientation = .horizontal
+        columns.alignment = .top
+        columns.spacing = 40
+        columns.distribution = .fillEqually
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        columns.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(titleLabel)
+        view.addSubview(columns)
+
+        let pad: CGFloat = 24
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24)
+            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: pad),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+
+            columns.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
+            columns.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            columns.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad)
         ])
 
         showInDockCheckbox.target = self
@@ -309,8 +375,18 @@ final class GeneralPrefsViewController: NSViewController {
     @objc private func screenModeChanged() { settings.panelScreenMode = screenModePopup.indexOfSelectedItem }
     @objc private func historySizeChanged() { settings.maxHistorySize = max(10, historySizeField.integerValue) }
 
-    private func makeSectionLabel(_ t: String) -> NSTextField { let l = NSTextField(labelWithString: t); l.font = .boldSystemFont(ofSize: 13); return l }
-    private func makeSpacer() -> NSView { let v = NSView(); v.heightAnchor.constraint(equalToConstant: 8).isActive = true; return v }
+    private func makeSectionLabel(_ t: String) -> NSTextField {
+        let l = NSTextField(labelWithString: t)
+        l.font = .systemFont(ofSize: 13, weight: .semibold)
+        l.textColor = .labelColor
+        return l
+    }
+
+    private func makeSpacer() -> NSView {
+        let v = NSView()
+        v.heightAnchor.constraint(equalToConstant: 12).isActive = true
+        return v
+    }
 }
 
 // MARK: - Hotkey Tab
@@ -327,49 +403,68 @@ final class HotkeyPrefsViewController: NSViewController {
 
     required init?(coder: NSCoder) { nil }
 
-    override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 380)) }
+    override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 400)) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         recorder.onResult = { [weak self] result in self?.handleRecorderResult(result) }
 
+        let titleLabel = NSTextField(labelWithString: "Hotkeys")
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(titleLabel)
+
         let label = NSTextField(labelWithString: "Global shortcut to show clipboard:")
         label.font = .systemFont(ofSize: 13)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
 
         hotkeyField.alignment = .center
-        hotkeyField.font = .monospacedSystemFont(ofSize: 14, weight: .medium)
-        hotkeyField.wantsLayer = true
-        hotkeyField.layer?.cornerRadius = 4
-        hotkeyField.layer?.borderWidth = 1
-        hotkeyField.layer?.borderColor = NSColor.separatorColor.cgColor
-        hotkeyField.widthAnchor.constraint(equalToConstant: 180).isActive = true
-        hotkeyField.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        hotkeyField.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
+        hotkeyField.isEditable = false
+        hotkeyField.isSelectable = false
+        hotkeyField.isBezeled = true
+        hotkeyField.bezelStyle = .roundedBezel
+        hotkeyField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(hotkeyField)
 
         let recordButton = NSButton(title: "Record Hotkey", target: self, action: #selector(startRecording))
+        recordButton.bezelStyle = .rounded
+        recordButton.setContentHuggingPriority(.required, for: .horizontal)
+        recordButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        recordButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(recordButton)
 
         statusLabel.font = .systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.isHidden = true
+        statusLabel.lineBreakMode = .byWordWrapping
+        statusLabel.maximumNumberOfLines = 2
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(statusLabel)
 
-        let hotkeyRow = NSStackView(views: [hotkeyField, recordButton])
-        hotkeyRow.spacing = 12
-
-        let hintLabel = NSTextField(labelWithString: "Recommended: Shift+Cmd+V, Ctrl+Cmd+V, Opt+Cmd+V")
-        hintLabel.font = .systemFont(ofSize: 11)
-        hintLabel.textColor = .tertiaryLabelColor
-
-        let stack = NSStackView(views: [label, hotkeyRow, statusLabel, hintLabel])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 10
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
-
+        let pad: CGFloat = 24
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24)
+            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: pad),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad),
+
+            label.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+            label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad),
+
+            hotkeyField.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 10),
+            hotkeyField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            hotkeyField.widthAnchor.constraint(equalToConstant: 200),
+            hotkeyField.heightAnchor.constraint(equalToConstant: 28),
+
+            recordButton.centerYAnchor.constraint(equalTo: hotkeyField.centerYAnchor),
+            recordButton.leadingAnchor.constraint(equalTo: hotkeyField.trailingAnchor, constant: 12),
+
+            statusLabel.topAnchor.constraint(equalTo: hotkeyField.bottomAnchor, constant: 8),
+            statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad)
         ])
         updateHotkeyLabel()
     }
@@ -408,7 +503,7 @@ final class HotkeyPrefsViewController: NSViewController {
 
     @objc private func startRecording() {
         hotkeyField.stringValue = "Press shortcut..."
-        statusLabel.stringValue = "Press a key combination with at least one modifier (Cmd, Opt, Ctrl, Shift). Escape to cancel."
+        statusLabel.stringValue = "Use Cmd, Opt, Ctrl or Shift + key. Escape to cancel."
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.isHidden = false
         recorder.startRecording()
@@ -419,221 +514,414 @@ final class HotkeyPrefsViewController: NSViewController {
 
 final class RulesPrefsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
     private let engine = ClipboardRuleEngine()
-    private let tableView = NSTableView()
-    private var currentRuleIndex = 0
+    private let rulesTable = NSTableView()
+    private let descField = NSTextField()
+    private let appPopup = NSPopUpButton()
+    private let transformsContainer = NSStackView()
+    private var selectedRuleIndex = -1
 
-    override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 380)) }
+    override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 400)) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        reloadTransforms()
+        selectRule(at: 0)
     }
 
     private func setupUI() {
-        let headerLabel = NSTextField(labelWithString: "Transform blocks applied to clipboard on copy:")
-        headerLabel.font = .systemFont(ofSize: 12)
-        headerLabel.textColor = .secondaryLabelColor
-        headerLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(headerLabel)
+        let pad: CGFloat = 24
 
-        let scrollView = NSScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.documentView = tableView
-        scrollView.hasVerticalScroller = true
-        scrollView.drawsBackground = false
-        scrollView.borderType = .bezelBorder
-        view.addSubview(scrollView)
+        let titleLabel = NSTextField(labelWithString: "Rules")
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(titleLabel)
 
-        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("transform"))
-        column.title = "Transforms"
-        column.resizingMask = .autoresizingMask
-        tableView.addTableColumn(column)
-        tableView.headerView = nil
-        tableView.dataSource = self
-        tableView.delegate = self
-        tableView.rowHeight = 36
+        let rulesScroll = NSScrollView()
+        rulesScroll.translatesAutoresizingMaskIntoConstraints = false
+        rulesScroll.documentView = rulesTable
+        rulesScroll.hasVerticalScroller = true
+        rulesScroll.drawsBackground = false
+        rulesScroll.borderType = .bezelBorder
+        view.addSubview(rulesScroll)
 
-        let addButton = NSButton(title: "+", target: self, action: #selector(addTransform))
-        addButton.bezelStyle = .smallSquare
-        let removeButton = NSButton(title: "-", target: self, action: #selector(removeTransform))
-        removeButton.bezelStyle = .smallSquare
-        let buttonRow = NSStackView(views: [addButton, removeButton])
-        buttonRow.translatesAutoresizingMaskIntoConstraints = false
-        buttonRow.spacing = 2
-        view.addSubview(buttonRow)
+        let rulesCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("rules"))
+        rulesCol.resizingMask = .autoresizingMask
+        rulesTable.addTableColumn(rulesCol)
+        rulesTable.headerView = nil
+        rulesTable.dataSource = self
+        rulesTable.delegate = self
+        rulesTable.rowHeight = 28
+        rulesTable.tag = 1
+
+        let addRule = NSButton(title: "+", target: self, action: #selector(addRule))
+        addRule.bezelStyle = .smallSquare
+        let removeRule = NSButton(title: "-", target: self, action: #selector(removeRule))
+        removeRule.bezelStyle = .smallSquare
+        let ruleButtons = NSStackView(views: [addRule, removeRule])
+        ruleButtons.translatesAutoresizingMaskIntoConstraints = false
+        ruleButtons.spacing = 0
+        view.addSubview(ruleButtons)
+
+        let sep = NSBox()
+        sep.boxType = .separator
+        sep.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sep)
+
+        let descLabel = makeFieldLabel("Description:")
+        descField.font = .systemFont(ofSize: 13)
+        descField.target = self
+        descField.action = #selector(nameChanged)
+        descField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(descLabel)
+        view.addSubview(descField)
+
+        let appLabel = makeFieldLabel("When copied from")
+        appPopup.target = self
+        appPopup.action = #selector(appChanged)
+        appPopup.translatesAutoresizingMaskIntoConstraints = false
+        let appSuffix = NSTextField(labelWithString: "apply transforms:")
+        appSuffix.font = .systemFont(ofSize: 13)
+        appSuffix.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(appLabel)
+        view.addSubview(appPopup)
+        view.addSubview(appSuffix)
+
+        let transformsScroll = NSScrollView()
+        transformsScroll.translatesAutoresizingMaskIntoConstraints = false
+        transformsScroll.documentView = transformsContainer
+        transformsScroll.hasVerticalScroller = true
+        transformsScroll.drawsBackground = false
+        view.addSubview(transformsScroll)
+
+        transformsContainer.orientation = .vertical
+        transformsContainer.alignment = .leading
+        transformsContainer.spacing = 6
+        transformsContainer.translatesAutoresizingMaskIntoConstraints = false
+        transformsContainer.setContentHuggingPriority(.required, for: .vertical)
 
         NSLayoutConstraint.activate([
-            headerLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 16),
-            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: pad),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
 
-            scrollView.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 10),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            scrollView.bottomAnchor.constraint(equalTo: buttonRow.topAnchor, constant: -8),
+            rulesScroll.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+            rulesScroll.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            rulesScroll.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad),
+            rulesScroll.heightAnchor.constraint(equalToConstant: 100),
 
-            buttonRow.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            buttonRow.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16)
+            ruleButtons.topAnchor.constraint(equalTo: rulesScroll.bottomAnchor, constant: 4),
+            ruleButtons.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+
+            sep.topAnchor.constraint(equalTo: ruleButtons.bottomAnchor, constant: 10),
+            sep.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            sep.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad),
+
+            descLabel.topAnchor.constraint(equalTo: sep.bottomAnchor, constant: 14),
+            descLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            descField.centerYAnchor.constraint(equalTo: descLabel.centerYAnchor),
+            descField.leadingAnchor.constraint(equalTo: descLabel.trailingAnchor, constant: 8),
+            descField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad),
+
+            appLabel.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 14),
+            appLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            appPopup.centerYAnchor.constraint(equalTo: appLabel.centerYAnchor),
+            appPopup.leadingAnchor.constraint(equalTo: appLabel.trailingAnchor, constant: 6),
+            appSuffix.centerYAnchor.constraint(equalTo: appLabel.centerYAnchor),
+            appSuffix.leadingAnchor.constraint(equalTo: appPopup.trailingAnchor, constant: 6),
+
+            transformsScroll.topAnchor.constraint(equalTo: appLabel.bottomAnchor, constant: 12),
+            transformsScroll.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: pad),
+            transformsScroll.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -pad),
+            transformsScroll.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -pad),
+
+            transformsContainer.topAnchor.constraint(equalTo: transformsScroll.contentView.topAnchor),
+            transformsContainer.leadingAnchor.constraint(equalTo: transformsScroll.contentView.leadingAnchor),
+            transformsContainer.trailingAnchor.constraint(equalTo: transformsScroll.contentView.trailingAnchor)
         ])
     }
 
-    private var transforms: [ClipboardTransform] {
-        get {
-            guard currentRuleIndex < engine.rules.count else { return [] }
-            return engine.rules[currentRuleIndex].transforms
+    private func makeFieldLabel(_ text: String) -> NSTextField {
+        let l = NSTextField(labelWithString: text)
+        l.font = .systemFont(ofSize: 13)
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.setContentHuggingPriority(.required, for: .horizontal)
+        l.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return l
+    }
+
+    private func selectRule(at index: Int) {
+        guard index >= 0, index < engine.rules.count else {
+            selectedRuleIndex = -1
+            descField.stringValue = ""
+            return
         }
-        set {
-            guard currentRuleIndex < engine.rules.count else { return }
-            var rules = engine.rules
-            rules[currentRuleIndex].transforms = newValue
-            engine.rules = rules
+        selectedRuleIndex = index
+        let rule = engine.rules[index]
+        descField.stringValue = rule.name
+        rebuildAppPopup()
+        rebuildTransforms()
+        rulesTable.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+    }
+
+    private func rebuildAppPopup() {
+        appPopup.removeAllItems()
+        appPopup.addItem(withTitle: "All Applications")
+        appPopup.menu?.addItem(.separator())
+
+        var seen = Set<String>()
+        for app in NSWorkspace.shared.runningApplications {
+            guard let bundleId = app.bundleIdentifier,
+                  !seen.contains(bundleId),
+                  app.activationPolicy == .regular else { continue }
+            seen.insert(bundleId)
+            let item = NSMenuItem()
+            item.title = app.localizedName ?? bundleId
+            item.representedObject = bundleId
+            if let icon = app.icon {
+                icon.size = NSSize(width: 16, height: 16)
+                item.image = icon
+            }
+            appPopup.menu?.addItem(item)
+        }
+
+        if selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count {
+            let rule = engine.rules[selectedRuleIndex]
+            if let bundleId = rule.appBundleId {
+                for (i, item) in (appPopup.menu?.items ?? []).enumerated() {
+                    if (item.representedObject as? String) == bundleId {
+                        appPopup.selectItem(at: i)
+                        return
+                    }
+                }
+            }
+            appPopup.selectItem(at: 0)
         }
     }
 
-    private func reloadTransforms() {
-        tableView.reloadData()
+    private func rebuildTransforms() {
+        transformsContainer.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count else { return }
+        let transforms = engine.rules[selectedRuleIndex].transforms
+
+        for (i, transform) in transforms.enumerated() {
+            let row = makeTransformRow(transform: transform, index: i)
+            transformsContainer.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: transformsContainer.widthAnchor).isActive = true
+        }
+
+        let addRow = NSStackView()
+        addRow.orientation = .horizontal
+        addRow.spacing = 4
+        let addBtn = NSButton(title: "+", target: self, action: #selector(addTransform))
+        addBtn.bezelStyle = .smallSquare
+        addRow.addArrangedSubview(addBtn)
+        transformsContainer.addArrangedSubview(addRow)
+    }
+
+    private func makeTransformRow(transform: ClipboardTransform, index: Int) -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.spacing = 6
+        row.alignment = .centerY
+
+        let typePopup = NSPopUpButton()
+        typePopup.font = .systemFont(ofSize: 12)
+        for type in ClipboardTransformType.allCases {
+            let item = NSMenuItem(title: type.displayName, action: nil, keyEquivalent: "")
+            item.image = NSImage(systemSymbolName: type.icon, accessibilityDescription: nil)
+            typePopup.menu?.addItem(item)
+        }
+        typePopup.selectItem(at: ClipboardTransformType.allCases.firstIndex(of: transform.type) ?? 0)
+        typePopup.tag = index
+        typePopup.target = self
+        typePopup.action = #selector(transformTypeChanged(_:))
+        row.addArrangedSubview(typePopup)
+
+        if transform.type == .regexReplace {
+            let patternField = NSTextField()
+            patternField.placeholderString = "Pattern"
+            patternField.stringValue = transform.pattern
+            patternField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            patternField.tag = index
+            patternField.target = self
+            patternField.action = #selector(patternChanged)
+            patternField.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
+            row.addArrangedSubview(patternField)
+
+            let arrow = NSTextField(labelWithString: "->")
+            arrow.font = .systemFont(ofSize: 12)
+            row.addArrangedSubview(arrow)
+
+            let replField = NSTextField()
+            replField.placeholderString = "Replace"
+            replField.stringValue = transform.replacement
+            replField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            replField.tag = index
+            replField.target = self
+            replField.action = #selector(replacementChanged)
+            replField.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
+            row.addArrangedSubview(replField)
+        }
+
+        let removeBtn = NSButton(title: "-", target: self, action: #selector(removeTransformAt(_:)))
+        removeBtn.bezelStyle = .smallSquare
+        removeBtn.tag = index
+        row.addArrangedSubview(removeBtn)
+
+        return row
+    }
+
+    @objc private func addRule() {
+        var rules = engine.rules
+        rules.append(ClipboardRule(name: "New Rule"))
+        engine.rules = rules
+        rulesTable.reloadData()
+        selectRule(at: rules.count - 1)
+    }
+
+    @objc private func removeRule() {
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count else { return }
+        var rules = engine.rules
+        rules.remove(at: selectedRuleIndex)
+        engine.rules = rules
+        rulesTable.reloadData()
+        selectRule(at: min(selectedRuleIndex, rules.count - 1))
+    }
+
+    @objc private func nameChanged() {
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count else { return }
+        var rules = engine.rules
+        rules[selectedRuleIndex].name = descField.stringValue
+        engine.rules = rules
+        rulesTable.reloadData(forRowIndexes: IndexSet(integer: selectedRuleIndex), columnIndexes: IndexSet(integer: 0))
+    }
+
+    @objc private func appChanged() {
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count else { return }
+        var rules = engine.rules
+        rules[selectedRuleIndex].appBundleId = appPopup.selectedItem?.representedObject as? String
+        engine.rules = rules
+        rulesTable.reloadData(forRowIndexes: IndexSet(integer: selectedRuleIndex), columnIndexes: IndexSet(integer: 0))
     }
 
     @objc private func addTransform() {
-        let menu = NSMenu()
-        for type in ClipboardTransformType.allCases {
-            let item = NSMenuItem(title: type.displayName, action: #selector(addTransformOfType(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = type
-            item.image = NSImage(systemSymbolName: type.icon, accessibilityDescription: nil)
-            menu.addItem(item)
-        }
-        menu.popUp(positioning: nil, at: NSPoint(x: 20, y: 0), in: view)
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count else { return }
+        var rules = engine.rules
+        rules[selectedRuleIndex].transforms.append(ClipboardTransform(type: .trimWhitespace))
+        engine.rules = rules
+        rebuildTransforms()
     }
 
-    @objc private func addTransformOfType(_ sender: NSMenuItem) {
-        guard let type = sender.representedObject as? ClipboardTransformType else { return }
-        var list = transforms
-        list.append(ClipboardTransform(type: type))
-        transforms = list
-        reloadTransforms()
+    @objc private func removeTransformAt(_ sender: NSButton) {
+        let idx = sender.tag
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count,
+              idx >= 0, idx < engine.rules[selectedRuleIndex].transforms.count else { return }
+        var rules = engine.rules
+        rules[selectedRuleIndex].transforms.remove(at: idx)
+        engine.rules = rules
+        rebuildTransforms()
     }
 
-    @objc private func removeTransform() {
-        let row = tableView.selectedRow
-        guard row >= 0, row < transforms.count else { return }
-        var list = transforms
-        list.remove(at: row)
-        transforms = list
-        reloadTransforms()
-    }
-
-    @objc private func toggleTransform(_ sender: NSButton) {
-        let row = sender.tag
-        guard row >= 0, row < transforms.count else { return }
-        var list = transforms
-        list[row].isEnabled = sender.state == .on
-        transforms = list
+    @objc private func transformTypeChanged(_ sender: NSPopUpButton) {
+        let idx = sender.tag
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count,
+              idx >= 0, idx < engine.rules[selectedRuleIndex].transforms.count else { return }
+        let allTypes = ClipboardTransformType.allCases
+        let newType = allTypes[sender.indexOfSelectedItem]
+        var rules = engine.rules
+        rules[selectedRuleIndex].transforms[idx].type = newType
+        engine.rules = rules
+        rebuildTransforms()
     }
 
     @objc private func patternChanged(_ sender: NSTextField) {
-        let row = sender.tag
-        guard row >= 0, row < transforms.count else { return }
-        var list = transforms
-        list[row].pattern = sender.stringValue
-        transforms = list
+        let idx = sender.tag
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count,
+              idx >= 0, idx < engine.rules[selectedRuleIndex].transforms.count else { return }
+        var rules = engine.rules
+        rules[selectedRuleIndex].transforms[idx].pattern = sender.stringValue
+        engine.rules = rules
     }
 
     @objc private func replacementChanged(_ sender: NSTextField) {
+        let idx = sender.tag
+        guard selectedRuleIndex >= 0, selectedRuleIndex < engine.rules.count,
+              idx >= 0, idx < engine.rules[selectedRuleIndex].transforms.count else { return }
+        var rules = engine.rules
+        rules[selectedRuleIndex].transforms[idx].replacement = sender.stringValue
+        engine.rules = rules
+    }
+
+    @objc private func toggleRule(_ sender: NSButton) {
         let row = sender.tag
-        guard row >= 0, row < transforms.count else { return }
-        var list = transforms
-        list[row].replacement = sender.stringValue
-        transforms = list
+        guard row >= 0, row < engine.rules.count else { return }
+        var rules = engine.rules
+        rules[row].isEnabled = sender.state == .on
+        engine.rules = rules
     }
 
     // MARK: - NSTableViewDataSource
 
-    func numberOfRows(in tableView: NSTableView) -> Int { transforms.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { engine.rules.count }
 
     // MARK: - NSTableViewDelegate
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard row < transforms.count else { return nil }
-        let transform = transforms[row]
-
+        guard row < engine.rules.count else { return nil }
+        let rule = engine.rules[row]
         let cell = NSView()
 
-        let checkbox = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggleTransform))
-        checkbox.state = transform.isEnabled ? .on : .off
+        let checkbox = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggleRule))
+        checkbox.state = rule.isEnabled ? .on : .off
         checkbox.tag = row
         checkbox.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(checkbox)
 
         let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: transform.type.icon, accessibilityDescription: nil)
+        icon.image = rule.appIcon
+        icon.image?.size = NSSize(width: 16, height: 16)
         icon.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(icon)
 
-        let label = NSTextField(labelWithString: transform.type.displayName)
-        label.font = .systemFont(ofSize: 13)
+        let label = NSTextField(labelWithString: rule.name)
+        label.font = .systemFont(ofSize: 12)
         label.translatesAutoresizingMaskIntoConstraints = false
+        label.lineBreakMode = .byTruncatingTail
         cell.addSubview(label)
+
+        let appLabel = NSTextField(labelWithString: rule.appName)
+        appLabel.font = .systemFont(ofSize: 10)
+        appLabel.textColor = .secondaryLabelColor
+        appLabel.translatesAutoresizingMaskIntoConstraints = false
+        appLabel.alignment = .right
+        appLabel.lineBreakMode = .byTruncatingTail
+        cell.addSubview(appLabel)
 
         NSLayoutConstraint.activate([
             checkbox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
             checkbox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-
             icon.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 4),
             icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: 16),
             icon.heightAnchor.constraint(equalToConstant: 16),
-
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
-            label.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+            label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            appLabel.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 8),
+            appLabel.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8),
+            appLabel.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
         ])
-
-        if transform.type == .regexReplace {
-            let patternField = NSTextField()
-            patternField.placeholderString = "Pattern (regex)"
-            patternField.stringValue = transform.pattern
-            patternField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-            patternField.tag = row
-            patternField.target = self
-            patternField.action = #selector(patternChanged)
-            patternField.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(patternField)
-
-            let replField = NSTextField()
-            replField.placeholderString = "Replacement"
-            replField.stringValue = transform.replacement
-            replField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-            replField.tag = row
-            replField.target = self
-            replField.action = #selector(replacementChanged)
-            replField.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(replField)
-
-            NSLayoutConstraint.activate([
-                patternField.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
-                patternField.centerYAnchor.constraint(equalTo: cell.centerYAnchor, constant: -8),
-                patternField.widthAnchor.constraint(equalToConstant: 140),
-
-                replField.leadingAnchor.constraint(equalTo: patternField.leadingAnchor),
-                replField.centerYAnchor.constraint(equalTo: cell.centerYAnchor, constant: 8),
-                replField.widthAnchor.constraint(equalToConstant: 140)
-            ])
-        }
-
         return cell
     }
 
-    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        guard row < transforms.count else { return 36 }
-        return transforms[row].type == .regexReplace ? 52 : 36
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        selectRule(at: rulesTable.selectedRow)
     }
 }
 
 // MARK: - About Tab
 
 final class AboutPrefsViewController: NSViewController {
-    override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 380)) }
+    override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 400)) }
 
     override func viewDidLoad() {
         super.viewDidLoad()

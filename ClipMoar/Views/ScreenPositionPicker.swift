@@ -35,7 +35,7 @@ final class ScreenPositionPicker: NSView {
     }
 
     private func drawGrid(in rect: NSRect) {
-        NSColor(calibratedWhite: 0.25, alpha: 0.6).setStroke()
+        NSColor(calibratedWhite: 0.45, alpha: 0.5).setStroke()
         let gridPath = NSBezierPath()
         gridPath.lineWidth = 0.5
 

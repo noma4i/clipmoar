@@ -49,10 +49,13 @@ final class ClipboardRuleEngine {
         set { store.rules = newValue; store.save() }
     }
 
-    func apply(to text: String) -> String {
+    func apply(to text: String, sourceAppBundleId: String? = nil) -> String {
         var result = text
 
         for rule in store.rules where rule.isEnabled {
+            if let ruleApp = rule.appBundleId, ruleApp != sourceAppBundleId {
+                continue
+            }
             for transform in rule.transforms where transform.isEnabled {
                 result = applyTransform(transform, to: result)
             }

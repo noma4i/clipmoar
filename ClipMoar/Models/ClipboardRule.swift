@@ -1,4 +1,4 @@
-import Foundation
+import Cocoa
 
 enum ClipboardTransformType: String, Codable, CaseIterable {
     case trimWhitespace
@@ -29,13 +29,31 @@ struct ClipboardRule: Codable, Identifiable {
     var id: UUID
     var name: String
     var isEnabled: Bool
+    var appBundleId: String?
     var transforms: [ClipboardTransform]
 
-    init(name: String, isEnabled: Bool = true, transforms: [ClipboardTransform] = []) {
+    init(name: String, isEnabled: Bool = true, appBundleId: String? = nil, transforms: [ClipboardTransform] = []) {
         self.id = UUID()
         self.name = name
         self.isEnabled = isEnabled
+        self.appBundleId = appBundleId
         self.transforms = transforms
+    }
+
+    var appName: String {
+        guard let bundleId = appBundleId,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return "All Applications"
+        }
+        return FileManager.default.displayName(atPath: url.path)
+    }
+
+    var appIcon: NSImage? {
+        guard let bundleId = appBundleId,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        }
+        return NSWorkspace.shared.icon(forFile: url.path)
     }
 }
 

@@ -136,7 +136,7 @@ final class ClipboardService {
             lastInsertedUUID = uuid
 
         } else if let string = pasteboard.stringValue(), !string.isEmpty {
-            let processed = ruleEngine.apply(to: string)
+            let processed = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
             let fingerprint = ContentFingerprint.hash(text: processed)
 
             if repository.isDuplicate(fingerprint: fingerprint) {
