@@ -9,6 +9,7 @@ protocol ClipboardRepository: AnyObject {
     @discardableResult func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
     func removeItem(uuid: UUID)
     func trimHistory(maxSize: Int)
+    func removeOlderThan(days: Int)
 }
 
 final class CoreDataClipboardRepository: ClipboardRepository {
@@ -120,6 +121,17 @@ final class CoreDataClipboardRepository: ClipboardRepository {
             context.delete(item)
         }
 
+        CoreDataStack.shared.saveIfNeeded()
+    }
+
+    func removeOlderThan(days: Int) {
+        guard days > 0 else { return }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.predicate = NSPredicate(format: "isPinned == NO AND createdAt < %@", cutoff as CVarArg)
+
+        guard let items = try? context.fetch(request), !items.isEmpty else { return }
+        for item in items { context.delete(item) }
         CoreDataStack.shared.saveIfNeeded()
     }
 }

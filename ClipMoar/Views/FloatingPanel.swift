@@ -93,7 +93,7 @@ final class FloatingPanelController: NSWindowController {
         let mode = PanelScreenMode(rawValue: settings.panelScreenMode) ?? .defaultScreen
         switch mode {
         case .defaultScreen:
-            return NSScreen.main
+            return NSScreen.screens.first
         case .mouseScreen:
             let mouseLocation = NSEvent.mouseLocation
             return NSScreen.screens.first { NSMouseInRect(mouseLocation, $0.frame, false) } ?? NSScreen.main

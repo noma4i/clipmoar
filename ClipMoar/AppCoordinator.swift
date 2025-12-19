@@ -43,6 +43,7 @@ final class AppCoordinator {
     func start() {
         setupStatusItem()
         setupHotkey()
+        setupKeyboardShortcuts()
         applyVisibilitySettings()
         clipboardService.startMonitoring()
         floatingPanelController.onOpenPreferences = { [weak self] in self?.showPreferences() }
@@ -112,6 +113,16 @@ final class AppCoordinator {
         }
 
         statusItem?.menu = menu
+    }
+
+    private func setupKeyboardShortcuts() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains(.command), event.characters == "," {
+                self?.showPreferences()
+                return nil
+            }
+            return event
+        }
     }
 
     private func setupHotkey() {

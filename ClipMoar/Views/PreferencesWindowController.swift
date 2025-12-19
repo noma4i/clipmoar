@@ -12,7 +12,10 @@ final class PreferencesWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Settings"
+        window.title = ""
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 720, height: 480)
         window.setAccessibilityIdentifier("preferences_window")
         window.contentViewController = hostingController
@@ -20,11 +23,15 @@ final class PreferencesWindowController: NSWindowController {
         window.standardWindowButton(.zoomButton)?.isHidden = true
 
         super.init(window: window)
+
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53,
+                  self?.window?.isVisible == true,
+                  self?.window?.isKeyWindow == true else { return event }
+            self?.close()
+            return nil
+        }
     }
 
     required init?(coder: NSCoder) { nil }
-
-    override func cancelOperation(_ sender: Any?) {
-        close()
-    }
 }

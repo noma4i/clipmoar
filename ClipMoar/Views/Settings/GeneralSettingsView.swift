@@ -30,6 +30,7 @@ struct GeneralSettingsView: View {
     @State private var positionX: Double
     @State private var positionY: Double
     @State private var screenMode: Int
+    @State private var retentionDays: Int
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -40,14 +41,11 @@ struct GeneralSettingsView: View {
         _positionX = State(initialValue: settings.panelPositionX)
         _positionY = State(initialValue: settings.panelPositionY)
         _screenMode = State(initialValue: settings.panelScreenMode)
+        _retentionDays = State(initialValue: settings.historyRetentionDays)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("General")
-                .font(.system(size: 18, weight: .semibold))
-                .padding(.bottom, 20)
-
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Visibility").font(.system(size: 13, weight: .semibold))
@@ -69,6 +67,18 @@ struct GeneralSettingsView: View {
                             .onChange(of: maxHistorySize) { settings.maxHistorySize = max(10, $0) }
                     }
 
+                    HStack {
+                        Text("Keep for:")
+                        Picker("", selection: $retentionDays) {
+                            ForEach(HistoryRetention.allCases, id: \.rawValue) { r in
+                                Text(r.title).tag(r.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 120)
+                        .onChange(of: retentionDays) { settings.historyRetentionDays = $0 }
+                    }
+
                     Toggle("Store images in history", isOn: $storeImages)
                         .onChange(of: storeImages) { settings.storeImages = $0 }
                 }
@@ -87,6 +97,10 @@ struct GeneralSettingsView: View {
                     .frame(height: 150)
                     .onChange(of: positionX) { settings.panelPositionX = $0 }
                     .onChange(of: positionY) { settings.panelPositionY = $0 }
+
+                    Text("Drag to set panel position")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
 
                     HStack {
                         Text("Show on:")

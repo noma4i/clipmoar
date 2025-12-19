@@ -11,8 +11,27 @@ protocol SettingsStore: AnyObject {
     var panelPositionX: Double { get set }
     var panelPositionY: Double { get set }
     var panelScreenMode: Int { get set }
+    var historyRetentionDays: Int { get set }
 
     func registerDefaults()
+}
+
+enum HistoryRetention: Int, CaseIterable {
+    case oneDay = 1
+    case threeDays = 3
+    case oneWeek = 7
+    case oneMonth = 30
+    case forever = 0
+
+    var title: String {
+        switch self {
+        case .oneDay: return "1 Day"
+        case .threeDays: return "3 Days"
+        case .oneWeek: return "1 Week"
+        case .oneMonth: return "1 Month"
+        case .forever: return "Forever"
+        }
+    }
 }
 
 enum PanelScreenMode: Int, CaseIterable {
@@ -39,6 +58,7 @@ enum Settings {
     static let panelPositionX = "panelPositionX"
     static let panelPositionY = "panelPositionY"
     static let panelScreenMode = "panelScreenMode"
+    static let historyRetentionDays = "historyRetentionDays"
 }
 
 final class UserDefaultsSettingsStore: SettingsStore {
@@ -93,6 +113,11 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelScreenMode) }
     }
 
+    var historyRetentionDays: Int {
+        get { defaults.integer(forKey: Settings.historyRetentionDays) }
+        set { defaults.set(newValue, forKey: Settings.historyRetentionDays) }
+    }
+
     func registerDefaults() {
         defaults.register(defaults: [
             Settings.showInDock: true,
@@ -103,7 +128,8 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.storeImages: true,
             Settings.panelPositionX: 0.5,
             Settings.panelPositionY: 0.65,
-            Settings.panelScreenMode: PanelScreenMode.defaultScreen.rawValue
+            Settings.panelScreenMode: PanelScreenMode.defaultScreen.rawValue,
+            Settings.historyRetentionDays: HistoryRetention.forever.rawValue
         ])
     }
 }

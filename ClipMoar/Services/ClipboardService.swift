@@ -166,5 +166,6 @@ final class ClipboardService {
         }
 
         repository.trimHistory(maxSize: max(settings.maxHistorySize, 1))
+        repository.removeOlderThan(days: settings.historyRetentionDays)
     }
 }
