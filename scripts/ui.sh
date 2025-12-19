@@ -24,8 +24,8 @@ click_tab() {
     case "$tab_name" in
         general|General)   row=1 ;;
         hotkeys|Hotkeys)   row=2 ;;
-        rules|Rules)       row=4 ;;
-        about|About)       row=6 ;;
+        rules|Rules)       row=3 ;;
+        about|About)       row=5 ;;
         *) echo "Unknown tab: $tab_name"; return 1 ;;
     esac
     osascript -e "
@@ -34,10 +34,14 @@ click_tab() {
             set frontmost to true
             delay 0.2
             tell window 1
-                tell splitter group 1
-                    tell scroll area 1
-                        tell table 1
-                            select row $row
+                tell group 1
+                    tell splitter group 1
+                        tell group 1
+                            tell scroll area 1
+                                tell outline 1
+                                    select row $row
+                                end tell
+                            end tell
                         end tell
                     end tell
                 end tell
