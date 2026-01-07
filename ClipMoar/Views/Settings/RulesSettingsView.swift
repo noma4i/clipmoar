@@ -58,30 +58,30 @@ struct RulesSettingsView: View {
     @StateObject private var model = RulesSettingsModel()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Rules")
-                .font(.system(size: 18, weight: .semibold))
-
+        VStack(alignment: .leading, spacing: 0) {
             rulesList
 
             Divider()
+                .padding(.vertical, 12)
 
             if model.selectedRule != nil {
                 ruleEditor
             } else {
                 Text("Select a rule or create a new one")
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
+
+            Spacer()
         }
         .padding(24)
     }
 
     private var rulesList: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             List(selection: $model.selectedRuleId) {
                 ForEach(model.rules) { rule in
-                    HStack {
+                    HStack(spacing: 6) {
                         Toggle("", isOn: Binding(
                             get: { rule.isEnabled },
                             set: { val in
@@ -114,43 +114,61 @@ struct RulesSettingsView: View {
                     .tag(rule.id)
                 }
             }
-            .frame(height: 100)
+            .frame(minHeight: 60, maxHeight: 140)
             .listStyle(.bordered)
 
-            HStack(spacing: 0) {
-                Button("+") { model.addRule() }
-                    .buttonStyle(.borderless)
-                    .frame(width: 24, height: 20)
-                Button("-") { model.removeRule() }
-                    .buttonStyle(.borderless)
-                    .frame(width: 24, height: 20)
-                    .disabled(model.selectedRule == nil)
+            HStack(spacing: 8) {
+                Button(action: { model.addRule() }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+
+                Button(action: { model.removeRule() }) {
+                    Image(systemName: "minus")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+                .disabled(model.selectedRule == nil)
+
                 Spacer()
             }
+            .padding(.top, 6)
         }
     }
 
     @ViewBuilder
     private var ruleEditor: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
                 Text("Description:")
-                    .frame(width: 90, alignment: .trailing)
+                    .frame(width: 100, alignment: .trailing)
+                    .font(.system(size: 12))
                 TextField("Rule name", text: Binding(
                     get: { model.selectedRule?.name ?? "" },
                     set: { val in model.updateRule { $0.name = val } }
                 ))
+                .font(.system(size: 12))
             }
 
-            HStack {
-                Text("When copied from")
-                    .fixedSize()
+            HStack(spacing: 8) {
+                Text("Application:")
+                    .frame(width: 100, alignment: .trailing)
+                    .font(.system(size: 12))
                 appPicker
-                Text("apply transforms:")
-                    .fixedSize()
+                Spacer()
             }
 
-            transformsList
+            HStack(spacing: 8) {
+                Text("Transforms:")
+                    .frame(width: 100, alignment: .trailing)
+                    .font(.system(size: 12))
+                    .alignmentGuide(.top) { $0[.top] }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    transformsList
+                }
+            }
         }
     }
 
@@ -190,7 +208,7 @@ struct RulesSettingsView: View {
     }
 
     private var transformsList: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             if let rule = model.selectedRule {
                 ForEach(Array(rule.transforms.enumerated()), id: \.element.id) { index, transform in
                     transformRow(transform: transform, index: index)
@@ -207,6 +225,7 @@ struct RulesSettingsView: View {
                 }
             } label: {
                 Label("Add Transform", systemImage: "plus")
+                    .font(.system(size: 11))
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
@@ -214,10 +233,11 @@ struct RulesSettingsView: View {
     }
 
     private func transformRow(transform: ClipboardTransform, index: Int) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: transform.type.icon)
-                .frame(width: 16)
+                .frame(width: 14)
                 .foregroundColor(.secondary)
+                .font(.system(size: 11))
 
             Picker("", selection: Binding(
                 get: { transform.type },
@@ -228,7 +248,8 @@ struct RulesSettingsView: View {
                 }
             }
             .labelsHidden()
-            .frame(width: 160)
+            .frame(width: 150)
+            .controlSize(.small)
 
             if transform.type == .regexReplace {
                 TextField("Pattern", text: Binding(
@@ -236,14 +257,17 @@ struct RulesSettingsView: View {
                     set: { val in model.updateRule { $0.transforms[index].pattern = val } }
                 ))
                 .font(.system(size: 11, design: .monospaced))
+                .controlSize(.small)
 
                 Text("->")
+                    .font(.system(size: 11))
 
                 TextField("Replace", text: Binding(
                     get: { transform.replacement },
                     set: { val in model.updateRule { $0.transforms[index].replacement = val } }
                 ))
                 .font(.system(size: 11, design: .monospaced))
+                .controlSize(.small)
             }
 
             Spacer()
@@ -253,11 +277,12 @@ struct RulesSettingsView: View {
             } label: {
                 Image(systemName: "minus.circle")
                     .foregroundColor(.secondary)
+                    .font(.system(size: 11))
             }
             .buttonStyle(.borderless)
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.03)))
+        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.04)))
     }
 }

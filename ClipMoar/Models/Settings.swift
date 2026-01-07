@@ -12,6 +12,7 @@ protocol SettingsStore: AnyObject {
     var panelPositionY: Double { get set }
     var panelScreenMode: Int { get set }
     var historyRetentionDays: Int { get set }
+    var largeTypeEnabled: Bool { get set }
 
     func registerDefaults()
 }
@@ -59,6 +60,7 @@ enum Settings {
     static let panelPositionY = "panelPositionY"
     static let panelScreenMode = "panelScreenMode"
     static let historyRetentionDays = "historyRetentionDays"
+    static let largeTypeEnabled = "largeTypeEnabled"
 }
 
 final class UserDefaultsSettingsStore: SettingsStore {
@@ -118,6 +120,11 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.historyRetentionDays) }
     }
 
+    var largeTypeEnabled: Bool {
+        get { defaults.bool(forKey: Settings.largeTypeEnabled) }
+        set { defaults.set(newValue, forKey: Settings.largeTypeEnabled) }
+    }
+
     func registerDefaults() {
         defaults.register(defaults: [
             Settings.showInDock: true,
@@ -129,7 +136,8 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelPositionX: 0.5,
             Settings.panelPositionY: 0.65,
             Settings.panelScreenMode: PanelScreenMode.defaultScreen.rawValue,
-            Settings.historyRetentionDays: HistoryRetention.forever.rawValue
+            Settings.historyRetentionDays: HistoryRetention.forever.rawValue,
+            Settings.largeTypeEnabled: true
         ])
     }
 }

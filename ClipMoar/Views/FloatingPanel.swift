@@ -42,7 +42,8 @@ final class FloatingPanelController: NSWindowController {
         self.settings = settings
         self.clipViewController = FloatingClipboardViewController(
             repository: repository,
-            actionService: actionService
+            actionService: actionService,
+            settings: settings
         )
         super.init(window: panel)
         panel.contentView = clipViewController.view

@@ -31,6 +31,7 @@ struct GeneralSettingsView: View {
     @State private var positionY: Double
     @State private var screenMode: Int
     @State private var retentionDays: Int
+    @State private var largeTypeEnabled: Bool
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -42,6 +43,7 @@ struct GeneralSettingsView: View {
         _positionY = State(initialValue: settings.panelPositionY)
         _screenMode = State(initialValue: settings.panelScreenMode)
         _retentionDays = State(initialValue: settings.historyRetentionDays)
+        _largeTypeEnabled = State(initialValue: settings.largeTypeEnabled)
     }
 
     var body: some View {
@@ -112,6 +114,17 @@ struct GeneralSettingsView: View {
                         .labelsHidden()
                         .onChange(of: screenMode) { settings.panelScreenMode = $0 }
                     }
+
+                    Spacer().frame(height: 12)
+
+                    Text("Large Type").font(.system(size: 13, weight: .semibold))
+
+                    Toggle("Enable Large Type (Tab)", isOn: $largeTypeEnabled)
+                        .onChange(of: largeTypeEnabled) { settings.largeTypeEnabled = $0 }
+
+                    Text("Press Tab to preview selected item in large text or Quick Look")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

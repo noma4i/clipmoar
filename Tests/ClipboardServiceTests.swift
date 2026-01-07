@@ -133,6 +133,7 @@ final class MockSettings: SettingsStore {
     var panelPositionY: Double = 0.65
     var panelScreenMode: Int = 0
     var historyRetentionDays: Int = 0
+    var largeTypeEnabled: Bool = true
     func registerDefaults() {}
 }
 

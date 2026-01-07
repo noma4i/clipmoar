@@ -24,9 +24,12 @@ final class FloatingClipboardViewController: NSViewController,
     private var isPreviewVisible = false
 
     private let dataSource: FloatingPanelDataSource
+    private let settings: SettingsStore
+    private let largeTypeController = LargeTypeController()
     var onOpenPreferences: (() -> Void)?
 
-    init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
+    init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
+        self.settings = settings
         self.dataSource = FloatingPanelDataSource(repository: repository, actionService: actionService)
         super.init(nibName: nil, bundle: nil)
     }
@@ -55,6 +58,7 @@ final class FloatingClipboardViewController: NSViewController,
 
     func refresh() {
         searchField.stringValue = ""
+        largeTypeController.dismiss()
         hidePreview()
         dataSource.fetch()
         tableView.reloadData()
@@ -226,11 +230,22 @@ final class FloatingClipboardViewController: NSViewController,
 
             switch event.keyCode {
             case 53: // Escape
+                self.largeTypeController.dismiss()
                 self.view.window?.orderOut(nil)
                 return nil
 
             case 36: // Return
                 self.pasteSelected()
+                return nil
+
+            case 48: // Tab - Large Type toggle
+                if self.settings.largeTypeEnabled {
+                    if self.largeTypeController.isVisible {
+                        self.largeTypeController.dismiss()
+                    } else if let item = self.dataSource.item(at: self.tableView.selectedRow) {
+                        self.largeTypeController.show(item: item)
+                    }
+                }
                 return nil
 
             case 124: // Arrow right
