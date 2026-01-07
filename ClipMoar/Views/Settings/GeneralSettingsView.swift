@@ -23,6 +23,7 @@ struct ScreenPositionPickerRepresentable: NSViewRepresentable {
 
 struct GeneralSettingsView: View {
     let settings: SettingsStore
+    var onVisibilityChange: (() -> Void)?
     @State private var showInDock: Bool
     @State private var showInMenuBar: Bool
     @State private var maxHistorySize: Int
@@ -33,8 +34,9 @@ struct GeneralSettingsView: View {
     @State private var retentionDays: Int
     @State private var largeTypeEnabled: Bool
 
-    init(settings: SettingsStore) {
+    init(settings: SettingsStore, onVisibilityChange: (() -> Void)? = nil) {
         self.settings = settings
+        self.onVisibilityChange = onVisibilityChange
         _showInDock = State(initialValue: settings.showInDock)
         _showInMenuBar = State(initialValue: settings.showInMenuBar)
         _maxHistorySize = State(initialValue: settings.maxHistorySize)
@@ -53,10 +55,10 @@ struct GeneralSettingsView: View {
                     Text("Visibility").font(.system(size: 13, weight: .semibold))
 
                     Toggle("Show in Dock", isOn: $showInDock)
-                        .onChange(of: showInDock) { settings.showInDock = $0 }
+                        .onChange(of: showInDock) { settings.showInDock = $0; onVisibilityChange?() }
 
                     Toggle("Show in Menu Bar", isOn: $showInMenuBar)
-                        .onChange(of: showInMenuBar) { settings.showInMenuBar = $0 }
+                        .onChange(of: showInMenuBar) { settings.showInMenuBar = $0; onVisibilityChange?() }
 
                     Spacer().frame(height: 12)
 

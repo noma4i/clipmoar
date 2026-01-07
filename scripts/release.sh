@@ -27,4 +27,14 @@ if [ -d "$BUILD_DIR/$BUNDLE_NAME" ]; then
     cp -R "$BUILD_DIR/$BUNDLE_NAME" "$APP_BUNDLE/Contents/Resources/"
 fi
 
+# Copy assets
+if [ -d "assets" ]; then
+    cp -R assets/* "$APP_BUNDLE/Contents/Resources/" 2>/dev/null || true
+fi
+
+# Copy LICENSE
+if [ -f "LICENSE" ]; then
+    cp LICENSE "$APP_BUNDLE/Contents/Resources/"
+fi
+
 echo "App bundle created: $APP_BUNDLE"

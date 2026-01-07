@@ -248,8 +248,9 @@ final class FloatingClipboardViewController: NSViewController,
                 }
                 return nil
 
-            case 124: // Arrow right
-                if let item = self.dataSource.item(at: self.tableView.selectedRow) {
+            case 124: // Arrow right - only when Large Type is not showing
+                if !self.largeTypeController.isVisible,
+                   let item = self.dataSource.item(at: self.tableView.selectedRow) {
                     self.dataSource.openInExternalPreview(item)
                 }
                 return nil
@@ -257,6 +258,10 @@ final class FloatingClipboardViewController: NSViewController,
             case 125, 126: // Arrow up/down
                 self.view.window?.makeFirstResponder(self.tableView)
                 self.tableView.keyDown(with: event)
+                if self.largeTypeController.isVisible,
+                   let item = self.dataSource.item(at: self.tableView.selectedRow) {
+                    self.largeTypeController.show(item: item)
+                }
                 return nil
 
             case 51: // Backspace

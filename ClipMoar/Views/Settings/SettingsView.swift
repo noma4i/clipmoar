@@ -4,6 +4,7 @@ struct SettingsView: View {
     @State private var selectedTab = "general"
     let settings: SettingsStore
     let hotkeyRecorder: HotkeyRecorder
+    var onVisibilityChange: (() -> Void)?
 
     var body: some View {
         NavigationSplitView {
@@ -27,7 +28,7 @@ struct SettingsView: View {
             Group {
                 switch selectedTab {
                 case "general":
-                    GeneralSettingsView(settings: settings)
+                    GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 case "hotkeys":
                     HotkeySettingsView(recorder: hotkeyRecorder)
                 case "rules":
@@ -35,7 +36,7 @@ struct SettingsView: View {
                 case "about":
                     AboutSettingsView()
                 default:
-                    GeneralSettingsView(settings: settings)
+                    GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 }
             }
         }

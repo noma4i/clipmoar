@@ -3,7 +3,7 @@ import SwiftUI
 
 final class PreferencesWindowController: NSWindowController {
     init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder) {
-        let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder)
+        let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder, onVisibilityChange: onVisibilityChange)
         let hostingController = NSHostingController(rootView: settingsView)
 
         let window = NSWindow(

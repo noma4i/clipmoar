@@ -1,24 +1,38 @@
+<p align="center">
+  <img src="assets/header.png" alt="ClipMoar" width="400">
+</p>
+
 # ClipMoar
 
-Clipboard manager for macOS. Built with Swift and AppKit.
+Clipboard manager for macOS. Built with Swift, AppKit and SwiftUI.
 
 ## Features
 
 - Clipboard history with CoreData persistence
-- Lives in both the main window and the menu bar
-- Configurable visibility: show/hide dock icon and menu bar icon independently
-- Native macOS experience - pure AppKit, no Electron
+- Text, image and file copy support
+- Large Type preview (Tab) - Alfred-style fullscreen preview
+- Per-application transform rules
+- Panel position and screen selection
+- History retention settings
+- Global hotkey support
+- Configurable visibility: dock and menu bar
+- Native macOS experience - pure Swift, no Electron
 
 ## Requirements
 
 - macOS 14.0+
-- Xcode 15+
 - Swift 5.9+
 
 ## Build
 
 ```bash
-xcodebuild -project ClipMoar.xcodeproj -scheme ClipMoar build
+./scripts/build.sh
+```
+
+## Run
+
+```bash
+make run
 ```
 
 ## License
