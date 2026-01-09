@@ -115,7 +115,7 @@ final class MockRepository: ClipboardRepository {
     }
 
     func trimHistory(maxSize: Int) {}
-    func removeOlderThan(days: Int) {}
+    func removeOlderThan(hours: Int, contentType: String?) {}
 
     func hasDuplicate(_ fingerprint: String) -> Bool {
         fingerprints.contains(fingerprint)
@@ -128,11 +128,13 @@ final class MockSettings: SettingsStore {
     var maxHistorySize = 500
     var hotkeyKeyCode = 0
     var hotkeyModifiers: UInt32 = 0
+    var storeText = true
     var storeImages = true
+    var textRetentionHours: Int = 0
+    var imageRetentionHours: Int = 0
     var panelPositionX: Double = 0.5
     var panelPositionY: Double = 0.65
     var panelScreenMode: Int = 0
-    var historyRetentionDays: Int = 0
     var largeTypeEnabled: Bool = true
     func registerDefaults() {}
 }

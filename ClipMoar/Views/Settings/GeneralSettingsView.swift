@@ -27,11 +27,13 @@ struct GeneralSettingsView: View {
     @State private var showInDock: Bool
     @State private var showInMenuBar: Bool
     @State private var maxHistorySize: Int
+    @State private var storeText: Bool
     @State private var storeImages: Bool
+    @State private var textRetentionHours: Int
+    @State private var imageRetentionHours: Int
     @State private var positionX: Double
     @State private var positionY: Double
     @State private var screenMode: Int
-    @State private var retentionDays: Int
     @State private var largeTypeEnabled: Bool
 
     init(settings: SettingsStore, onVisibilityChange: (() -> Void)? = nil) {
@@ -40,11 +42,13 @@ struct GeneralSettingsView: View {
         _showInDock = State(initialValue: settings.showInDock)
         _showInMenuBar = State(initialValue: settings.showInMenuBar)
         _maxHistorySize = State(initialValue: settings.maxHistorySize)
+        _storeText = State(initialValue: settings.storeText)
         _storeImages = State(initialValue: settings.storeImages)
+        _textRetentionHours = State(initialValue: settings.textRetentionHours)
+        _imageRetentionHours = State(initialValue: settings.imageRetentionHours)
         _positionX = State(initialValue: settings.panelPositionX)
         _positionY = State(initialValue: settings.panelPositionY)
         _screenMode = State(initialValue: settings.panelScreenMode)
-        _retentionDays = State(initialValue: settings.historyRetentionDays)
         _largeTypeEnabled = State(initialValue: settings.largeTypeEnabled)
     }
 
@@ -71,20 +75,43 @@ struct GeneralSettingsView: View {
                             .onChange(of: maxHistorySize) { settings.maxHistorySize = max(10, $0) }
                     }
 
-                    HStack {
-                        Text("Keep for:")
-                        Picker("", selection: $retentionDays) {
-                            ForEach(HistoryRetention.allCases, id: \.rawValue) { r in
-                                Text(r.title).tag(r.rawValue)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(width: 120)
-                        .onChange(of: retentionDays) { settings.historyRetentionDays = $0 }
-                    }
+                    Spacer().frame(height: 4)
 
-                    Toggle("Store images in history", isOn: $storeImages)
-                        .onChange(of: storeImages) { settings.storeImages = $0 }
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Keep Plain Text", isOn: $storeText)
+                                .onChange(of: storeText) { settings.storeText = $0 }
+
+                            Picker("", selection: $textRetentionHours) {
+                                ForEach(TextRetention.allCases, id: \.rawValue) { p in
+                                    Text(p.title).tag(p.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 120)
+                            .disabled(!storeText)
+                            .onChange(of: textRetentionHours) { settings.textRetentionHours = $0 }
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Keep Images", isOn: $storeImages)
+                                .onChange(of: storeImages) { settings.storeImages = $0 }
+
+                            Picker("", selection: $imageRetentionHours) {
+                                ForEach(ImageRetention.allCases, id: \.rawValue) { p in
+                                    Text(p.title).tag(p.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 120)
+                            .disabled(!storeImages)
+                            .onChange(of: imageRetentionHours) { settings.imageRetentionHours = $0 }
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

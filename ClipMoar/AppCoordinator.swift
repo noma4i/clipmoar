@@ -98,7 +98,14 @@ final class AppCoordinator {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem?.button else { return }
 
-        button.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: "ClipMoar")
+        if let iconPath = Bundle.main.path(forResource: "menubar_icon@2x", ofType: "png"),
+           let image = NSImage(contentsOfFile: iconPath) {
+            image.isTemplate = true
+            image.size = NSSize(width: 22, height: 22)
+            button.image = image
+        } else {
+            button.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: "ClipMoar")
+        }
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Show ClipMoar", action: #selector(showMainWindow), keyEquivalent: ""))

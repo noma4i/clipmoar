@@ -135,7 +135,7 @@ final class ClipboardService {
             let uuid = repository.insertFile(paths, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
             lastInsertedUUID = uuid
 
-        } else if let string = pasteboard.stringValue(), !string.isEmpty {
+        } else if settings.storeText, let string = pasteboard.stringValue(), !string.isEmpty {
             let processed = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
             let fingerprint = ContentFingerprint.hash(text: processed)
 
@@ -166,6 +166,8 @@ final class ClipboardService {
         }
 
         repository.trimHistory(maxSize: max(settings.maxHistorySize, 1))
-        repository.removeOlderThan(days: settings.historyRetentionDays)
+        repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.text.rawValue)
+        repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.file.rawValue)
+        repository.removeOlderThan(hours: settings.imageRetentionHours, contentType: ClipboardItemType.image.rawValue)
     }
 }

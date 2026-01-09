@@ -25,11 +25,40 @@ struct AboutSettingsView: View {
                 .font(.system(size: 12))
                 .foregroundColor(.gray)
 
-            Button("Show License") {
-                showLicense = true
+            HStack(spacing: 12) {
+                Button("Show License") {
+                    showLicense = true
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+                )
+
+                Button {
+                    NSWorkspace.shared.open(URL(string: "https://github.com/noma4i/clipmoar")!)
+                } label: {
+                    HStack(spacing: 4) {
+                        if let icon = loadAssetImage("github") {
+                            Image(nsImage: icon)
+                                .resizable()
+                                .frame(width: 12, height: 12)
+                        }
+                        Text("GitHub")
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+                )
             }
-            .buttonStyle(.link)
-            .font(.system(size: 12))
 
             Spacer()
         }
@@ -78,5 +107,14 @@ struct AboutSettingsView: View {
         let devPath = ProcessInfo.processInfo.environment["PWD"].map { $0 + "/LICENSE" }
             ?? "LICENSE"
         return (try? String(contentsOfFile: devPath, encoding: .utf8)) ?? "MIT License"
+    }
+
+    private func loadAssetImage(_ name: String) -> NSImage? {
+        if let path = Bundle.main.path(forResource: name, ofType: "png") {
+            return NSImage(contentsOfFile: path)
+        }
+        let devPath = ProcessInfo.processInfo.environment["PWD"].map { $0 + "/assets/\(name).png" }
+            ?? "assets/\(name).png"
+        return NSImage(contentsOfFile: devPath)
     }
 }
