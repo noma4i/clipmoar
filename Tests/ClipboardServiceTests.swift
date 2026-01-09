@@ -85,7 +85,7 @@ final class MockRepository: ClipboardRepository {
     var fingerprints: Set<String> = []
 
     @discardableResult
-    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String? = nil) -> UUID {
         let id = UUID()
         insertedTexts.append((text, fingerprint, id))
         fingerprints.insert(fingerprint)
@@ -116,6 +116,8 @@ final class MockRepository: ClipboardRepository {
 
     func trimHistory(maxSize: Int) {}
     func removeOlderThan(hours: Int, contentType: String?) {}
+    func storageStats() -> StorageStats { StorageStats() }
+    func clearAll(contentType: String?) {}
 
     func hasDuplicate(_ fingerprint: String) -> Bool {
         fingerprints.contains(fingerprint)

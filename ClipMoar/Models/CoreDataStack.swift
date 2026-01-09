@@ -53,7 +53,12 @@ final class CoreDataStack {
         fingerprint.attributeType = .stringAttributeType
         fingerprint.isOptional = true
 
-        entity.properties = [uuid, content, contentType, imageData, createdAt, isPinned, sourceAppBundleId, fingerprint]
+        let appliedRule = NSAttributeDescription()
+        appliedRule.name = "appliedRule"
+        appliedRule.attributeType = .stringAttributeType
+        appliedRule.isOptional = true
+
+        entity.properties = [uuid, content, contentType, imageData, createdAt, isPinned, sourceAppBundleId, fingerprint, appliedRule]
         model.entities = [entity]
 
         return model

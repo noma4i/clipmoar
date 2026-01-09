@@ -23,6 +23,7 @@ struct ScreenPositionPickerRepresentable: NSViewRepresentable {
 
 struct GeneralSettingsView: View {
     let settings: SettingsStore
+    let repository: ClipboardRepository
     var onVisibilityChange: (() -> Void)?
     @State private var showInDock: Bool
     @State private var showInMenuBar: Bool
@@ -35,9 +36,11 @@ struct GeneralSettingsView: View {
     @State private var positionY: Double
     @State private var screenMode: Int
     @State private var largeTypeEnabled: Bool
+    @State private var stats: StorageStats = StorageStats()
 
-    init(settings: SettingsStore, onVisibilityChange: (() -> Void)? = nil) {
+    init(settings: SettingsStore, repository: ClipboardRepository = CoreDataClipboardRepository(), onVisibilityChange: (() -> Void)? = nil) {
         self.settings = settings
+        self.repository = repository
         self.onVisibilityChange = onVisibilityChange
         _showInDock = State(initialValue: settings.showInDock)
         _showInMenuBar = State(initialValue: settings.showInMenuBar)
@@ -112,6 +115,10 @@ struct GeneralSettingsView: View {
                         .padding(10)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
                     }
+
+                    Spacer().frame(height: 12)
+
+                    storageSection
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -161,5 +168,91 @@ struct GeneralSettingsView: View {
             Spacer()
         }
         .padding(24)
+        .onAppear { refreshStats() }
+    }
+
+    private var storageSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Storage").font(.system(size: 13, weight: .semibold))
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Type")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .leading)
+                    Text("Count")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 50, alignment: .trailing)
+                    Text("Size")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .trailing)
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+
+                Divider().padding(.horizontal, 6)
+
+                storageRow(label: "Texts", count: stats.textCount + stats.fileCount, size: stats.textBytes) {
+                    repository.clearAll(contentType: ClipboardItemType.text.rawValue)
+                    repository.clearAll(contentType: ClipboardItemType.file.rawValue)
+                    refreshStats()
+                }
+
+                Divider().padding(.horizontal, 6)
+
+                storageRow(label: "Images", count: stats.imageCount, size: stats.imageBytes) {
+                    repository.clearAll(contentType: ClipboardItemType.image.rawValue)
+                    refreshStats()
+                }
+
+                Divider().padding(.horizontal, 6)
+
+                HStack {
+                    Text("Total")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 70, alignment: .leading)
+                    Text("\(stats.textCount + stats.fileCount + stats.imageCount)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 50, alignment: .trailing)
+                    Text(stats.formatted(stats.totalBytes))
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 70, alignment: .trailing)
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+            }
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+        }
+    }
+
+    private func storageRow(label: String, count: Int, size: Int64, onClear: @escaping () -> Void) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11))
+                .frame(width: 70, alignment: .leading)
+            Text("\(count)")
+                .font(.system(size: 11))
+                .frame(width: 50, alignment: .trailing)
+            Text(stats.formatted(size))
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .frame(width: 70, alignment: .trailing)
+            Spacer()
+            Button("Clear") { onClear() }
+                .buttonStyle(.plain)
+                .font(.system(size: 10))
+                .foregroundColor(.red.opacity(0.7))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 3)
+    }
+
+    private func refreshStats() {
+        stats = repository.storageStats()
     }
 }

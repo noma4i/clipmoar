@@ -22,6 +22,7 @@ final class FloatingClipboardViewController: NSViewController,
     private let previewMetaLabel = NSTextField(labelWithString: "")
     private var previewWidthConstraint: NSLayoutConstraint!
     private var isPreviewVisible = false
+    private var rulePillView: NSView?
 
     private let dataSource: FloatingPanelDataSource
     private let settings: SettingsStore
@@ -110,21 +111,22 @@ final class FloatingClipboardViewController: NSViewController,
         ])
     }
 
+    private let metaPill = NSView()
+
     private func setupMetaLabel() {
+        metaPill.translatesAutoresizingMaskIntoConstraints = false
+        metaPill.wantsLayer = true
+        metaPill.layer?.backgroundColor = NSColor(calibratedWhite: 0.0, alpha: 0.5).cgColor
+        metaPill.layer?.cornerRadius = 10
+        metaPill.isHidden = true
+
         metaLabel.translatesAutoresizingMaskIntoConstraints = false
         metaLabel.isEditable = false
-        metaLabel.textColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)
-        metaLabel.font = .systemFont(ofSize: 11)
-        metaLabel.alignment = .right
+        metaLabel.textColor = NSColor(calibratedWhite: 0.7, alpha: 1.0)
+        metaLabel.font = .systemFont(ofSize: 10)
+        metaLabel.alignment = .center
         metaLabel.drawsBackground = false
-        view.addSubview(metaLabel)
-
-        NSLayoutConstraint.activate([
-            metaLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            metaLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
-            metaLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            metaLabel.heightAnchor.constraint(equalToConstant: 16)
-        ])
+        metaPill.addSubview(metaLabel)
     }
 
     private func setupPreviewContainer() {
@@ -165,31 +167,53 @@ final class FloatingClipboardViewController: NSViewController,
         previewImageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         previewImageView.setContentHuggingPriority(.defaultLow, for: .vertical)
 
+        let rulePill = NSView()
+        rulePill.translatesAutoresizingMaskIntoConstraints = false
+        rulePill.wantsLayer = true
+        rulePill.layer?.backgroundColor = NSColor(calibratedWhite: 0.2, alpha: 0.8).cgColor
+        rulePill.layer?.cornerRadius = 8
+
         previewMetaLabel.translatesAutoresizingMaskIntoConstraints = false
-        previewMetaLabel.font = .systemFont(ofSize: 11)
-        previewMetaLabel.textColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
+        previewMetaLabel.font = .systemFont(ofSize: 10)
+        previewMetaLabel.textColor = NSColor(calibratedWhite: 0.8, alpha: 1.0)
         previewMetaLabel.isEditable = false
         previewMetaLabel.drawsBackground = false
-        previewMetaLabel.isHidden = true
+        previewMetaLabel.alignment = .center
+        rulePill.addSubview(previewMetaLabel)
 
-        previewContainer.addSubview(previewMetaLabel)
+        previewContainer.addSubview(rulePill)
         previewContainer.addSubview(previewScrollView)
         previewContainer.addSubview(previewImageView)
+        previewContainer.addSubview(metaPill)
+
+        self.rulePillView = rulePill
 
         NSLayoutConstraint.activate([
-            previewMetaLabel.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 12),
-            previewMetaLabel.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 12),
-            previewMetaLabel.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -12),
+            rulePill.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
+            rulePill.centerXAnchor.constraint(equalTo: previewContainer.centerXAnchor),
 
-            previewScrollView.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 12),
+            previewMetaLabel.topAnchor.constraint(equalTo: rulePill.topAnchor, constant: 3),
+            previewMetaLabel.bottomAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: -3),
+            previewMetaLabel.leadingAnchor.constraint(equalTo: rulePill.leadingAnchor, constant: 8),
+            previewMetaLabel.trailingAnchor.constraint(equalTo: rulePill.trailingAnchor, constant: -8),
+
+            previewScrollView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
             previewScrollView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
             previewScrollView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
             previewScrollView.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -12),
 
-            previewImageView.topAnchor.constraint(equalTo: previewMetaLabel.bottomAnchor, constant: 8),
+            previewImageView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
             previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
             previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
-            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 30)
+            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 30),
+
+            metaPill.centerXAnchor.constraint(equalTo: previewContainer.centerXAnchor),
+            metaPill.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -6),
+
+            metaLabel.topAnchor.constraint(equalTo: metaPill.topAnchor, constant: 3),
+            metaLabel.bottomAnchor.constraint(equalTo: metaPill.bottomAnchor, constant: -3),
+            metaLabel.leadingAnchor.constraint(equalTo: metaPill.leadingAnchor, constant: 10),
+            metaLabel.trailingAnchor.constraint(equalTo: metaPill.trailingAnchor, constant: -10),
         ])
     }
 
@@ -219,7 +243,7 @@ final class FloatingClipboardViewController: NSViewController,
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            scrollView.bottomAnchor.constraint(equalTo: metaLabel.topAnchor, constant: -6)
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
@@ -330,15 +354,23 @@ final class FloatingClipboardViewController: NSViewController,
         if item.isImage, let data = item.imageData {
             previewScrollView.isHidden = true
             previewImageView.isHidden = false
-            previewMetaLabel.isHidden = false
             previewImageView.image = NSImage(data: data)
+            rulePillView?.isHidden = true
             previewMetaLabel.stringValue = dataSource.imageMetadata(for: item)
         } else {
             previewImageView.isHidden = true
-            previewMetaLabel.isHidden = true
             previewScrollView.isHidden = false
             previewTextView.string = item.content ?? ""
         }
+
+        if let rule = item.appliedRule, !rule.isEmpty {
+            rulePillView?.isHidden = false
+            previewMetaLabel.stringValue = "Rule: \(rule)"
+        } else {
+            rulePillView?.isHidden = true
+        }
+
+        metaPill.isHidden = false
 
         if !isPreviewVisible {
             isPreviewVisible = true
@@ -355,6 +387,7 @@ final class FloatingClipboardViewController: NSViewController,
         isPreviewVisible = false
         previewTextView.string = ""
         previewImageView.image = nil
+        metaPill.isHidden = true
 
         guard let window = view.window else { return }
         let frame = window.frame

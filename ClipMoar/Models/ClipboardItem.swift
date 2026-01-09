@@ -11,6 +11,7 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
     @NSManaged public var isPinned: Bool
     @NSManaged public var sourceAppBundleId: String?
     @NSManaged public var fingerprint: String?
+    @NSManaged public var appliedRule: String?
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<ClipboardItem> {
         NSFetchRequest<ClipboardItem>(entityName: "ClipboardItem")

@@ -136,8 +136,8 @@ final class ClipboardService {
             lastInsertedUUID = uuid
 
         } else if settings.storeText, let string = pasteboard.stringValue(), !string.isEmpty {
-            let processed = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
-            let fingerprint = ContentFingerprint.hash(text: processed)
+            let result = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
+            let fingerprint = ContentFingerprint.hash(text: result.text)
 
             if repository.isDuplicate(fingerprint: fingerprint) {
                 if gap > 1, let uuid = lastInsertedUUID {
@@ -147,7 +147,8 @@ final class ClipboardService {
                 return
             }
 
-            let uuid = repository.insertText(processed, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+            let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
+            let uuid = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
             lastInsertedUUID = uuid
 
         } else if settings.storeImages, let imageData = pasteboard.imageData() {

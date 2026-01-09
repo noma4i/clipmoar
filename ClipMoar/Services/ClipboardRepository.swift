@@ -4,12 +4,30 @@ import Foundation
 protocol ClipboardRepository: AnyObject {
     func fetchItems(filter: String) -> [ClipboardItem]
     func isDuplicate(fingerprint: String) -> Bool
-    @discardableResult func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
+    @discardableResult func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String?) -> UUID
     @discardableResult func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
     @discardableResult func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
     func removeItem(uuid: UUID)
     func trimHistory(maxSize: Int)
     func removeOlderThan(hours: Int, contentType: String?)
+    func storageStats() -> StorageStats
+    func clearAll(contentType: String?)
+}
+
+struct StorageStats {
+    var textCount: Int = 0
+    var imageCount: Int = 0
+    var fileCount: Int = 0
+    var textBytes: Int64 = 0
+    var imageBytes: Int64 = 0
+
+    var totalBytes: Int64 { textBytes + imageBytes }
+
+    func formatted(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
+    }
 }
 
 final class CoreDataClipboardRepository: ClipboardRepository {
@@ -56,7 +74,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
     }
 
     @discardableResult
-    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String? = nil) -> UUID {
         let id = UUID()
         let item = ClipboardItem(context: context)
         item.uuid = id
@@ -66,6 +84,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         item.isPinned = false
         item.sourceAppBundleId = sourceAppBundleId
         item.fingerprint = fingerprint
+        item.appliedRule = appliedRule
         CoreDataStack.shared.saveIfNeeded()
         return id
     }
@@ -133,6 +152,41 @@ final class CoreDataClipboardRepository: ClipboardRepository {
             request.predicate = NSPredicate(format: "isPinned == NO AND createdAt < %@ AND contentType == %@", cutoff as CVarArg, contentType)
         } else {
             request.predicate = NSPredicate(format: "isPinned == NO AND createdAt < %@", cutoff as CVarArg)
+        }
+
+        guard let items = try? context.fetch(request), !items.isEmpty else { return }
+        for item in items { context.delete(item) }
+        CoreDataStack.shared.saveIfNeeded()
+    }
+
+    func storageStats() -> StorageStats {
+        var stats = StorageStats()
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+
+        guard let items = try? context.fetch(request) else { return stats }
+
+        for item in items {
+            switch ClipboardItemType.from(item.contentType) {
+            case .text:
+                stats.textCount += 1
+                stats.textBytes += Int64(item.content?.utf8.count ?? 0)
+            case .image:
+                stats.imageCount += 1
+                stats.imageBytes += Int64(item.imageData?.count ?? 0)
+            case .file:
+                stats.fileCount += 1
+                stats.textBytes += Int64(item.content?.utf8.count ?? 0)
+            }
+        }
+        return stats
+    }
+
+    func clearAll(contentType: String?) {
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        if let contentType = contentType {
+            request.predicate = NSPredicate(format: "isPinned == NO AND contentType == %@", contentType)
+        } else {
+            request.predicate = NSPredicate(format: "isPinned == NO")
         }
 
         guard let items = try? context.fetch(request), !items.isEmpty else { return }
