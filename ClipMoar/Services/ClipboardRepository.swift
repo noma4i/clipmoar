@@ -21,7 +21,9 @@ struct StorageStats {
     var textBytes: Int64 = 0
     var imageBytes: Int64 = 0
 
-    var totalBytes: Int64 { textBytes + imageBytes }
+    var totalBytes: Int64 {
+        textBytes + imageBytes
+    }
 
     func formatted(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
@@ -41,7 +43,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
         request.sortDescriptors = [
             NSSortDescriptor(key: "isPinned", ascending: false),
-            NSSortDescriptor(key: "createdAt", ascending: false)
+            NSSortDescriptor(key: "createdAt", ascending: false),
         ]
 
         if !filter.isEmpty {
@@ -75,46 +77,38 @@ final class CoreDataClipboardRepository: ClipboardRepository {
 
     @discardableResult
     func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String? = nil) -> UUID {
-        let id = UUID()
-        let item = ClipboardItem(context: context)
-        item.uuid = id
-        item.content = text
-        item.contentType = ClipboardItemType.text.rawValue
-        item.createdAt = Date()
-        item.isPinned = false
-        item.sourceAppBundleId = sourceAppBundleId
-        item.fingerprint = fingerprint
-        item.appliedRule = appliedRule
-        CoreDataStack.shared.saveIfNeeded()
-        return id
+        createItem(sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint) {
+            $0.content = text
+            $0.contentType = ClipboardItemType.text.rawValue
+            $0.appliedRule = appliedRule
+        }
     }
 
     @discardableResult
     func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID {
-        let id = UUID()
-        let item = ClipboardItem(context: context)
-        item.uuid = id
-        item.contentType = ClipboardItemType.image.rawValue
-        item.imageData = data
-        item.createdAt = Date()
-        item.isPinned = false
-        item.sourceAppBundleId = sourceAppBundleId
-        item.fingerprint = fingerprint
-        CoreDataStack.shared.saveIfNeeded()
-        return id
+        createItem(sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint) {
+            $0.contentType = ClipboardItemType.image.rawValue
+            $0.imageData = data
+        }
     }
 
     @discardableResult
     func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        createItem(sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint) {
+            $0.content = paths
+            $0.contentType = ClipboardItemType.file.rawValue
+        }
+    }
+
+    private func createItem(sourceAppBundleId: String?, fingerprint: String, configure: (ClipboardItem) -> Void) -> UUID {
         let id = UUID()
         let item = ClipboardItem(context: context)
         item.uuid = id
-        item.content = paths
-        item.contentType = ClipboardItemType.file.rawValue
         item.createdAt = Date()
         item.isPinned = false
         item.sourceAppBundleId = sourceAppBundleId
         item.fingerprint = fingerprint
+        configure(item)
         CoreDataStack.shared.saveIfNeeded()
         return id
     }
@@ -155,7 +149,9 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         }
 
         guard let items = try? context.fetch(request), !items.isEmpty else { return }
-        for item in items { context.delete(item) }
+        for item in items {
+            context.delete(item)
+        }
         CoreDataStack.shared.saveIfNeeded()
     }
 
@@ -190,7 +186,9 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         }
 
         guard let items = try? context.fetch(request), !items.isEmpty else { return }
-        for item in items { context.delete(item) }
+        for item in items {
+            context.delete(item)
+        }
         CoreDataStack.shared.saveIfNeeded()
     }
 }

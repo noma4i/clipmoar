@@ -23,11 +23,12 @@ final class HotkeyRecorder {
     private static let reservedShortcuts: Set<String> = [
         "Cmd+C", "Cmd+V", "Cmd+X", "Cmd+Z", "Cmd+A", "Cmd+S",
         "Cmd+Q", "Cmd+W", "Cmd+N", "Cmd+O", "Cmd+P", "Cmd+F",
-        "Cmd+H", "Cmd+M", "Cmd+Tab", "Cmd+Space"
+        "Cmd+H", "Cmd+M", "Cmd+Tab", "Cmd+Space",
     ]
 
     init(settings: SettingsStore, onSuspend: @escaping () -> Void,
-         onResume: @escaping () -> Void, onHotkeyChange: @escaping () -> Void) {
+         onResume: @escaping () -> Void, onHotkeyChange: @escaping () -> Void)
+    {
         self.settings = settings
         self.onSuspend = onSuspend
         self.onResume = onResume
@@ -56,7 +57,14 @@ final class HotkeyRecorder {
         onResult?(.cancelled)
     }
 
+    func clearHotkey() {
+        settings.hotkeyKeyCode = 0
+        settings.hotkeyModifiers = 0
+        onHotkeyChange()
+    }
+
     var currentShortcutString: String {
+        guard settings.hotkeyKeyCode != 0 || settings.hotkeyModifiers != 0 else { return "Not assigned" }
         let modifiers = NSEvent.ModifierFlags(rawValue: UInt(settings.hotkeyModifiers))
         return KeyboardShortcutFormatter.string(for: settings.hotkeyKeyCode, modifiers: modifiers)
     }

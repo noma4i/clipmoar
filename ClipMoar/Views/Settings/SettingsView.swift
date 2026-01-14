@@ -7,7 +7,7 @@ struct SettingsView: View {
     var onVisibilityChange: (() -> Void)?
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             List(selection: $selectedTab) {
                 Label("General", systemImage: "gearshape")
                     .tag("general")
@@ -15,6 +15,8 @@ struct SettingsView: View {
                     .tag("hotkeys")
                 Label("Rules", systemImage: "wand.and.stars")
                     .tag("rules")
+                Label("Transforms", systemImage: "wand.and.rays")
+                    .tag("transforms")
 
                 Divider()
 
@@ -22,9 +24,10 @@ struct SettingsView: View {
                     .tag("about")
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(160)
-            .toolbar(removing: .sidebarToggle)
-        } detail: {
+            .frame(width: 160)
+
+            Divider()
+
             Group {
                 switch selectedTab {
                 case "general":
@@ -33,14 +36,15 @@ struct SettingsView: View {
                     HotkeySettingsView(recorder: hotkeyRecorder)
                 case "rules":
                     RulesSettingsView()
+                case "transforms":
+                    TransformsSettingsView()
                 case "about":
                     AboutSettingsView()
                 default:
                     GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .toolbar(.hidden)
-        .navigationSplitViewStyle(.balanced)
     }
 }

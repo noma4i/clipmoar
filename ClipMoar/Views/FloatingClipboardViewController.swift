@@ -8,8 +8,8 @@ private let cellFont = NSFont.systemFont(ofSize: 15)
 private let availableTextWidth: CGFloat = 460 - 80
 
 final class FloatingClipboardViewController: NSViewController,
-    NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
-
+    NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate
+{
     private let searchField = NSTextField()
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
@@ -29,13 +29,19 @@ final class FloatingClipboardViewController: NSViewController,
     private let largeTypeController = LargeTypeController()
     var onOpenPreferences: (() -> Void)?
 
+    private var selectedItem: ClipboardItem? {
+        dataSource.item(at: tableView.selectedRow)
+    }
+
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
         self.settings = settings
-        self.dataSource = FloatingPanelDataSource(repository: repository, actionService: actionService)
+        dataSource = FloatingPanelDataSource(repository: repository, actionService: actionService)
         super.init(nibName: nil, bundle: nil)
     }
 
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
 
     override func loadView() {
         let v = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: panelHeight))
@@ -43,7 +49,7 @@ final class FloatingClipboardViewController: NSViewController,
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
         v.autoresizingMask = [.width]
-        self.view = v
+        view = v
     }
 
     override func viewDidLoad() {
@@ -74,7 +80,7 @@ final class FloatingClipboardViewController: NSViewController,
 
     func focusOnList() {
         view.window?.makeFirstResponder(tableView)
-        if tableView.numberOfRows > 0 && tableView.selectedRow < 0 {
+        if tableView.numberOfRows > 0, tableView.selectedRow < 0 {
             tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
         }
     }
@@ -107,7 +113,7 @@ final class FloatingClipboardViewController: NSViewController,
 
             separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            separator.widthAnchor.constraint(equalToConstant: listWidth)
+            separator.widthAnchor.constraint(equalToConstant: listWidth),
         ])
     }
 
@@ -141,7 +147,7 @@ final class FloatingClipboardViewController: NSViewController,
             previewContainer.topAnchor.constraint(equalTo: view.topAnchor),
             previewContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             previewContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            previewWidthConstraint
+            previewWidthConstraint,
         ])
 
         previewScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -186,7 +192,7 @@ final class FloatingClipboardViewController: NSViewController,
         previewContainer.addSubview(previewImageView)
         previewContainer.addSubview(metaPill)
 
-        self.rulePillView = rulePill
+        rulePillView = rulePill
 
         NSLayoutConstraint.activate([
             rulePill.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
@@ -243,7 +249,7 @@ final class FloatingClipboardViewController: NSViewController,
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
 
@@ -266,7 +272,7 @@ final class FloatingClipboardViewController: NSViewController,
                 if self.settings.largeTypeEnabled {
                     if self.largeTypeController.isVisible {
                         self.largeTypeController.dismiss()
-                    } else if let item = self.dataSource.item(at: self.tableView.selectedRow) {
+                    } else if let item = self.selectedItem {
                         self.largeTypeController.show(item: item)
                     }
                 }
@@ -274,7 +280,8 @@ final class FloatingClipboardViewController: NSViewController,
 
             case 124: // Arrow right - only when Large Type is not showing
                 if !self.largeTypeController.isVisible,
-                   let item = self.dataSource.item(at: self.tableView.selectedRow) {
+                   let item = self.selectedItem
+                {
                     self.dataSource.openInExternalPreview(item)
                 }
                 return nil
@@ -283,7 +290,8 @@ final class FloatingClipboardViewController: NSViewController,
                 self.view.window?.makeFirstResponder(self.tableView)
                 self.tableView.keyDown(with: event)
                 if self.largeTypeController.isVisible,
-                   let item = self.dataSource.item(at: self.tableView.selectedRow) {
+                   let item = self.selectedItem
+                {
                     self.largeTypeController.show(item: item)
                 }
                 return nil
@@ -323,7 +331,8 @@ final class FloatingClipboardViewController: NSViewController,
                 // Cmd+1..9
                 if event.modifierFlags.contains(.command),
                    let char = event.characters,
-                   let num = Int(char), num >= 1, num <= 9 {
+                   let num = Int(char), num >= 1, num <= 9
+                {
                     self.pasteAt(num - 1)
                     return nil
                 }
@@ -333,7 +342,8 @@ final class FloatingClipboardViewController: NSViewController,
                 if !navKeys.contains(event.keyCode),
                    !event.modifierFlags.contains(.command),
                    let chars = event.characters, !chars.isEmpty,
-                   chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) {
+                   chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+                {
                     self.view.window?.makeFirstResponder(self.searchField)
                     self.searchField.stringValue += chars
                     self.performSearch()
@@ -439,13 +449,13 @@ final class FloatingClipboardViewController: NSViewController,
 
     // MARK: - NSTableViewDataSource
 
-    func numberOfRows(in tableView: NSTableView) -> Int {
+    func numberOfRows(in _: NSTableView) -> Int {
         dataSource.items.count
     }
 
     // MARK: - NSTableViewDelegate
 
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ tableView: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
         guard let item = dataSource.item(at: row) else { return nil }
 
         let cell: ClipTableCellView
@@ -459,17 +469,17 @@ final class FloatingClipboardViewController: NSViewController,
         return cell
     }
 
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+    func tableView(_: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
         ClipTableRowView()
     }
 
-    func tableViewSelectionDidChange(_ notification: Notification) {
+    func tableViewSelectionDidChange(_: Notification) {
         updateSelection(for: tableView.selectedRow)
     }
 
     // MARK: - NSTextFieldDelegate
 
-    func controlTextDidChange(_ obj: Notification) {
+    func controlTextDidChange(_: Notification) {
         performSearch()
     }
 }

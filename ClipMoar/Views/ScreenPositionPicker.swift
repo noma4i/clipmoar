@@ -1,14 +1,22 @@
 import Cocoa
 
 final class ScreenPositionPicker: NSView {
-    var positionX: Double = 0.5 { didSet { needsDisplay = true } }
-    var positionY: Double = 0.65 { didSet { needsDisplay = true } }
+    var positionX: Double = 0.5 {
+        didSet { needsDisplay = true }
+    }
+
+    var positionY: Double = 0.65 {
+        didSet { needsDisplay = true }
+    }
+
     var onChange: ((Double, Double) -> Void)?
 
     private let miniWindowRatio: CGFloat = 0.2
     private let gridLines = 4
 
-    override var isFlipped: Bool { false }
+    override var isFlipped: Bool {
+        false
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -16,9 +24,11 @@ final class ScreenPositionPicker: NSView {
         layer?.cornerRadius = 6
     }
 
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
 
-    override func draw(_ dirtyRect: NSRect) {
+    override func draw(_: NSRect) {
         let screenRect = bounds.insetBy(dx: 2, dy: 2)
 
         NSColor(calibratedWhite: 0.18, alpha: 1.0).setFill()
@@ -42,13 +52,13 @@ final class ScreenPositionPicker: NSView {
         let dashPattern: [CGFloat] = [2, 3]
         gridPath.setLineDash(dashPattern, count: 2, phase: 0)
 
-        for i in 1..<gridLines {
+        for i in 1 ..< gridLines {
             let x = rect.origin.x + rect.width * CGFloat(i) / CGFloat(gridLines)
             gridPath.move(to: NSPoint(x: x, y: rect.origin.y))
             gridPath.line(to: NSPoint(x: x, y: rect.maxY))
         }
 
-        for i in 1..<gridLines {
+        for i in 1 ..< gridLines {
             let y = rect.origin.y + rect.height * CGFloat(i) / CGFloat(gridLines)
             gridPath.move(to: NSPoint(x: rect.origin.x, y: y))
             gridPath.line(to: NSPoint(x: rect.maxX, y: y))
@@ -100,7 +110,7 @@ final class ScreenPositionPicker: NSView {
         NSColor(calibratedWhite: 0.35, alpha: 0.6).setStroke()
         let contentLine = NSBezierPath()
         contentLine.lineWidth = 1
-        for i in 0..<3 {
+        for i in 0 ..< 3 {
             let y = lineY + CGFloat(i) * 4
             if y < winRect.maxY - titleBarH - 2 {
                 contentLine.move(to: NSPoint(x: winRect.origin.x + lineInset, y: y))

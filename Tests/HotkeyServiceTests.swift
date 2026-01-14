@@ -1,5 +1,5 @@
-import XCTest
 @testable import ClipMoar
+import XCTest
 
 final class MockCarbonBackend: CarbonHotkeyBackend {
     var isHotkeyRegistered = false
@@ -10,7 +10,7 @@ final class MockCarbonBackend: CarbonHotkeyBackend {
     var unregisterHotkeyCalls = 0
     var removeHandlerCalls = 0
 
-    func installHandler(service: HotkeyService) {
+    func installHandler(service _: HotkeyService) {
         installHandlerCalls += 1
         isHandlerInstalled = true
     }
@@ -32,7 +32,6 @@ final class MockCarbonBackend: CarbonHotkeyBackend {
 }
 
 final class HotkeyServiceTests: XCTestCase {
-
     private func makeSUT() -> (HotkeyService, MockCarbonBackend, MockSettings) {
         let backend = MockCarbonBackend()
         let settings = MockSettings()
@@ -66,7 +65,7 @@ final class HotkeyServiceTests: XCTestCase {
     func testReregisterCallsBackendCorrectly() {
         let (service, backend, _) = makeSUT()
 
-        service.register { }
+        service.register {}
         XCTAssertEqual(backend.registerHotkeyCalls.count, 1)
         XCTAssertEqual(backend.installHandlerCalls, 1)
 
@@ -92,7 +91,7 @@ final class HotkeyServiceTests: XCTestCase {
     func testUnregisterCleansUpBackend() {
         let (service, backend, _) = makeSUT()
 
-        service.register { }
+        service.register {}
         service.unregister()
 
         XCTAssertEqual(backend.unregisterHotkeyCalls, 1)
@@ -118,7 +117,7 @@ final class HotkeyServiceTests: XCTestCase {
     func testResumeAfterSuspend() {
         let (service, backend, _) = makeSUT()
 
-        service.register { }
+        service.register {}
         service.suspend()
         service.resume()
 
@@ -140,7 +139,7 @@ final class HotkeyServiceTests: XCTestCase {
 
         settings.hotkeyKeyCode = 10
         settings.hotkeyModifiers = 256 // Cmd
-        service.register { }
+        service.register {}
 
         settings.hotkeyKeyCode = 20
         settings.hotkeyModifiers = 512 // Shift

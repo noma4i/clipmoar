@@ -9,7 +9,9 @@ final class ClipTableCellView: NSTableCellView {
         setupSubviews()
     }
 
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
 
     func configure(with item: ClipboardItem, row: Int) {
         if item.isImage, let data = item.imageData, let thumb = NSImage(data: data) {
@@ -72,20 +74,20 @@ final class ClipTableCellView: NSTableCellView {
 
             shortcutLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             shortcutLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            shortcutLabel.widthAnchor.constraint(equalToConstant: 36)
+            shortcutLabel.widthAnchor.constraint(equalToConstant: 36),
         ])
     }
 }
 
 final class ClipTableRowView: NSTableRowView {
-    override func drawSelection(in dirtyRect: NSRect) {
+    override func drawSelection(in _: NSRect) {
         if selectionHighlightStyle != .none {
             NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9).setFill()
             bounds.fill()
         }
     }
 
-    override func drawBackground(in dirtyRect: NSRect) {
+    override func drawBackground(in _: NSRect) {
         NSColor.clear.setFill()
         bounds.fill()
     }

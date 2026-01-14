@@ -4,7 +4,7 @@ struct ScreenPositionPickerRepresentable: NSViewRepresentable {
     @Binding var positionX: Double
     @Binding var positionY: Double
 
-    func makeNSView(context: Context) -> ScreenPositionPicker {
+    func makeNSView(context _: Context) -> ScreenPositionPicker {
         let picker = ScreenPositionPicker()
         picker.positionX = positionX
         picker.positionY = positionY
@@ -15,7 +15,7 @@ struct ScreenPositionPickerRepresentable: NSViewRepresentable {
         return picker
     }
 
-    func updateNSView(_ picker: ScreenPositionPicker, context: Context) {
+    func updateNSView(_ picker: ScreenPositionPicker, context _: Context) {
         picker.positionX = positionX
         picker.positionY = positionY
     }
@@ -36,7 +36,7 @@ struct GeneralSettingsView: View {
     @State private var positionY: Double
     @State private var screenMode: Int
     @State private var largeTypeEnabled: Bool
-    @State private var stats: StorageStats = StorageStats()
+    @State private var stats: StorageStats = .init()
 
     init(settings: SettingsStore, repository: ClipboardRepository = CoreDataClipboardRepository(), onVisibilityChange: (() -> Void)? = nil) {
         self.settings = settings

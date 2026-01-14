@@ -27,7 +27,7 @@ enum KeyboardShortcutFormatter {
             kVK_Space: "Space", kVK_Return: "Return", kVK_Tab: "Tab",
             kVK_Delete: "Delete", kVK_Escape: "Esc",
             kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4",
-            kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7", kVK_F8: "F8"
+            kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7", kVK_F8: "F8",
         ]
 
         return names[keyCode] ?? "Key(\(keyCode))"

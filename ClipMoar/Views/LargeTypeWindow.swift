@@ -22,9 +22,11 @@ final class LargeTypeWindow: NSWindow {
         ignoresMouseEvents = false
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool {
+        false
+    }
 
-    private func setupViews(in screenFrame: NSRect) {
+    private func setupViews(in _: NSRect) {
         contentView?.subviews.forEach { $0.removeFromSuperview() }
         guard let cv = contentView else { return }
 
@@ -56,7 +58,7 @@ final class LargeTypeWindow: NSWindow {
 
         let textStorage = NSTextStorage(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: fontSize, weight: .medium),
-            .foregroundColor: NSColor.white
+            .foregroundColor: NSColor.white,
         ])
         let layoutManager = NSLayoutManager()
         let textContainer = NSTextContainer(size: NSSize(width: maxWidth - padding * 2, height: .greatestFiniteMagnitude))
@@ -120,7 +122,7 @@ final class LargeTypeWindow: NSWindow {
         contentImageView.image = nil
     }
 
-    private func calculateFontSize(for text: String, maxWidth: CGFloat) -> CGFloat {
+    private func calculateFontSize(for text: String, maxWidth _: CGFloat) -> CGFloat {
         let length = text.count
         if length <= 10 { return 96 }
         if length <= 30 { return 72 }
@@ -134,7 +136,9 @@ final class LargeTypeController {
     private var window: LargeTypeWindow?
     private var eventMonitor: Any?
 
-    var isVisible: Bool { window?.isVisible ?? false }
+    var isVisible: Bool {
+        window?.isVisible ?? false
+    }
 
     func show(item: ClipboardItem) {
         dismiss()
@@ -154,7 +158,7 @@ final class LargeTypeController {
             return event
         }
 
-        self.window = win
+        window = win
     }
 
     func dismiss() {

@@ -171,7 +171,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelPositionX: 0.5,
             Settings.panelPositionY: 0.65,
             Settings.panelScreenMode: PanelScreenMode.defaultScreen.rawValue,
-            Settings.largeTypeEnabled: true
+            Settings.largeTypeEnabled: true,
         ])
     }
 }

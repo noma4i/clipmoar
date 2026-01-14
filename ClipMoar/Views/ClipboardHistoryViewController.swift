@@ -16,7 +16,9 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
         super.init(nibName: nil, bundle: nil)
     }
 
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
 
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 600))
@@ -38,7 +40,7 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("content"))
@@ -55,7 +57,7 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
         request.sortDescriptors = [
             NSSortDescriptor(key: "isPinned", ascending: false),
-            NSSortDescriptor(key: "createdAt", ascending: false)
+            NSSortDescriptor(key: "createdAt", ascending: false),
         ]
 
         fetchedResultsController = NSFetchedResultsController(
@@ -75,20 +77,20 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
         )
     }
 
-    @objc private func contextDidChange(_ notification: Notification) {
+    @objc private func contextDidChange(_: Notification) {
         try? fetchedResultsController?.performFetch()
         tableView.reloadData()
     }
 
     // MARK: - NSTableViewDataSource
 
-    func numberOfRows(in tableView: NSTableView) -> Int {
+    func numberOfRows(in _: NSTableView) -> Int {
         fetchedResultsController?.fetchedObjects?.count ?? 0
     }
 
     // MARK: - NSTableViewDelegate
 
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ tableView: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
         guard let items = fetchedResultsController?.fetchedObjects, row < items.count else { return nil }
         let item = items[row]
 
@@ -106,7 +108,7 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
             NSLayoutConstraint.activate([
                 textField.leadingAnchor.constraint(equalTo: cellView.leadingAnchor, constant: 4),
                 textField.trailingAnchor.constraint(equalTo: cellView.trailingAnchor, constant: -4),
-                textField.centerYAnchor.constraint(equalTo: cellView.centerYAnchor)
+                textField.centerYAnchor.constraint(equalTo: cellView.centerYAnchor),
             ])
         }
 
@@ -125,7 +127,7 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
         return cellView
     }
 
-    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+    func tableView(_: NSTableView, heightOfRow _: Int) -> CGFloat {
         28
     }
 

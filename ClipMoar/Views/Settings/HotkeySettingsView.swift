@@ -9,12 +9,19 @@ final class HotkeySettingsModel: ObservableObject {
 
     init(recorder: HotkeyRecorder) {
         self.recorder = recorder
-        self.shortcutString = recorder.currentShortcutString
+        shortcutString = recorder.currentShortcutString
         updateStatus()
 
         recorder.onResult = { [weak self] result in
             DispatchQueue.main.async { self?.handleResult(result) }
         }
+    }
+
+    func clearHotkey() {
+        recorder.clearHotkey()
+        shortcutString = "Not assigned"
+        statusText = "No shortcut assigned"
+        statusColor = .secondary
     }
 
     func startRecording() {
@@ -32,7 +39,7 @@ final class HotkeySettingsModel: ObservableObject {
             updateStatus()
         case .cancelled:
             updateStatus()
-        case .rejected(let shortcut):
+        case let .rejected(shortcut):
             shortcutString = shortcut
             statusText = "This shortcut is reserved by macOS"
             statusColor = .red
@@ -79,6 +86,11 @@ struct HotkeySettingsView: View {
                 Button("Record Hotkey") {
                     model.startRecording()
                 }
+
+                Button("Clear") {
+                    model.clearHotkey()
+                }
+                .disabled(model.isRecording)
             }
 
             if !model.statusText.isEmpty {

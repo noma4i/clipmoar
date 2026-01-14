@@ -101,7 +101,8 @@ struct AboutSettingsView: View {
 
     private func loadLicenseText() -> String {
         if let path = Bundle.main.path(forResource: "LICENSE", ofType: nil),
-           let text = try? String(contentsOfFile: path) {
+           let text = try? String(contentsOfFile: path)
+        {
             return text
         }
         let devPath = ProcessInfo.processInfo.environment["PWD"].map { $0 + "/LICENSE" }

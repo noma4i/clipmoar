@@ -1,5 +1,5 @@
-import XCTest
 @testable import ClipMoar
+import XCTest
 
 final class MockPasteboard: PasteboardReadable {
     var _changeCount = 0
@@ -9,15 +9,37 @@ final class MockPasteboard: PasteboardReadable {
     var _hasMarker = false
     var _hasIgnoredSystemType = false
 
-    var changeCount: Int { _changeCount }
-    var frontmostBundleId: String? { "com.test.app" }
+    var changeCount: Int {
+        _changeCount
+    }
 
-    func stringValue() -> String? { _string }
-    func imageData() -> Data? { _imageData }
-    func fileURLs() -> [URL]? { _fileURLs }
-    func isEmpty() -> Bool { _string == nil && _imageData == nil && _fileURLs == nil }
-    func hasMarkerType() -> Bool { _hasMarker }
-    func hasIgnoredSystemType() -> Bool { _hasIgnoredSystemType }
+    var frontmostBundleId: String? {
+        "com.test.app"
+    }
+
+    func stringValue() -> String? {
+        _string
+    }
+
+    func imageData() -> Data? {
+        _imageData
+    }
+
+    func fileURLs() -> [URL]? {
+        _fileURLs
+    }
+
+    func isEmpty() -> Bool {
+        _string == nil && _imageData == nil && _fileURLs == nil
+    }
+
+    func hasMarkerType() -> Bool {
+        _hasMarker
+    }
+
+    func hasIgnoredSystemType() -> Bool {
+        _hasIgnoredSystemType
+    }
 
     func simulateCopy(text: String) {
         _changeCount += 1
@@ -71,7 +93,9 @@ final class MockPasteboard: PasteboardReadable {
 final class MockRepository: ClipboardRepository {
     var items: [(uuid: UUID, content: String?, contentType: String, fingerprint: String)] = []
 
-    func fetchItems(filter: String) -> [ClipboardItem] { [] }
+    func fetchItems(filter _: String) -> [ClipboardItem] {
+        []
+    }
 
     func isDuplicate(fingerprint: String) -> Bool {
         fingerprints.contains(fingerprint)
@@ -85,7 +109,7 @@ final class MockRepository: ClipboardRepository {
     var fingerprints: Set<String> = []
 
     @discardableResult
-    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String? = nil) -> UUID {
+    func insertText(_ text: String, sourceAppBundleId _: String?, fingerprint: String, appliedRule _: String? = nil) -> UUID {
         let id = UUID()
         insertedTexts.append((text, fingerprint, id))
         fingerprints.insert(fingerprint)
@@ -93,7 +117,7 @@ final class MockRepository: ClipboardRepository {
     }
 
     @discardableResult
-    func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+    func insertImage(_ data: Data, sourceAppBundleId _: String?, fingerprint: String) -> UUID {
         let id = UUID()
         insertedImages.append((data.count, fingerprint, id))
         fingerprints.insert(fingerprint)
@@ -101,7 +125,7 @@ final class MockRepository: ClipboardRepository {
     }
 
     @discardableResult
-    func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+    func insertFile(_ paths: String, sourceAppBundleId _: String?, fingerprint: String) -> UUID {
         let id = UUID()
         insertedFiles.append((paths, fingerprint, id))
         fingerprints.insert(fingerprint)
@@ -114,10 +138,13 @@ final class MockRepository: ClipboardRepository {
         insertedImages.removeAll { $0.uuid == uuid }
     }
 
-    func trimHistory(maxSize: Int) {}
-    func removeOlderThan(hours: Int, contentType: String?) {}
-    func storageStats() -> StorageStats { StorageStats() }
-    func clearAll(contentType: String?) {}
+    func trimHistory(maxSize _: Int) {}
+    func removeOlderThan(hours _: Int, contentType _: String?) {}
+    func storageStats() -> StorageStats {
+        StorageStats()
+    }
+
+    func clearAll(contentType _: String?) {}
 
     func hasDuplicate(_ fingerprint: String) -> Bool {
         fingerprints.contains(fingerprint)
@@ -142,7 +169,6 @@ final class MockSettings: SettingsStore {
 }
 
 final class ClipboardServiceTests: XCTestCase {
-
     func testNewTextIsInserted() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()

@@ -22,8 +22,13 @@ final class RealCarbonBackend: CarbonHotkeyBackend {
     private var eventHotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
 
-    var isHotkeyRegistered: Bool { eventHotKey != nil }
-    var isHandlerInstalled: Bool { eventHandler != nil }
+    var isHotkeyRegistered: Bool {
+        eventHotKey != nil
+    }
+
+    var isHandlerInstalled: Bool {
+        eventHandler != nil
+    }
 
     func installHandler(service: HotkeyService) {
         guard eventHandler == nil else { return }
@@ -49,7 +54,7 @@ final class RealCarbonBackend: CarbonHotkeyBackend {
 
     func registerHotkey(keyCode: UInt32, modifiers: UInt32) {
         var hotKeyID = EventHotKeyID()
-        hotKeyID.signature = OSType(0x434C5052)
+        hotKeyID.signature = OSType(0x434C_5052)
         hotKeyID.id = 1
         RegisterEventHotKey(
             keyCode,

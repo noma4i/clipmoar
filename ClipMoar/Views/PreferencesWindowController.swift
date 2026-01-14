@@ -5,6 +5,7 @@ final class PreferencesWindowController: NSWindowController {
     init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder) {
         let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder, onVisibilityChange: onVisibilityChange)
         let hostingController = NSHostingController(rootView: settingsView)
+        hostingController.sizingOptions = []
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
@@ -33,5 +34,7 @@ final class PreferencesWindowController: NSWindowController {
         }
     }
 
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
 }

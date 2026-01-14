@@ -7,8 +7,8 @@ final class RulesSettingsModel: ObservableObject {
 
     init(engine: ClipboardRuleEngine = ClipboardRuleEngine()) {
         self.engine = engine
-        self.rules = engine.rules
-        self.selectedRuleId = engine.rules.first?.id
+        rules = engine.rules
+        selectedRuleId = engine.rules.first?.id
     }
 
     var selectedRule: ClipboardRule? {
@@ -137,7 +137,6 @@ struct RulesSettingsView: View {
         }
     }
 
-    @ViewBuilder
     private var ruleEditor: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {

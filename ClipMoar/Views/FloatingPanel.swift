@@ -19,8 +19,13 @@ final class FloatingPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     }
 
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        true
+    }
 
     override func resignKey() {
         super.resignKey()
@@ -40,7 +45,7 @@ final class FloatingPanelController: NSWindowController {
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
         let panel = FloatingPanel()
         self.settings = settings
-        self.clipViewController = FloatingClipboardViewController(
+        clipViewController = FloatingClipboardViewController(
             repository: repository,
             actionService: actionService,
             settings: settings
@@ -49,7 +54,9 @@ final class FloatingPanelController: NSWindowController {
         panel.contentView = clipViewController.view
     }
 
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
 
     var isVisible: Bool {
         window?.isVisible ?? false

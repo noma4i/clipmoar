@@ -37,10 +37,21 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
         }
     }
 
-    var itemType: ClipboardItemType { ClipboardItemType.from(contentType) }
-    var isImage: Bool { itemType == .image }
-    var isText: Bool { itemType == .text }
-    var isFile: Bool { itemType == .file }
+    var itemType: ClipboardItemType {
+        ClipboardItemType.from(contentType)
+    }
+
+    var isImage: Bool {
+        itemType == .image
+    }
+
+    var isText: Bool {
+        itemType == .text
+    }
+
+    var isFile: Bool {
+        itemType == .file
+    }
 
     var fileURLs: [URL]? {
         guard isFile, let paths = content else { return nil }
@@ -49,7 +60,8 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
 
     var sourceAppIcon: NSImage? {
         guard let bundleId = sourceAppBundleId,
-              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId)
+        else {
             return nil
         }
         return NSWorkspace.shared.icon(forFile: url.path)

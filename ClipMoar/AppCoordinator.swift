@@ -34,10 +34,10 @@ final class AppCoordinator {
     ) {
         self.settings = settings
         self.context = context
-        self.repository = CoreDataClipboardRepository(context: context)
-        self.clipboardActions = ClipboardActionService()
-        self.clipboardService = ClipboardService(repository: repository, settings: settings)
-        self.hotkeyService = HotkeyService(settings: settings)
+        repository = CoreDataClipboardRepository(context: context)
+        clipboardActions = ClipboardActionService()
+        clipboardService = ClipboardService(repository: repository, settings: settings)
+        hotkeyService = HotkeyService(settings: settings)
     }
 
     func start() {
@@ -99,7 +99,8 @@ final class AppCoordinator {
         guard let button = statusItem?.button else { return }
 
         if let iconPath = Bundle.main.path(forResource: "menubar_icon@2x", ofType: "png"),
-           let image = NSImage(contentsOfFile: iconPath) {
+           let image = NSImage(contentsOfFile: iconPath)
+        {
             image.isTemplate = true
             image.size = NSSize(width: 22, height: 22)
             button.image = image
