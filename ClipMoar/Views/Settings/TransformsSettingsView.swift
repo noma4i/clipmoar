@@ -7,39 +7,17 @@ struct TransformsSettingsView: View {
     @State private var regexPattern = ""
     @State private var regexReplacement = ""
 
-    private let engine = ClipboardRuleEngine()
-
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             transformList
-
             Divider()
-
             playground
         }
         .padding(24)
-        .onKeyPress(.upArrow) {
-            moveSelection(by: -1)
-            return .handled
-        }
-        .onKeyPress(.downArrow) {
-            moveSelection(by: 1)
-            return .handled
-        }
-    }
-
-    private func moveSelection(by offset: Int) {
-        let all = ClipboardTransformType.allCases
-        guard let idx = all.firstIndex(of: selectedType) else { return }
-        let newIdx = min(max(idx + offset, 0), all.count - 1)
-        selectedType = all[newIdx]
-        runTransform()
     }
 
     private var transformList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Transforms").font(.system(size: 13, weight: .semibold))
-
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(ClipboardTransformType.allCases, id: \.self) { type in
                 Button {
                     selectedType = type
@@ -63,40 +41,45 @@ struct TransformsSettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+            Spacer()
         }
-        .frame(width: 220)
+        .frame(width: 200)
     }
 
     private var playground: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(selectedType.displayName)
                 .font(.system(size: 13, weight: .semibold))
 
             Text(descriptionFor(selectedType))
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .frame(height: 30, alignment: .topLeading)
 
             regexFields
+                .frame(height: 50)
                 .opacity(selectedType == .regexReplace ? 1 : 0)
-                .frame(height: selectedType == .regexReplace ? nil : 0)
-                .clipped()
 
             Text("Input").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
 
             TextField("Paste text here...", text: $inputText, axis: .vertical)
-                .lineLimit(5 ... 10)
+                .lineLimit(4 ... 8)
                 .font(.system(size: 11, design: .monospaced))
                 .textFieldStyle(.plain)
                 .padding(6)
-                .frame(height: 100, alignment: .topLeading)
+                .frame(height: 80, alignment: .topLeading)
                 .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
                 .onChange(of: inputText) { _ in runTransform() }
 
             HStack {
                 Text("Output").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
                 Spacer()
-                statusBadge
+                Text(statusText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(statusColor)
+                    .padding(.horizontal, statusText.isEmpty ? 0 : 6)
+                    .padding(.vertical, statusText.isEmpty ? 0 : 2)
+                    .background(statusText == "Modified" ? Capsule().fill(Color.green) : nil)
             }
             .frame(height: 16)
 
@@ -106,12 +89,12 @@ struct TransformsSettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .textSelection(.enabled)
             }
-            .frame(height: 100)
+            .frame(height: 80)
             .padding(6)
             .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
 
             HStack {
-                Button("Paste from Clipboard") {
+                Button("Paste") {
                     if let str = NSPasteboard.general.string(forType: .string) {
                         inputText = str
                     }
@@ -134,22 +117,16 @@ struct TransformsSettingsView: View {
                 .disabled(outputText.isEmpty)
             }
         }
+        .frame(width: 320)
     }
 
-    @ViewBuilder
-    private var statusBadge: some View {
-        if outputText != inputText && !inputText.isEmpty {
-            Text("Modified")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.green))
-        } else {
-            Text(inputText.isEmpty ? "" : "No change")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.secondary)
-        }
+    private var statusText: String {
+        guard !inputText.isEmpty else { return "" }
+        return outputText != inputText ? "Modified" : "No change"
+    }
+
+    private var statusColor: Color {
+        statusText == "Modified" ? .white : .secondary
     }
 
     private var regexFields: some View {
@@ -157,7 +134,7 @@ struct TransformsSettingsView: View {
             HStack(spacing: 8) {
                 Text("Pattern:")
                     .font(.system(size: 11))
-                    .frame(width: 65, alignment: .trailing)
+                    .frame(width: 60, alignment: .trailing)
                 TextField("Regular expression", text: $regexPattern)
                     .font(.system(size: 11, design: .monospaced))
                     .onChange(of: regexPattern) { _ in runTransform() }
@@ -165,7 +142,7 @@ struct TransformsSettingsView: View {
             HStack(spacing: 8) {
                 Text("Replace:")
                     .font(.system(size: 11))
-                    .frame(width: 65, alignment: .trailing)
+                    .frame(width: 60, alignment: .trailing)
                 TextField("Replacement", text: $regexReplacement)
                     .font(.system(size: 11, design: .monospaced))
                     .onChange(of: regexReplacement) { _ in runTransform() }
@@ -202,17 +179,17 @@ struct TransformsSettingsView: View {
         case .trimWhitespace:
             return "Removes leading and trailing whitespace and newlines."
         case .flattenMultiline:
-            return "Joins multi-line shell commands (with \\, |, &&) into a single line. Does not touch regular text."
+            return "Joins multi-line shell commands into a single line."
         case .stripShellPrompts:
-            return "Removes $ and # prompts from copied terminal commands. Only strips if the text after the prompt looks like a real command."
+            return "Removes $ and # prompts from terminal commands."
         case .removeBoxDrawing:
-            return "Removes box-drawing characters (│, ┃, etc.) often copied from terminal tables and UI."
+            return "Removes box-drawing characters from terminal output."
         case .repairWrappedURL:
-            return "Repairs URLs broken across multiple lines back into a single valid URL."
+            return "Repairs URLs broken across multiple lines."
         case .quotePathsWithSpaces:
-            return "Wraps file paths containing spaces in double quotes for shell use."
+            return "Wraps file paths with spaces in double quotes."
         case .regexReplace:
-            return "Replace text matching a regular expression pattern with a replacement string. Use $1, $2 for capture groups."
+            return "Replace text matching a regex pattern."
         }
     }
 }

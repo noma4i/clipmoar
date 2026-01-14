@@ -5,7 +5,7 @@ final class PreferencesWindowController: NSWindowController {
     init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder) {
         let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder, onVisibilityChange: onVisibilityChange)
         let hostingController = NSHostingController(rootView: settingsView)
-        hostingController.sizingOptions = []
+        hostingController.sizingOptions = .minSize
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
@@ -16,7 +16,6 @@ final class PreferencesWindowController: NSWindowController {
         window.title = ""
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 720, height: 480)
         window.setAccessibilityIdentifier("preferences_window")
         window.contentViewController = hostingController
