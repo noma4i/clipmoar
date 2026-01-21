@@ -58,26 +58,8 @@ final class LargeTypeWindow: NSWindow {
         let padding: CGFloat = 40
         let fontSize = fontSizeForLength(text.count)
         let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
-
         let textWidth = maxWidth - padding * 2
 
-        let boundingRect = (text as NSString).boundingRect(
-            with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font]
-        )
-
-        let contentW = min(max(boundingRect.width, 200), textWidth)
-        let contentH = boundingRect.height
-
-        let backdropW = contentW + padding * 2
-        let backdropH = min(contentH + padding * 2, maxHeight)
-
-        let x = (cvSize.width - backdropW) / 2
-        let y = (cvSize.height - backdropH) / 2
-        backdropView.frame = NSRect(x: x, y: y, width: backdropW, height: backdropH)
-
-        textView.frame = backdropView.bounds.insetBy(dx: padding, dy: padding)
         textView.isEditable = false
         textView.isSelectable = false
         textView.drawsBackground = false
@@ -86,8 +68,23 @@ final class LargeTypeWindow: NSWindow {
         textView.textColor = .white
         textView.alignment = .center
         textView.textContainer?.lineBreakMode = .byCharWrapping
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.containerSize = NSSize(width: contentW, height: .greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(width: textWidth, height: .greatestFiniteMagnitude)
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.layoutManager?.ensureLayout(for: textView.textContainer!)
+
+        let usedRect = textView.layoutManager!.usedRect(for: textView.textContainer!)
+        let contentW = min(max(usedRect.width, 200), textWidth)
+        let contentH = usedRect.height
+
+        let backdropW = contentW + padding * 2
+        let backdropH = min(contentH + padding * 2, maxHeight)
+
+        let x = (cvSize.width - backdropW) / 2
+        let y = (cvSize.height - backdropH) / 2
+        backdropView.frame = NSRect(x: x, y: y, width: backdropW, height: backdropH)
+
+        textView.frame = NSRect(x: padding, y: padding, width: contentW, height: contentH)
         backdropView.addSubview(textView)
 
         orderFrontRegardless()

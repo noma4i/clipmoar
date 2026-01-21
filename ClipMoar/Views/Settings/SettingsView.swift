@@ -13,10 +13,13 @@ struct SettingsView: View {
                     .tag("general")
                 Label("Hotkeys", systemImage: "keyboard")
                     .tag("hotkeys")
-                Label("Rules", systemImage: "wand.and.stars")
-                    .tag("rules")
                 Label("Look", systemImage: "paintbrush")
                     .tag("lookfeel")
+
+                Divider()
+
+                Label("Rules", systemImage: "wand.and.stars")
+                    .tag("rules")
                 Label("Transforms", systemImage: "wand.and.rays")
                     .tag("transforms")
                 Label("Regex", systemImage: "number.circle")

@@ -74,12 +74,14 @@ struct ClipboardTransform: Codable, Identifiable {
     var isEnabled: Bool
     var pattern: String
     var replacement: String
+    var regexId: String
 
-    init(type: ClipboardTransformType, isEnabled: Bool = true, pattern: String = "", replacement: String = "") {
+    init(type: ClipboardTransformType, isEnabled: Bool = true, pattern: String = "", replacement: String = "", regexId: String = "") {
         id = UUID()
         self.type = type
         self.isEnabled = isEnabled
         self.pattern = pattern
         self.replacement = replacement
+        self.regexId = regexId
     }
 }

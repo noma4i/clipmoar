@@ -271,12 +271,18 @@ struct RulesSettingsView: View {
         .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.04)))
     }
 
-    private func regexPicker(for transform: ClipboardTransform, index: Int) -> some View {
+    private func regexPicker(for _: ClipboardTransform, index: Int) -> some View {
         Picker("", selection: Binding(
-            get: { transform.pattern },
-            set: { patternId in
-                if let regex = regexStore.patterns.first(where: { $0.pattern == patternId }) {
+            get: {
+                guard let rule = model.selectedRule, index < rule.transforms.count else { return "" }
+                return rule.transforms[index].regexId
+            },
+            set: { idStr in
+                if let uuid = UUID(uuidString: idStr),
+                   let regex = regexStore.patterns.first(where: { $0.id == uuid })
+                {
                     model.updateRule {
+                        $0.transforms[index].regexId = idStr
                         $0.transforms[index].pattern = regex.pattern
                         $0.transforms[index].replacement = regex.replacement
                     }
@@ -285,7 +291,7 @@ struct RulesSettingsView: View {
         )) {
             Text("Select regex...").tag("")
             ForEach(regexStore.patterns) { regex in
-                Text(regex.name).tag(regex.pattern)
+                Text(regex.name).tag(regex.id.uuidString)
             }
         }
         .labelsHidden()
