@@ -15,6 +15,8 @@ struct SettingsView: View {
                     .tag("hotkeys")
                 Label("Rules", systemImage: "wand.and.stars")
                     .tag("rules")
+                Label("Look", systemImage: "paintbrush")
+                    .tag("lookfeel")
                 Label("Transforms", systemImage: "wand.and.rays")
                     .tag("transforms")
                 Label("Regex", systemImage: "number.circle")
@@ -37,6 +39,8 @@ struct SettingsView: View {
                     HotkeySettingsView(recorder: hotkeyRecorder)
                 case "rules":
                     RulesSettingsView()
+                case "lookfeel":
+                    LookAndFeelSettingsView(settings: settings)
                 case "transforms":
                     TransformsSettingsView()
                 case "regex":

@@ -15,6 +15,10 @@ protocol SettingsStore: AnyObject {
     var panelPositionY: Double { get set }
     var panelScreenMode: Int { get set }
     var largeTypeEnabled: Bool { get set }
+    var panelFontSize: Int { get set }
+    var panelTheme: Int { get set }
+    var panelAccentColor: Int { get set }
+    var largeTypeFontSize: Int { get set }
 
     func registerDefaults()
 }
@@ -83,6 +87,69 @@ enum Settings {
     static let panelPositionY = "panelPositionY"
     static let panelScreenMode = "panelScreenMode"
     static let largeTypeEnabled = "largeTypeEnabled"
+    static let panelFontSize = "panelFontSize"
+    static let panelTheme = "panelTheme"
+    static let panelAccentColor = "panelAccentColor"
+    static let largeTypeFontSize = "largeTypeFontSize"
+}
+
+enum PanelTheme: Int, CaseIterable {
+    case dark = 0
+    case light = 1
+    case system = 2
+
+    var title: String {
+        switch self {
+        case .dark: return "Dark"
+        case .light: return "Light"
+        case .system: return "System"
+        }
+    }
+}
+
+enum PanelFontSize: Int, CaseIterable {
+    case small = 12
+    case medium = 15
+    case large = 18
+
+    var title: String {
+        switch self {
+        case .small: return "Small"
+        case .medium: return "Medium"
+        case .large: return "Large"
+        }
+    }
+}
+
+enum AccentColor: Int, CaseIterable {
+    case blue = 0
+    case purple = 1
+    case green = 2
+    case orange = 3
+    case red = 4
+    case gray = 5
+
+    var title: String {
+        switch self {
+        case .blue: return "Blue"
+        case .purple: return "Purple"
+        case .green: return "Green"
+        case .orange: return "Orange"
+        case .red: return "Red"
+        case .gray: return "Gray"
+        }
+    }
+
+    var color: NSColor {
+        switch self {
+        case .blue: return NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
+        case .purple: return NSColor(calibratedRed: 0.45, green: 0.25, blue: 0.65, alpha: 0.9)
+        case .green: return NSColor(calibratedRed: 0.2, green: 0.55, blue: 0.35, alpha: 0.9)
+        case .orange: return NSColor(calibratedRed: 0.7, green: 0.45, blue: 0.15, alpha: 0.9)
+        case .red: return NSColor(calibratedRed: 0.65, green: 0.2, blue: 0.2, alpha: 0.9)
+        case .gray: return NSColor(calibratedRed: 0.35, green: 0.35, blue: 0.38, alpha: 0.9)
+        }
+    }
 }
 
 final class UserDefaultsSettingsStore: SettingsStore {
@@ -157,6 +224,26 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.largeTypeEnabled) }
     }
 
+    var panelFontSize: Int {
+        get { defaults.integer(forKey: Settings.panelFontSize) }
+        set { defaults.set(newValue, forKey: Settings.panelFontSize) }
+    }
+
+    var panelTheme: Int {
+        get { defaults.integer(forKey: Settings.panelTheme) }
+        set { defaults.set(newValue, forKey: Settings.panelTheme) }
+    }
+
+    var panelAccentColor: Int {
+        get { defaults.integer(forKey: Settings.panelAccentColor) }
+        set { defaults.set(newValue, forKey: Settings.panelAccentColor) }
+    }
+
+    var largeTypeFontSize: Int {
+        get { defaults.integer(forKey: Settings.largeTypeFontSize) }
+        set { defaults.set(newValue, forKey: Settings.largeTypeFontSize) }
+    }
+
     func registerDefaults() {
         defaults.register(defaults: [
             Settings.showInDock: true,
@@ -172,6 +259,10 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelPositionY: 0.65,
             Settings.panelScreenMode: PanelScreenMode.defaultScreen.rawValue,
             Settings.largeTypeEnabled: true,
+            Settings.panelFontSize: PanelFontSize.medium.rawValue,
+            Settings.panelTheme: PanelTheme.dark.rawValue,
+            Settings.panelAccentColor: AccentColor.blue.rawValue,
+            Settings.largeTypeFontSize: 48,
         ])
     }
 }

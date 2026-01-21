@@ -10,11 +10,14 @@ echo "Building ClipMoar ($CONFIG)..."
 swift build -c "$CONFIG"
 echo "Build complete."
 
+# Always create .app bundle
+./scripts/release.sh "$CONFIG"
+
+# Restart if running
 if pgrep -x ClipMoar > /dev/null 2>&1; then
     echo "Restarting ClipMoar..."
     pkill -x ClipMoar 2>/dev/null || true
     sleep 0.5
-    ./scripts/release.sh "$CONFIG"
     mkdir -p dist
     rm -rf dist/ClipMoar.app
     cp -R ".build/$CONFIG/ClipMoar.app" dist/

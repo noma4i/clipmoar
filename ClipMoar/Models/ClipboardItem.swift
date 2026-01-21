@@ -20,7 +20,7 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
     var displayTitle: String {
         switch ClipboardItemType.from(contentType) {
         case .image:
-            return "Image"
+            return imageDisplayTitle
         case .file:
             guard let paths = content else { return "File" }
             let files = paths.components(separatedBy: "\n")
@@ -35,6 +35,18 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
                 ?? ""
             return firstLine.trimmingCharacters(in: .whitespaces)
         }
+    }
+
+    private var imageDisplayTitle: String {
+        guard let data = imageData else { return "Image" }
+        let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+        if let image = NSImage(data: data) {
+            let rep = image.representations.first
+            let w = rep?.pixelsWide ?? Int(image.size.width)
+            let h = rep?.pixelsHigh ?? Int(image.size.height)
+            return "Image \(w)x\(h) - \(sizeStr)"
+        }
+        return "Image - \(sizeStr)"
     }
 
     var itemType: ClipboardItemType {

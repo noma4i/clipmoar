@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 struct ScreenPositionPickerRepresentable: NSViewRepresentable {
@@ -36,6 +37,7 @@ struct GeneralSettingsView: View {
     @State private var positionY: Double
     @State private var screenMode: Int
     @State private var largeTypeEnabled: Bool
+    @State private var launchAtLogin: Bool = false
     @State private var stats: StorageStats = .init()
 
     init(settings: SettingsStore, repository: ClipboardRepository = CoreDataClipboardRepository(), onVisibilityChange: (() -> Void)? = nil) {
@@ -60,6 +62,9 @@ struct GeneralSettingsView: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Visibility").font(.system(size: 13, weight: .semibold))
+
+                    Toggle("Launch at Login", isOn: $launchAtLogin)
+                        .onChange(of: launchAtLogin) { setLaunchAtLogin($0) }
 
                     Toggle("Show in Dock", isOn: $showInDock)
                         .onChange(of: showInDock) { settings.showInDock = $0; onVisibilityChange?() }
@@ -168,7 +173,10 @@ struct GeneralSettingsView: View {
             Spacer()
         }
         .padding(24)
-        .onAppear { refreshStats() }
+        .onAppear {
+            refreshStats()
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
     }
 
     private var storageSection: some View {
@@ -254,5 +262,18 @@ struct GeneralSettingsView: View {
 
     private func refreshStats() {
         stats = repository.storageStats()
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        let service = SMAppService.mainApp
+        do {
+            if enabled {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+        } catch {
+            launchAtLogin = !enabled
+        }
     }
 }

@@ -4,8 +4,8 @@ struct TransformsSettingsView: View {
     @State private var selectedType: ClipboardTransformType = .trimWhitespace
     @State private var inputText = ""
     @State private var outputText = ""
-    @State private var regexPattern = ""
-    @State private var regexReplacement = ""
+    @State private var selectedRegexId: UUID?
+    @StateObject private var regexStore = RegexStore()
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -129,23 +129,32 @@ struct TransformsSettingsView: View {
         statusText == "Modified" ? .white : .secondary
     }
 
+    private var selectedRegex: SavedRegex? {
+        guard let id = selectedRegexId else { return nil }
+        return regexStore.patterns.first { $0.id == id }
+    }
+
     private var regexFields: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text("Pattern:")
+                Text("Regex:")
                     .font(.system(size: 11))
                     .frame(width: 60, alignment: .trailing)
-                TextField("Regular expression", text: $regexPattern)
-                    .font(.system(size: 11, design: .monospaced))
-                    .onChange(of: regexPattern) { _ in runTransform() }
+                Picker("", selection: $selectedRegexId) {
+                    Text("Select...").tag(nil as UUID?)
+                    ForEach(regexStore.patterns) { p in
+                        Text(p.name).tag(p.id as UUID?)
+                    }
+                }
+                .labelsHidden()
+                .onChange(of: selectedRegexId) { _ in runTransform() }
             }
-            HStack(spacing: 8) {
-                Text("Replace:")
-                    .font(.system(size: 11))
-                    .frame(width: 60, alignment: .trailing)
-                TextField("Replacement", text: $regexReplacement)
-                    .font(.system(size: 11, design: .monospaced))
-                    .onChange(of: regexReplacement) { _ in runTransform() }
+            if let r = selectedRegex {
+                Text("\(r.pattern) -> \(r.replacement)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .padding(.leading, 68)
             }
         }
         .padding(8)
@@ -158,10 +167,11 @@ struct TransformsSettingsView: View {
             return
         }
 
+        let regex = selectedRegex
         let transform = ClipboardTransform(
             type: selectedType,
-            pattern: regexPattern,
-            replacement: regexReplacement
+            pattern: regex?.pattern ?? "",
+            replacement: regex?.replacement ?? ""
         )
 
         let rule = ClipboardRule(

@@ -56,6 +56,7 @@ final class RulesSettingsModel: ObservableObject {
 
 struct RulesSettingsView: View {
     @StateObject private var model = RulesSettingsModel()
+    @StateObject private var regexStore = RegexStore()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -251,22 +252,7 @@ struct RulesSettingsView: View {
             .controlSize(.small)
 
             if transform.type == .regexReplace {
-                TextField("Pattern", text: Binding(
-                    get: { transform.pattern },
-                    set: { val in model.updateRule { $0.transforms[index].pattern = val } }
-                ))
-                .font(.system(size: 11, design: .monospaced))
-                .controlSize(.small)
-
-                Text("->")
-                    .font(.system(size: 11))
-
-                TextField("Replace", text: Binding(
-                    get: { transform.replacement },
-                    set: { val in model.updateRule { $0.transforms[index].replacement = val } }
-                ))
-                .font(.system(size: 11, design: .monospaced))
-                .controlSize(.small)
+                regexPicker(for: transform, index: index)
             }
 
             Spacer()
@@ -283,5 +269,27 @@ struct RulesSettingsView: View {
         .padding(.vertical, 3)
         .padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.04)))
+    }
+
+    private func regexPicker(for transform: ClipboardTransform, index: Int) -> some View {
+        Picker("", selection: Binding(
+            get: { transform.pattern },
+            set: { patternId in
+                if let regex = regexStore.patterns.first(where: { $0.pattern == patternId }) {
+                    model.updateRule {
+                        $0.transforms[index].pattern = regex.pattern
+                        $0.transforms[index].replacement = regex.replacement
+                    }
+                }
+            }
+        )) {
+            Text("Select regex...").tag("")
+            ForEach(regexStore.patterns) { regex in
+                Text(regex.name).tag(regex.pattern)
+            }
+        }
+        .labelsHidden()
+        .frame(width: 150)
+        .controlSize(.small)
     }
 }

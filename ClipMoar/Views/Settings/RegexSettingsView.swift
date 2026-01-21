@@ -31,9 +31,10 @@ final class RegexStore: ObservableObject {
         save()
     }
 
-    func remove(id: UUID) {
+    func remove(id: UUID) -> UUID? {
         patterns.removeAll { $0.id == id }
         save()
+        return patterns.last?.id
     }
 }
 
@@ -101,8 +102,7 @@ struct RegexSettingsView: View {
 
                 Button(action: {
                     if let id = selectedId {
-                        store.remove(id: id)
-                        selectedId = store.patterns.last?.id
+                        selectedId = store.remove(id: id)
                     }
                 }) {
                     Image(systemName: "minus").font(.system(size: 12))

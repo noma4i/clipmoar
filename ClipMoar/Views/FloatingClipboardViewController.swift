@@ -431,11 +431,7 @@ final class FloatingClipboardViewController: NSViewController,
         let meta = dataSource.meta(for: item, availableTextWidth: availableTextWidth, font: cellFont)
         metaLabel.stringValue = meta.text
 
-        if meta.needsPreview {
-            showPreview(for: item)
-        } else {
-            hidePreview()
-        }
+        showPreview(for: item)
     }
 
     @objc private func pasteSelected() {

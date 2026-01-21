@@ -6,9 +6,6 @@ CONFIG="${1:-debug}"
 BUILD_DIR=".build/$CONFIG"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 
-echo "Building ClipMoar ($CONFIG)..."
-swift build -c "$CONFIG"
-
 echo "Creating app bundle..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"

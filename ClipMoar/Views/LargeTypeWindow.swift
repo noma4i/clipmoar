@@ -49,43 +49,45 @@ final class LargeTypeWindow: NSWindow {
     func showText(_ text: String) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let screenFrame = screen.frame
-        setFrame(screenFrame, display: false)
+        setFrame(screenFrame, display: true)
         setupViews(in: screenFrame)
 
-        let maxWidth = screenFrame.width * 0.65
-        let fontSize = calculateFontSize(for: text, maxWidth: maxWidth)
-        let padding: CGFloat = 48
+        let cvSize = contentView?.bounds.size ?? screenFrame.size
+        let maxWidth = cvSize.width * 0.95
+        let maxHeight = cvSize.height * 0.9
+        let padding: CGFloat = 40
+        let fontSize = fontSizeForLength(text.count)
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
 
-        let textStorage = NSTextStorage(string: text, attributes: [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .medium),
-            .foregroundColor: NSColor.white,
-        ])
-        let layoutManager = NSLayoutManager()
-        let textContainer = NSTextContainer(size: NSSize(width: maxWidth - padding * 2, height: .greatestFiniteMagnitude))
-        textContainer.lineBreakMode = .byWordWrapping
-        textContainer.lineFragmentPadding = 0
-        layoutManager.addTextContainer(textContainer)
-        textStorage.addLayoutManager(layoutManager)
-        layoutManager.ensureLayout(for: textContainer)
+        let textWidth = maxWidth - padding * 2
 
-        let textRect = layoutManager.usedRect(for: textContainer)
-        let backdropW = min(textRect.width + padding * 2, maxWidth)
-        let backdropH = min(textRect.height + padding * 2, screenFrame.height * 0.75)
+        let boundingRect = (text as NSString).boundingRect(
+            with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
 
-        let x = (screenFrame.width - backdropW) / 2
-        let y = (screenFrame.height - backdropH) / 2
+        let contentW = min(max(boundingRect.width, 200), textWidth)
+        let contentH = boundingRect.height
+
+        let backdropW = contentW + padding * 2
+        let backdropH = min(contentH + padding * 2, maxHeight)
+
+        let x = (cvSize.width - backdropW) / 2
+        let y = (cvSize.height - backdropH) / 2
         backdropView.frame = NSRect(x: x, y: y, width: backdropW, height: backdropH)
 
-        textView.frame = NSRect(x: padding, y: padding, width: backdropW - padding * 2, height: backdropH - padding * 2)
+        textView.frame = backdropView.bounds.insetBy(dx: padding, dy: padding)
         textView.isEditable = false
         textView.isSelectable = false
         textView.drawsBackground = false
         textView.string = text
-        textView.font = .systemFont(ofSize: fontSize, weight: .medium)
+        textView.font = font
         textView.textColor = .white
         textView.alignment = .center
-        textView.textContainer?.lineBreakMode = .byWordWrapping
+        textView.textContainer?.lineBreakMode = .byCharWrapping
         textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: contentW, height: .greatestFiniteMagnitude)
         backdropView.addSubview(textView)
 
         orderFrontRegardless()
@@ -95,18 +97,19 @@ final class LargeTypeWindow: NSWindow {
         guard let screen = NSScreen.main ?? NSScreen.screens.first,
               let image = NSImage(data: data) else { return }
         let screenFrame = screen.frame
-        setFrame(screenFrame, display: false)
+        setFrame(screenFrame, display: true)
         setupViews(in: screenFrame)
 
+        let cvSize = contentView?.bounds.size ?? screenFrame.size
         let imageSize = image.size
-        let maxW = screenFrame.width * 0.7
-        let maxH = screenFrame.height * 0.7
+        let maxW = cvSize.width * 0.7
+        let maxH = cvSize.height * 0.7
         let scale = min(maxW / imageSize.width, maxH / imageSize.height, 1.0)
         let w = imageSize.width * scale + 40
         let h = imageSize.height * scale + 40
 
-        let x = (screenFrame.width - w) / 2
-        let y = (screenFrame.height - h) / 2
+        let x = (cvSize.width - w) / 2
+        let y = (cvSize.height - h) / 2
         backdropView.frame = NSRect(x: x, y: y, width: w, height: h)
 
         contentImageView.frame = NSRect(x: 20, y: 20, width: w - 40, height: h - 40)
@@ -122,8 +125,7 @@ final class LargeTypeWindow: NSWindow {
         contentImageView.image = nil
     }
 
-    private func calculateFontSize(for text: String, maxWidth _: CGFloat) -> CGFloat {
-        let length = text.count
+    private func fontSizeForLength(_ length: Int) -> CGFloat {
         if length <= 10 { return 96 }
         if length <= 30 { return 72 }
         if length <= 100 { return 48 }

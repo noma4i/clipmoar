@@ -137,6 +137,10 @@ final class ClipboardService {
             let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
             lastInsertedUUID = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
 
+            if result.text != string {
+                writeTransformedText(result.text)
+            }
+
         } else if settings.storeImages, let imageData = pasteboard.imageData() {
             let fingerprint = ContentFingerprint.hash(data: imageData)
             guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else { return }
@@ -155,6 +159,14 @@ final class ClipboardService {
             lastInsertedUUID = nil
         }
         return true
+    }
+
+    private func writeTransformedText(_ text: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        pb.setData(Data(), forType: ClipboardActionService.markerType)
+        lastChangeCount = pb.changeCount
     }
 
     private func cleanupOldItems() {
