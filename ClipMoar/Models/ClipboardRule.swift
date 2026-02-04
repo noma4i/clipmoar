@@ -34,7 +34,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
     }
 }
 
-struct ClipboardRule: Codable, Identifiable {
+struct ClipboardRule: Codable, Identifiable, Equatable {
     var id: UUID
     var name: String
     var isEnabled: Bool
@@ -68,7 +68,7 @@ struct ClipboardRule: Codable, Identifiable {
     }
 }
 
-struct ClipboardTransform: Codable, Identifiable {
+struct ClipboardTransform: Codable, Identifiable, Equatable {
     var id: UUID
     var type: ClipboardTransformType
     var isEnabled: Bool

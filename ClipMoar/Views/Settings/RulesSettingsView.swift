@@ -57,6 +57,8 @@ final class RulesSettingsModel: ObservableObject {
 struct RulesSettingsView: View {
     @StateObject private var model = RulesSettingsModel()
     @StateObject private var regexStore = RegexStore()
+    @State private var testInput = ""
+    @State private var testOutput = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -67,6 +69,11 @@ struct RulesSettingsView: View {
 
             if model.selectedRule != nil {
                 ruleEditor
+
+                Divider()
+                    .padding(.vertical, 10)
+
+                ruleLookup
             } else {
                 Text("Select a rule or create a new one")
                     .foregroundColor(.secondary)
@@ -269,6 +276,84 @@ struct RulesSettingsView: View {
         .padding(.vertical, 3)
         .padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.04)))
+    }
+
+    private var lookupStatusText: String {
+        guard !testInput.isEmpty else { return "" }
+        return testOutput != testInput ? "Modified" : "No change"
+    }
+
+    private var ruleLookup: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Quick Lookup")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Input").font(.system(size: 10, weight: .medium)).foregroundColor(.secondary)
+                    TextField("Paste text here...", text: $testInput, axis: .vertical)
+                        .lineLimit(3 ... 5)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textFieldStyle(.plain)
+                        .padding(6)
+                        .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
+                        .onChange(of: testInput) { runLookup() }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Output").font(.system(size: 10, weight: .medium)).foregroundColor(.secondary)
+                        Spacer()
+                        if !lookupStatusText.isEmpty {
+                            Text(lookupStatusText)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(lookupStatusText == "Modified" ? .white : .secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(lookupStatusText == "Modified" ? Capsule().fill(Color.green) : nil)
+                        }
+                    }
+                    ScrollView {
+                        Text(testOutput)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .textSelection(.enabled)
+                    }
+                    .frame(height: 60)
+                    .padding(6)
+                    .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
+                }
+            }
+
+            HStack {
+                Button("Paste") {
+                    if let str = NSPasteboard.general.string(forType: .string) {
+                        testInput = str
+                    }
+                }
+                .controlSize(.small)
+
+                Button("Clear") {
+                    testInput = ""
+                    testOutput = ""
+                }
+                .controlSize(.small)
+
+                Spacer()
+            }
+        }
+        .onChange(of: model.rules) { runLookup() }
+        .onChange(of: model.selectedRuleId) { runLookup() }
+    }
+
+    private func runLookup() {
+        guard !testInput.isEmpty, let rule = model.selectedRule else {
+            testOutput = ""
+            return
+        }
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]))
+        testOutput = engine.apply(to: testInput).text
     }
 
     private func regexPicker(for _: ClipboardTransform, index: Int) -> some View {

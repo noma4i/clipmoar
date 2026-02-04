@@ -16,87 +16,81 @@ struct LookAndFeelSettingsView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Panel").font(.system(size: 13, weight: .semibold))
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Panel").font(.system(size: 13, weight: .semibold))
 
-                HStack {
-                    Text("Theme:")
-                        .frame(width: 80, alignment: .trailing)
-                    Picker("", selection: $panelTheme) {
-                        ForEach(PanelTheme.allCases, id: \.rawValue) { t in
-                            Text(t.title).tag(t.rawValue)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 120)
-                    .onChange(of: panelTheme) { settings.panelTheme = $0 }
-                }
-
-                HStack {
-                    Text("Font size:")
-                        .frame(width: 80, alignment: .trailing)
-                    Picker("", selection: $panelFontSize) {
-                        ForEach(PanelFontSize.allCases, id: \.rawValue) { s in
-                            Text(s.title).tag(s.rawValue)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 120)
-                    .onChange(of: panelFontSize) { settings.panelFontSize = $0 }
-                }
-
-                HStack {
-                    Text("Accent:")
-                        .frame(width: 80, alignment: .trailing)
-                    HStack(spacing: 6) {
-                        ForEach(AccentColor.allCases, id: \.rawValue) { c in
-                            Circle()
-                                .fill(Color(nsColor: c.color))
-                                .frame(width: 20, height: 20)
-                                .overlay(
-                                    Circle().stroke(Color.white, lineWidth: accentColor == c.rawValue ? 2 : 0)
-                                )
-                                .onTapGesture {
-                                    accentColor = c.rawValue
-                                    settings.panelAccentColor = c.rawValue
-                                }
-                        }
+            HStack {
+                Text("Theme:")
+                    .frame(width: 80, alignment: .trailing)
+                Picker("", selection: $panelTheme) {
+                    ForEach(PanelTheme.allCases, id: \.rawValue) { t in
+                        Text(t.title).tag(t.rawValue)
                     }
                 }
+                .labelsHidden()
+                .frame(width: 120)
+                .onChange(of: panelTheme) { _, val in settings.panelTheme = val }
+            }
 
-                Spacer().frame(height: 10)
+            HStack {
+                Text("Font size:")
+                    .frame(width: 80, alignment: .trailing)
+                Picker("", selection: $panelFontSize) {
+                    ForEach(PanelFontSize.allCases, id: \.rawValue) { s in
+                        Text(s.title).tag(s.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 120)
+                .onChange(of: panelFontSize) { _, val in settings.panelFontSize = val }
+            }
 
-                Text("Large Type").font(.system(size: 13, weight: .semibold))
-
-                HStack {
-                    Text("Font size:")
-                        .frame(width: 80, alignment: .trailing)
-                    Slider(value: Binding(
-                        get: { Double(largeTypeFontSize) },
-                        set: { largeTypeFontSize = Int($0); settings.largeTypeFontSize = Int($0) }
-                    ), in: 24 ... 120, step: 4)
-                        .frame(width: 150)
-                    Text("\(largeTypeFontSize)pt")
-                        .font(.system(size: 11, design: .monospaced))
-                        .frame(width: 40)
+            HStack {
+                Text("Accent:")
+                    .frame(width: 80, alignment: .trailing)
+                HStack(spacing: 6) {
+                    ForEach(AccentColor.allCases, id: \.rawValue) { c in
+                        Circle()
+                            .fill(Color(nsColor: c.color))
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Circle().stroke(Color.white, lineWidth: accentColor == c.rawValue ? 2 : 0)
+                            )
+                            .onTapGesture {
+                                accentColor = c.rawValue
+                                settings.panelAccentColor = c.rawValue
+                            }
+                    }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
-                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Preview").font(.system(size: 13, weight: .semibold))
-
+            HStack(alignment: .top, spacing: 16) {
                 panelPreview
-                    .frame(height: 160)
+                    .frame(width: 240, height: 160)
 
-                largeTypePreview
-                    .frame(height: 100)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Large Type").font(.system(size: 13, weight: .semibold))
+
+                    HStack {
+                        Text("Font size:")
+                            .frame(width: 80, alignment: .trailing)
+                        Slider(value: Binding(
+                            get: { Double(largeTypeFontSize) },
+                            set: { largeTypeFontSize = Int($0); settings.largeTypeFontSize = Int($0) }
+                        ), in: 24 ... 120, step: 4)
+                            .frame(width: 150)
+                        Text("\(largeTypeFontSize)pt")
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(width: 40)
+                    }
+
+                    largeTypePreview
+                        .frame(height: 100)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(24)
     }
@@ -132,27 +126,75 @@ struct LookAndFeelSettingsView: View {
         Color(nsColor: (AccentColor(rawValue: accentColor) ?? .blue).color)
     }
 
+    private struct PreviewRow: Identifiable {
+        let id: Int
+        let text: String
+        let icon: String
+        let isSelected: Bool
+    }
+
+    private var previewRows: [PreviewRow] {
+        [
+            PreviewRow(id: 0, text: "Hello World", icon: "doc.on.clipboard", isSelected: true),
+            PreviewRow(id: 1, text: "Screenshot.png", icon: "photo", isSelected: false),
+            PreviewRow(id: 2, text: "git commit -m \"fix\"", icon: "terminal", isSelected: false),
+            PreviewRow(id: 3, text: "/usr/local/bin/app", icon: "folder", isSelected: false),
+            PreviewRow(id: 4, text: "https://example.com", icon: "link", isSelected: false),
+        ]
+    }
+
+    private var previewSelectionColor: Color {
+        let accent = AccentColor(rawValue: accentColor) ?? .blue
+        return Color(nsColor: accent.color).opacity(0.85)
+    }
+
+    private var previewShortcutColor: Color {
+        let theme = PanelTheme(rawValue: panelTheme) ?? .dark
+        switch theme {
+        case .dark: return Color(nsColor: NSColor(calibratedWhite: 0.45, alpha: 1.0))
+        case .light: return Color(nsColor: NSColor(calibratedWhite: 0.5, alpha: 1.0))
+        case .system: return .secondary
+        }
+    }
+
     private var panelPreview: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Type to search...")
-                .font(.system(size: CGFloat(panelFontSize) - 2))
-                .foregroundColor(previewTextColor.opacity(0.4))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: CGFloat(panelFontSize) - 4))
+                    .foregroundColor(previewTextColor.opacity(0.3))
+                Text("Type to search...")
+                    .font(.system(size: CGFloat(panelFontSize) - 2))
+                    .foregroundColor(previewTextColor.opacity(0.4))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
 
-            Divider()
+            Rectangle()
+                .fill(previewTextColor.opacity(0.15))
+                .frame(height: 1)
 
-            ForEach(["Hello World", "Screenshot.png", "git commit -m \"fix\""], id: \.self) { text in
-                HStack {
-                    Text(text)
+            ForEach(previewRows) { row in
+                HStack(spacing: 8) {
+                    Image(systemName: row.icon)
+                        .font(.system(size: CGFloat(panelFontSize) - 4))
+                        .frame(width: 18)
+                        .foregroundColor(row.isSelected ? .white : previewTextColor.opacity(0.7))
+
+                    Text(row.text)
                         .font(.system(size: CGFloat(panelFontSize)))
-                        .foregroundColor(previewTextColor)
+                        .foregroundColor(row.isSelected ? .white : previewTextColor)
                         .lineLimit(1)
+
                     Spacer()
+
+                    Text("\u{2318}\(row.id + 1)")
+                        .font(.system(size: CGFloat(panelFontSize) - 4, design: .monospaced))
+                        .foregroundColor(row.isSelected ? .white.opacity(0.6) : previewShortcutColor)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(text == "Hello World" ? previewAccent : Color.clear)
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                .background(row.isSelected ? previewSelectionColor : Color.clear)
             }
 
             Spacer()
