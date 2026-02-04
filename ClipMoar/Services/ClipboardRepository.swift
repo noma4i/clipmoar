@@ -70,9 +70,10 @@ final class CoreDataClipboardRepository: ClipboardRepository {
 
     func isDuplicate(fingerprint: String) -> Bool {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
-        request.predicate = NSPredicate(format: "fingerprint == %@", fingerprint)
+        request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
         request.fetchLimit = 1
-        return ((try? context.count(for: request)) ?? 0) > 0
+        guard let last = try? context.fetch(request).first else { return false }
+        return last.fingerprint == fingerprint
     }
 
     @discardableResult

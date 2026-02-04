@@ -56,6 +56,7 @@ final class ClipboardRuleEngine {
     }
 
     func apply(to text: String, sourceAppBundleId: String? = nil) -> ApplyResult {
+        store.load()
         var result = text
         var appliedRules: [String] = []
 

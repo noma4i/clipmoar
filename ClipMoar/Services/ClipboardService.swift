@@ -109,10 +109,17 @@ final class ClipboardService {
         let gap = newCount - lastChangeCount
         lastChangeCount = newCount
 
-        if pasteboard.hasMarkerType() { return }
-        if pasteboard.hasIgnoredSystemType() { return }
+        if pasteboard.hasMarkerType() {
+            NSLog("[ClipMoar] skip: own marker")
+            return
+        }
+        if pasteboard.hasIgnoredSystemType() {
+            NSLog("[ClipMoar] skip: ignored system type (transient/auto-generated)")
+            return
+        }
 
         if pasteboard.isEmpty() {
+            NSLog("[ClipMoar] skip: empty pasteboard")
             if let uuid = lastInsertedUUID {
                 repository.removeItem(uuid: uuid)
                 lastInsertedUUID = nil
@@ -121,31 +128,48 @@ final class ClipboardService {
         }
 
         let sourceAppBundleId = pasteboard.frontmostBundleId
+        NSLog("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
 
         if let urls = pasteboard.fileURLs() {
             let paths = urls.map { $0.path }.joined(separator: "\n")
             let fingerprint = ContentFingerprint.hash(text: "file:" + paths)
-            guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else { return }
+            guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
+                NSLog("[ClipMoar] skip: duplicate file")
+                return
+            }
 
             lastInsertedUUID = repository.insertFile(paths, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+            NSLog("[ClipMoar] inserted file: %@", paths)
 
         } else if settings.storeText, let string = pasteboard.stringValue(), !string.isEmpty {
             let result = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
-            let fingerprint = ContentFingerprint.hash(text: result.text)
-            guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else { return }
-
-            let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
-            lastInsertedUUID = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
 
             if result.text != string {
+                NSLog("[ClipMoar] text transformed, writing back to clipboard")
                 writeTransformedText(result.text)
             }
 
+            let fingerprint = ContentFingerprint.hash(text: result.text)
+            guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
+                NSLog("[ClipMoar] skip: duplicate text (transform still applied)")
+                return
+            }
+
+            let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
+            lastInsertedUUID = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
+            NSLog("[ClipMoar] inserted text (rule: %@): %@", appliedRule ?? "none", String(result.text.prefix(80)))
+
         } else if settings.storeImages, let imageData = pasteboard.imageData() {
             let fingerprint = ContentFingerprint.hash(data: imageData)
-            guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else { return }
+            guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
+                NSLog("[ClipMoar] skip: duplicate image")
+                return
+            }
 
             lastInsertedUUID = repository.insertImage(imageData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+            NSLog("[ClipMoar] inserted image: %d bytes", imageData.count)
+        } else {
+            NSLog("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, pasteboard.stringValue() != nil ? 1 : 0, pasteboard.imageData() != nil ? 1 : 0)
         }
 
         repository.trimHistory(maxSize: max(settings.maxHistorySize, 1))

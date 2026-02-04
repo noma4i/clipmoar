@@ -90,6 +90,13 @@ final class AppCoordinator {
     }
 
     @objc func showPreferences() {
+        if let window = preferencesWindowController.window,
+           let screen = NSScreen.main ?? NSScreen.screens.first
+        {
+            let x = screen.frame.midX - window.frame.width / 2
+            let y = screen.frame.midY - window.frame.height / 2
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        }
         preferencesWindowController.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
