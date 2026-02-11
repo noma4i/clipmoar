@@ -12,7 +12,7 @@ final class FloatingPanel: NSPanel {
         isMovableByWindowBackground = true
         level = .floating
         isOpaque = true
-        backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0)
+        backgroundColor = .black
         hasShadow = false
         hidesOnDeactivate = true
         becomesKeyOnlyIfNeeded = false
@@ -29,7 +29,9 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        orderOut(nil)
+        if hidesOnDeactivate {
+            orderOut(nil)
+        }
     }
 }
 
@@ -95,6 +97,15 @@ final class FloatingPanelController: NSWindowController {
 
     func dismiss() {
         window?.orderOut(nil)
+        (window as? FloatingPanel)?.hidesOnDeactivate = true
+    }
+
+    func refreshTheme() {
+        clipViewController.refresh()
+    }
+
+    func setSticky(_ sticky: Bool) {
+        (window as? FloatingPanel)?.hidesOnDeactivate = !sticky
     }
 
     private func targetScreen() -> NSScreen? {

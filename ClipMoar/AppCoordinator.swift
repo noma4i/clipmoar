@@ -22,10 +22,15 @@ final class AppCoordinator {
         onResume: { [weak self] in self?.hotkeyService.resume() },
         onHotkeyChange: { [weak self] in self?.reregisterHotkey() }
     )
+    private lazy var lookEditorController = LookEditorController(
+        settings: settings,
+        onDismiss: { [weak self] in self?.exitLookEditor() }
+    )
     private lazy var preferencesWindowController = PreferencesWindowController(
         settings: settings,
         onVisibilityChange: { [weak self] in self?.applyVisibilitySettings() },
-        hotkeyRecorder: hotkeyRecorder
+        hotkeyRecorder: hotkeyRecorder,
+        onEditLook: { [weak self] in self?.enterLookEditor() }
     )
 
     init(
@@ -97,6 +102,16 @@ final class AppCoordinator {
             let y = screen.frame.midY - window.frame.height / 2
             window.setFrameOrigin(NSPoint(x: x, y: y))
         }
+        preferencesWindowController.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func enterLookEditor() {
+        preferencesWindowController.window?.orderOut(nil)
+        lookEditorController.show()
+    }
+
+    private func exitLookEditor() {
         preferencesWindowController.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

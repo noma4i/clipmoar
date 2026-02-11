@@ -5,6 +5,7 @@ struct SettingsView: View {
     let settings: SettingsStore
     let hotkeyRecorder: HotkeyRecorder
     var onVisibilityChange: (() -> Void)?
+    var onEditLook: (() -> Void)?
 
     var body: some View {
         NavigationSplitView {
@@ -43,7 +44,7 @@ struct SettingsView: View {
                 case "rules":
                     RulesSettingsView()
                 case "lookfeel":
-                    LookAndFeelSettingsView(settings: settings)
+                    LookAndFeelSettingsView(settings: settings, onEditLook: onEditLook)
                 case "transforms":
                     TransformsSettingsView()
                 case "regex":

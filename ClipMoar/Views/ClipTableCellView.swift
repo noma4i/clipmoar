@@ -13,7 +13,7 @@ final class ClipTableCellView: NSTableCellView {
         nil
     }
 
-    func configure(with item: ClipboardItem, row: Int) {
+    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)) {
         if item.isImage, let data = item.imageData, let thumb = NSImage(data: data) {
             thumb.size = NSSize(width: 22, height: 22)
             imageView?.image = thumb
@@ -28,10 +28,12 @@ final class ClipTableCellView: NSTableCellView {
         }
 
         textField?.stringValue = item.displayTitle
-        textField?.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
+        textField?.textColor = textColor
         textField?.font = item.isPinned
-            ? .boldSystemFont(ofSize: 15)
-            : .systemFont(ofSize: 15)
+            ? .boldSystemFont(ofSize: fontSize)
+            : .systemFont(ofSize: fontSize)
+
+        shortcutLabel.textColor = shortcutColor
 
         if row < 9 {
             shortcutLabel.stringValue = "\u{2318}\(row + 1)"
@@ -80,9 +82,11 @@ final class ClipTableCellView: NSTableCellView {
 }
 
 final class ClipTableRowView: NSTableRowView {
+    var accentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
+
     override func drawSelection(in _: NSRect) {
         if selectionHighlightStyle != .none {
-            NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9).setFill()
+            accentColor.setFill()
             bounds.fill()
         }
     }

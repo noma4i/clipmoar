@@ -29,6 +29,10 @@ final class FloatingClipboardViewController: NSViewController,
     private let largeTypeController = LargeTypeController()
     var onOpenPreferences: (() -> Void)?
 
+    private var currentTheme: PanelTheme = .dark
+    private var currentFontSize: CGFloat = 15
+    private var currentAccentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
+
     private var selectedItem: ClipboardItem? {
         dataSource.item(at: tableView.selectedRow)
     }
@@ -64,6 +68,7 @@ final class FloatingClipboardViewController: NSViewController,
     // MARK: - Public
 
     func refresh() {
+        applyTheme()
         searchField.stringValue = ""
         largeTypeController.dismiss()
         hidePreview()
@@ -76,6 +81,36 @@ final class FloatingClipboardViewController: NSViewController,
         } else {
             metaLabel.stringValue = ""
         }
+    }
+
+    private func applyTheme() {
+        let theme = PanelTheme(rawValue: settings.panelTheme) ?? .dark
+        let fontSize = CGFloat(settings.panelFontSize)
+        let accent = AccentColor(rawValue: settings.panelAccentColor) ?? .blue
+
+        switch theme {
+        case .dark:
+            view.appearance = NSAppearance(named: .darkAqua)
+            view.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
+            searchField.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
+        case .light:
+            view.appearance = NSAppearance(named: .aqua)
+            view.layer?.backgroundColor = NSColor(calibratedWhite: 0.95, alpha: 1.0).cgColor
+            searchField.textColor = NSColor(calibratedWhite: 0.1, alpha: 1.0)
+        case .system:
+            view.appearance = nil
+            view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            searchField.textColor = .labelColor
+        }
+
+        view.window?.backgroundColor = NSColor(cgColor: view.layer?.backgroundColor ?? CGColor.black) ?? .black
+
+        searchField.font = .systemFont(ofSize: fontSize)
+        tableView.rowHeight = max(fontSize * 2.2, 28)
+
+        currentTheme = theme
+        currentFontSize = fontSize
+        currentAccentColor = accent.color
     }
 
     func focusOnList() {
@@ -461,12 +496,27 @@ final class FloatingClipboardViewController: NSViewController,
             cell = ClipTableCellView()
         }
 
-        cell.configure(with: item, row: row)
+        let textColor: NSColor
+        let shortcutColor: NSColor
+        switch currentTheme {
+        case .dark:
+            textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
+            shortcutColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)
+        case .light:
+            textColor = NSColor(calibratedWhite: 0.1, alpha: 1.0)
+            shortcutColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
+        case .system:
+            textColor = .labelColor
+            shortcutColor = .secondaryLabelColor
+        }
+        cell.configure(with: item, row: row, fontSize: currentFontSize, textColor: textColor, shortcutColor: shortcutColor)
         return cell
     }
 
     func tableView(_: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
-        ClipTableRowView()
+        let row = ClipTableRowView()
+        row.accentColor = currentAccentColor
+        return row
     }
 
     func tableViewSelectionDidChange(_: Notification) {
