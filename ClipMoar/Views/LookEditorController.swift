@@ -43,7 +43,7 @@ final class LookEditorController {
             return
         }
 
-        dismiss()
+        cleanup()
 
         let model = LookEditorModel(settings: settings)
 
@@ -65,17 +65,17 @@ final class LookEditorController {
         mock.contentViewController = mockHosting
 
         let editor = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 260, height: 260),
-            styleMask: [.titled, .closable, .utilityWindow, .hudWindow],
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 352),
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        editor.title = "Edit Look"
         editor.level = .floating
+        editor.isOpaque = true
+        editor.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0)
+        editor.hasShadow = true
         editor.hidesOnDeactivate = false
         editor.isMovableByWindowBackground = true
-        editor.isReleasedWhenClosed = false
-        editor.appearance = NSAppearance(named: .vibrantDark)
 
         let editorView = EditorControlsView(model: model, onDone: { [weak self] in self?.dismiss() })
         let editorHosting = NSHostingController(rootView: editorView)
@@ -83,12 +83,12 @@ final class LookEditorController {
 
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let screenFrame = screen.visibleFrame
-        let totalWidth: CGFloat = 460 + 12 + 260
+        let totalWidth: CGFloat = 460 + 12 + 300
         let x = screenFrame.midX - totalWidth / 2
         let y = screenFrame.midY - 176
 
         mock.setFrameOrigin(NSPoint(x: x, y: y))
-        editor.setFrameOrigin(NSPoint(x: x + 460 + 12, y: y))
+        editor.setFrameOrigin(NSPoint(x: x + 460 + 12, y: y + (352 - 352) / 2))
 
         mock.orderFront(nil)
         editor.makeKeyAndOrderFront(nil)
@@ -106,6 +106,11 @@ final class LookEditorController {
     }
 
     func dismiss() {
+        cleanup()
+        onDismiss()
+    }
+
+    private func cleanup() {
         if let monitor = escapeMonitor {
             NSEvent.removeMonitor(monitor)
             escapeMonitor = nil
@@ -114,7 +119,6 @@ final class LookEditorController {
         mockPanel = nil
         editorPanel?.orderOut(nil)
         editorPanel = nil
-        onDismiss()
     }
 }
 
@@ -221,8 +225,10 @@ private struct EditorControlsView: View {
     let onDone: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Panel").font(.system(size: 13, weight: .semibold))
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Panel")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color(nsColor: NSColor(calibratedWhite: 0.9, alpha: 1.0)))
 
             HStack {
                 Text("Theme:")
@@ -269,16 +275,60 @@ private struct EditorControlsView: View {
                 }
             }
 
+            Divider()
+                .background(Color.white.opacity(0.2))
+
+            Text("Large Type")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color(nsColor: NSColor(calibratedWhite: 0.9, alpha: 1.0)))
+
+            HStack {
+                Text("Size:")
+                    .frame(width: 80, alignment: .trailing)
+                Slider(value: Binding(
+                    get: { Double(model.largeTypeFontSize) },
+                    set: {
+                        model.largeTypeFontSize = Int($0)
+                        model.syncToSettings()
+                    }
+                ), in: 24 ... 120, step: 4)
+                    .frame(width: 120)
+                Text("\(model.largeTypeFontSize)pt")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 36)
+            }
+
+            largeTypePreview
+                .frame(height: 80)
+
             Spacer()
 
             HStack {
+                Text("ESC to close")
+                    .font(.system(size: 10))
+                    .foregroundColor(Color(nsColor: NSColor(calibratedWhite: 0.45, alpha: 1.0)))
                 Spacer()
                 Button("Done") { onDone() }
                     .keyboardShortcut(.return)
-                    .controlSize(.large)
+                    .controlSize(.regular)
             }
         }
         .padding(16)
-        .frame(width: 260, height: 260)
+        .frame(width: 300, height: 352)
+        .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
+    }
+
+    private var largeTypePreview: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: NSColor(white: 0.08, alpha: 0.9)))
+                .padding(8)
+            Text("ClipMoar")
+                .font(.system(size: CGFloat(model.largeTypeFontSize) * 0.35, weight: .medium))
+                .foregroundColor(.white)
+        }
+        .cornerRadius(6)
     }
 }

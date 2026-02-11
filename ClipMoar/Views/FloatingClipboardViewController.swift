@@ -111,6 +111,9 @@ final class FloatingClipboardViewController: NSViewController,
         currentTheme = theme
         currentFontSize = fontSize
         currentAccentColor = accent.color
+
+        let ltSize = settings.largeTypeFontSize
+        largeTypeController.fontSize = ltSize > 0 ? CGFloat(ltSize) : nil
     }
 
     func focusOnList() {

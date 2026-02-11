@@ -46,7 +46,7 @@ final class LargeTypeWindow: NSWindow {
         contentImageView.imageAlignment = .alignCenter
     }
 
-    func showText(_ text: String) {
+    func showText(_ text: String, fontSize overrideFontSize: CGFloat? = nil) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let screenFrame = screen.frame
         setFrame(screenFrame, display: true)
@@ -56,7 +56,7 @@ final class LargeTypeWindow: NSWindow {
         let maxWidth = cvSize.width * 0.95
         let maxHeight = cvSize.height * 0.9
         let padding: CGFloat = 40
-        let fontSize = fontSizeForLength(text.count)
+        let fontSize = overrideFontSize ?? fontSizeForLength(text.count)
         let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
         let textWidth = maxWidth - padding * 2
 
@@ -134,6 +134,7 @@ final class LargeTypeWindow: NSWindow {
 final class LargeTypeController {
     private var window: LargeTypeWindow?
     private var eventMonitor: Any?
+    var fontSize: CGFloat?
 
     var isVisible: Bool {
         window?.isVisible ?? false
@@ -147,7 +148,7 @@ final class LargeTypeController {
         if item.isImage, let data = item.imageData {
             win.showImage(data)
         } else if let text = item.content, !text.isEmpty {
-            win.showText(text)
+            win.showText(text, fontSize: fontSize)
         } else {
             return
         }
