@@ -24,6 +24,8 @@ final class AppCoordinator {
     )
     private lazy var lookEditorController = LookEditorController(
         settings: settings,
+        repository: repository,
+        actionService: clipboardActions,
         onDismiss: { [weak self] in self?.exitLookEditor() }
     )
     private lazy var preferencesWindowController = PreferencesWindowController(

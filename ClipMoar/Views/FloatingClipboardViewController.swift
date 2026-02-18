@@ -28,6 +28,7 @@ final class FloatingClipboardViewController: NSViewController,
     private let settings: SettingsStore
     private let largeTypeController = LargeTypeController()
     var onOpenPreferences: (() -> Void)?
+    var previewOnly = false
 
     private var currentTheme: PanelTheme = .dark
     private var currentFontSize: CGFloat = 15
@@ -125,7 +126,14 @@ final class FloatingClipboardViewController: NSViewController,
 
     // MARK: - Setup
 
+    private let searchIcon = NSImageView()
+
     private func setupSearchField() {
+        searchIcon.translatesAutoresizingMaskIntoConstraints = false
+        searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+        searchIcon.contentTintColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
+        view.addSubview(searchIcon)
+
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.placeholderString = "Type to search..."
         searchField.delegate = self
@@ -144,9 +152,14 @@ final class FloatingClipboardViewController: NSViewController,
         view.addSubview(separator)
 
         NSLayoutConstraint.activate([
+            searchIcon.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            searchIcon.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
+            searchIcon.widthAnchor.constraint(equalToConstant: 16),
+            searchIcon.heightAnchor.constraint(equalToConstant: 16),
+
             searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
-            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            searchField.widthAnchor.constraint(equalToConstant: listWidth - 24),
+            searchField.leadingAnchor.constraint(equalTo: searchIcon.trailingAnchor, constant: 6),
+            searchField.trailingAnchor.constraint(equalTo: view.leadingAnchor, constant: listWidth - 12),
             searchField.heightAnchor.constraint(equalToConstant: 28),
 
             separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
@@ -296,6 +309,37 @@ final class FloatingClipboardViewController: NSViewController,
             guard let self = self,
                   self.view.window?.isVisible == true else { return event }
 
+            if self.previewOnly {
+                switch event.keyCode {
+                case 125, 126: // Arrow up/down
+                    self.view.window?.makeFirstResponder(self.tableView)
+                    self.tableView.keyDown(with: event)
+                    return nil
+                case 51: // Backspace - search
+                    if self.view.window?.firstResponder !== self.searchField.currentEditor() {
+                        self.view.window?.makeFirstResponder(self.searchField)
+                    }
+                    if !self.searchField.stringValue.isEmpty {
+                        self.searchField.stringValue = String(self.searchField.stringValue.dropLast())
+                        self.performSearch()
+                    }
+                    return nil
+                default:
+                    let navKeys: Set<UInt16> = [125, 126, 116, 121, 115, 119, 123, 124, 53, 36, 48]
+                    if !navKeys.contains(event.keyCode),
+                       !event.modifierFlags.contains(.command),
+                       let chars = event.characters, !chars.isEmpty,
+                       chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+                    {
+                        self.view.window?.makeFirstResponder(self.searchField)
+                        self.searchField.stringValue += chars
+                        self.performSearch()
+                        return nil
+                    }
+                    return event
+                }
+            }
+
             switch event.keyCode {
             case 53: // Escape
                 self.largeTypeController.dismiss()
@@ -336,7 +380,6 @@ final class FloatingClipboardViewController: NSViewController,
 
             case 51: // Backspace
                 if event.modifierFlags.contains(.command) {
-                    // Cmd+Delete - remove selected item
                     let row = self.tableView.selectedRow
                     if row >= 0 {
                         self.dataSource.remove(at: row)

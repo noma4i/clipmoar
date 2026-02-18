@@ -27,12 +27,17 @@ final class LookEditorModel: ObservableObject {
 final class LookEditorController {
     private var mockPanel: NSPanel?
     private var editorPanel: NSPanel?
+    private var clipViewController: FloatingClipboardViewController?
     private let settings: SettingsStore
+    private let repository: ClipboardRepository
+    private let actionService: ClipboardActionServicing
     private let onDismiss: () -> Void
     private var escapeMonitor: Any?
 
-    init(settings: SettingsStore, onDismiss: @escaping () -> Void) {
+    init(settings: SettingsStore, repository: ClipboardRepository, actionService: ClipboardActionServicing, onDismiss: @escaping () -> Void) {
         self.settings = settings
+        self.repository = repository
+        self.actionService = actionService
         self.onDismiss = onDismiss
     }
 
@@ -47,6 +52,14 @@ final class LookEditorController {
 
         let model = LookEditorModel(settings: settings)
 
+        let vc = FloatingClipboardViewController(
+            repository: repository,
+            actionService: actionService,
+            settings: settings
+        )
+        vc.previewOnly = true
+        clipViewController = vc
+
         let mock = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 352),
             styleMask: [.borderless],
@@ -59,10 +72,9 @@ final class LookEditorController {
         mock.hasShadow = true
         mock.hidesOnDeactivate = false
         mock.isMovableByWindowBackground = true
+        mock.contentView = vc.view
 
-        let mockView = MockPanelView(model: model)
-        let mockHosting = NSHostingController(rootView: mockView)
-        mock.contentViewController = mockHosting
+        vc.refresh()
 
         let editor = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 352),
@@ -77,7 +89,11 @@ final class LookEditorController {
         editor.hidesOnDeactivate = false
         editor.isMovableByWindowBackground = true
 
-        let editorView = EditorControlsView(model: model, onDone: { [weak self] in self?.dismiss() })
+        let editorView = EditorControlsView(
+            model: model,
+            onDone: { [weak self] in self?.dismiss() },
+            onChanged: { [weak self] in self?.clipViewController?.refresh() }
+        )
         let editorHosting = NSHostingController(rootView: editorView)
         editor.contentViewController = editorHosting
 
@@ -88,7 +104,7 @@ final class LookEditorController {
         let y = screenFrame.midY - 176
 
         mock.setFrameOrigin(NSPoint(x: x, y: y))
-        editor.setFrameOrigin(NSPoint(x: x + 460 + 12, y: y + (352 - 352) / 2))
+        editor.setFrameOrigin(NSPoint(x: x + 460 + 12, y: y))
 
         mock.orderFront(nil)
         editor.makeKeyAndOrderFront(nil)
@@ -119,6 +135,7 @@ final class LookEditorController {
         mockPanel = nil
         editorPanel?.orderOut(nil)
         editorPanel = nil
+        clipViewController = nil
     }
 }
 
@@ -171,51 +188,89 @@ private struct MockPanelView: View {
         ("config.yaml", "gearshape"),
     ]
 
+    private var previewBgColor: Color {
+        let theme = PanelTheme(rawValue: model.theme) ?? .dark
+        switch theme {
+        case .dark: return Color(nsColor: NSColor(calibratedWhite: 0.10, alpha: 1.0))
+        case .light: return Color(nsColor: NSColor(calibratedWhite: 0.90, alpha: 1.0))
+        case .system: return Color(nsColor: .controlBackgroundColor)
+        }
+    }
+
+    private var metaPillColor: Color {
+        Color(nsColor: NSColor(calibratedWhite: 0.0, alpha: 0.5))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: fontSize - 4))
-                    .foregroundColor(textColor.opacity(0.3))
-                Text("Type to search...")
-                    .font(.system(size: fontSize))
-                    .foregroundColor(textColor.opacity(0.4))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-
-            Rectangle()
-                .fill(textColor.opacity(0.15))
-                .frame(height: 1)
-
-            ForEach(Array(sampleRows.enumerated()), id: \.offset) { index, row in
-                HStack(spacing: 8) {
-                    Image(systemName: row.icon)
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
                         .font(.system(size: fontSize - 4))
-                        .frame(width: 22)
-                        .foregroundColor(index == 0 ? .white : textColor.opacity(0.7))
-
-                    Text(row.text)
+                        .foregroundColor(textColor.opacity(0.3))
+                    Text("Type to search...")
                         .font(.system(size: fontSize))
-                        .foregroundColor(index == 0 ? .white : textColor)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    if index < 9 {
-                        Text("\u{2318}\(index + 1)")
-                            .font(.system(size: fontSize - 4, design: .monospaced))
-                            .foregroundColor(index == 0 ? .white.opacity(0.6) : shortcutColor)
-                    }
+                        .foregroundColor(textColor.opacity(0.4))
                 }
                 .padding(.horizontal, 12)
-                .frame(height: max(fontSize * 2.2, 28))
-                .background(index == 0 ? selectionColor : Color.clear)
-            }
+                .padding(.vertical, 10)
 
-            Spacer()
+                Rectangle()
+                    .fill(textColor.opacity(0.15))
+                    .frame(height: 1)
+
+                ForEach(Array(sampleRows.enumerated()), id: \.offset) { index, row in
+                    HStack(spacing: 8) {
+                        Image(systemName: row.icon)
+                            .font(.system(size: fontSize - 4))
+                            .frame(width: 22)
+                            .foregroundColor(index == 0 ? .white : textColor.opacity(0.7))
+
+                        Text(row.text)
+                            .font(.system(size: fontSize))
+                            .foregroundColor(index == 0 ? .white : textColor)
+                            .lineLimit(1)
+
+                        Spacer()
+
+                        if index < 9 {
+                            Text("\u{2318}\(index + 1)")
+                                .font(.system(size: fontSize - 4, design: .monospaced))
+                                .foregroundColor(index == 0 ? .white.opacity(0.6) : shortcutColor)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: max(fontSize * 2.2, 28))
+                    .background(index == 0 ? selectionColor : Color.clear)
+                }
+
+                Spacer()
+            }
+            .frame(width: 460)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Hello World")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(textColor.opacity(0.85))
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                HStack {
+                    Spacer()
+                    Text("2 words; 11 chars  Copied Today 00:01")
+                        .font(.system(size: 10))
+                        .foregroundColor(textColor.opacity(0.7))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(metaPillColor))
+                    Spacer()
+                }
+                .padding(.bottom, 8)
+            }
+            .frame(width: 260)
+            .background(previewBgColor)
         }
-        .frame(width: 460, height: 352)
+        .frame(width: 720, height: 352)
         .background(bgColor)
     }
 }
@@ -223,6 +278,7 @@ private struct MockPanelView: View {
 private struct EditorControlsView: View {
     @ObservedObject var model: LookEditorModel
     let onDone: () -> Void
+    var onChanged: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -240,7 +296,7 @@ private struct EditorControlsView: View {
                 }
                 .labelsHidden()
                 .frame(width: 120)
-                .onChange(of: model.theme) { _, _ in model.syncToSettings() }
+                .onChange(of: model.theme) { _, _ in model.syncToSettings(); onChanged?() }
             }
 
             HStack {
@@ -253,7 +309,7 @@ private struct EditorControlsView: View {
                 }
                 .labelsHidden()
                 .frame(width: 120)
-                .onChange(of: model.fontSize) { _, _ in model.syncToSettings() }
+                .onChange(of: model.fontSize) { _, _ in model.syncToSettings(); onChanged?() }
             }
 
             HStack {
@@ -270,6 +326,7 @@ private struct EditorControlsView: View {
                             .onTapGesture {
                                 model.accent = c.rawValue
                                 model.syncToSettings()
+                                onChanged?()
                             }
                     }
                 }
@@ -317,6 +374,7 @@ private struct EditorControlsView: View {
         .padding(16)
         .frame(width: 300, height: 352)
         .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
+        .environment(\.colorScheme, .dark)
     }
 
     private var largeTypePreview: some View {
