@@ -18,6 +18,9 @@ protocol SettingsStore: AnyObject {
     var panelFontSize: Int { get set }
     var panelTheme: Int { get set }
     var panelAccentColor: Int { get set }
+    var panelCornerRadius: Int { get set }
+    var panelPadding: Int { get set }
+    var panelFontWeight: Int { get set }
     var largeTypeFontSize: Int { get set }
 
     func registerDefaults()
@@ -90,6 +93,9 @@ enum Settings {
     static let panelFontSize = "panelFontSize"
     static let panelTheme = "panelTheme"
     static let panelAccentColor = "panelAccentColor"
+    static let panelCornerRadius = "panelCornerRadius"
+    static let panelPadding = "panelPadding"
+    static let panelFontWeight = "panelFontWeight"
     static let largeTypeFontSize = "largeTypeFontSize"
 }
 
@@ -239,6 +245,21 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelAccentColor) }
     }
 
+    var panelCornerRadius: Int {
+        get { defaults.integer(forKey: Settings.panelCornerRadius) }
+        set { defaults.set(newValue, forKey: Settings.panelCornerRadius) }
+    }
+
+    var panelPadding: Int {
+        get { defaults.integer(forKey: Settings.panelPadding) }
+        set { defaults.set(newValue, forKey: Settings.panelPadding) }
+    }
+
+    var panelFontWeight: Int {
+        get { defaults.integer(forKey: Settings.panelFontWeight) }
+        set { defaults.set(newValue, forKey: Settings.panelFontWeight) }
+    }
+
     var largeTypeFontSize: Int {
         get { defaults.integer(forKey: Settings.largeTypeFontSize) }
         set { defaults.set(newValue, forKey: Settings.largeTypeFontSize) }
@@ -262,6 +283,9 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelFontSize: PanelFontSize.medium.rawValue,
             Settings.panelTheme: PanelTheme.dark.rawValue,
             Settings.panelAccentColor: AccentColor.blue.rawValue,
+            Settings.panelCornerRadius: 0,
+            Settings.panelPadding: 12,
+            Settings.panelFontWeight: 0,
             Settings.largeTypeFontSize: 48,
         ])
     }

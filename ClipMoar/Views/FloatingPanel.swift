@@ -101,7 +101,7 @@ final class FloatingPanelController: NSWindowController {
     }
 
     func refreshTheme() {
-        clipViewController.refresh()
+        clipViewController.applyTheme()
     }
 
     func setSticky(_ sticky: Bool) {

@@ -6,6 +6,9 @@ final class LookEditorModel: ObservableObject {
     @Published var theme: Int
     @Published var fontSize: Int
     @Published var accent: Int
+    @Published var cornerRadius: Int
+    @Published var padding: Int
+    @Published var fontWeight: Int
     @Published var largeTypeFontSize: Int
 
     init(settings: SettingsStore) {
@@ -13,6 +16,9 @@ final class LookEditorModel: ObservableObject {
         theme = settings.panelTheme
         fontSize = settings.panelFontSize
         accent = settings.panelAccentColor
+        cornerRadius = settings.panelCornerRadius
+        padding = settings.panelPadding
+        fontWeight = settings.panelFontWeight
         largeTypeFontSize = settings.largeTypeFontSize
     }
 
@@ -20,6 +26,9 @@ final class LookEditorModel: ObservableObject {
         settings.panelTheme = theme
         settings.panelFontSize = fontSize
         settings.panelAccentColor = accent
+        settings.panelCornerRadius = cornerRadius
+        settings.panelPadding = padding
+        settings.panelFontWeight = fontWeight
         settings.largeTypeFontSize = largeTypeFontSize
     }
 }
@@ -77,7 +86,7 @@ final class LookEditorController {
         vc.refresh()
 
         let editor = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 352),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -92,19 +101,19 @@ final class LookEditorController {
         let editorView = EditorControlsView(
             model: model,
             onDone: { [weak self] in self?.dismiss() },
-            onChanged: { [weak self] in self?.clipViewController?.refresh() }
+            onChanged: { [weak self] in self?.clipViewController?.applyTheme() }
         )
         let editorHosting = NSHostingController(rootView: editorView)
         editor.contentViewController = editorHosting
 
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let screenFrame = screen.visibleFrame
-        let totalWidth: CGFloat = 460 + 12 + 300
-        let x = screenFrame.midX - totalWidth / 2
-        let y = screenFrame.midY - 176
+        let mockWidth: CGFloat = 460
+        let mockX = screenFrame.midX - mockWidth / 2
+        let mockY = screenFrame.midY - 176
 
-        mock.setFrameOrigin(NSPoint(x: x, y: y))
-        editor.setFrameOrigin(NSPoint(x: x + 460 + 12, y: y))
+        mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
+        editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: mockY - 34))
 
         mock.orderFront(nil)
         editor.makeKeyAndOrderFront(nil)
@@ -280,91 +289,29 @@ private struct EditorControlsView: View {
     let onDone: () -> Void
     var onChanged: (() -> Void)?
 
+    private func changed() {
+        model.syncToSettings()
+        onChanged?()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Panel")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color(nsColor: NSColor(calibratedWhite: 0.9, alpha: 1.0)))
-
-            HStack {
-                Text("Theme:")
-                    .frame(width: 80, alignment: .trailing)
-                Picker("", selection: $model.theme) {
-                    ForEach(PanelTheme.allCases, id: \.rawValue) { t in
-                        Text(t.title).tag(t.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 120)
-                .onChange(of: model.theme) { _, _ in model.syncToSettings(); onChanged?() }
-            }
-
-            HStack {
-                Text("Font size:")
-                    .frame(width: 80, alignment: .trailing)
-                Picker("", selection: $model.fontSize) {
-                    ForEach(PanelFontSize.allCases, id: \.rawValue) { s in
-                        Text(s.title).tag(s.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 120)
-                .onChange(of: model.fontSize) { _, _ in model.syncToSettings(); onChanged?() }
-            }
-
-            HStack {
-                Text("Accent:")
-                    .frame(width: 80, alignment: .trailing)
-                HStack(spacing: 6) {
-                    ForEach(AccentColor.allCases, id: \.rawValue) { c in
-                        Circle()
-                            .fill(Color(nsColor: c.color))
-                            .frame(width: 20, height: 20)
-                            .overlay(
-                                Circle().stroke(Color.white, lineWidth: model.accent == c.rawValue ? 2 : 0)
-                            )
-                            .onTapGesture {
-                                model.accent = c.rawValue
-                                model.syncToSettings()
-                                onChanged?()
-                            }
-                    }
-                }
-            }
+            themePills
 
             Divider()
-                .background(Color.white.opacity(0.2))
 
-            Text("Large Type")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color(nsColor: NSColor(calibratedWhite: 0.9, alpha: 1.0)))
-
-            HStack {
-                Text("Size:")
-                    .frame(width: 80, alignment: .trailing)
-                Slider(value: Binding(
-                    get: { Double(model.largeTypeFontSize) },
-                    set: {
-                        model.largeTypeFontSize = Int($0)
-                        model.syncToSettings()
-                    }
-                ), in: 24 ... 120, step: 4)
-                    .frame(width: 120)
-                Text("\(model.largeTypeFontSize)pt")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
-                    .frame(width: 36)
+            HStack(alignment: .top, spacing: 20) {
+                listSettings
+                Divider()
+                panelSettings
             }
-
-            largeTypePreview
-                .frame(height: 80)
 
             Spacer()
 
             HStack {
                 Text("ESC to close")
                     .font(.system(size: 10))
-                    .foregroundColor(Color(nsColor: NSColor(calibratedWhite: 0.45, alpha: 1.0)))
+                    .foregroundColor(.secondary)
                 Spacer()
                 Button("Done") { onDone() }
                     .keyboardShortcut(.return)
@@ -372,21 +319,148 @@ private struct EditorControlsView: View {
             }
         }
         .padding(16)
-        .frame(width: 300, height: 352)
+        .frame(width: 460, height: 420)
         .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
         .environment(\.colorScheme, .dark)
     }
 
-    private var largeTypePreview: some View {
-        ZStack {
-            Color.black.opacity(0.6)
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: NSColor(white: 0.08, alpha: 0.9)))
-                .padding(8)
-            Text("ClipMoar")
-                .font(.system(size: CGFloat(model.largeTypeFontSize) * 0.35, weight: .medium))
-                .foregroundColor(.white)
+    private var themePills: some View {
+        HStack(spacing: 0) {
+            ForEach(PanelTheme.allCases, id: \.rawValue) { theme in
+                Button {
+                    model.theme = theme.rawValue
+                    changed()
+                } label: {
+                    Text(theme.title)
+                        .font(.system(size: 12, weight: model.theme == theme.rawValue ? .semibold : .regular))
+                        .foregroundColor(model.theme == theme.rawValue ? .white : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(
+                            model.theme == theme.rawValue
+                                ? RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: (AccentColor(rawValue: model.accent) ?? .blue).color))
+                                : nil
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .cornerRadius(6)
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08)))
+    }
+
+    private var listSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("List")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            settingRow("Font size:") {
+                Picker("", selection: Binding(
+                    get: { model.fontSize },
+                    set: { model.fontSize = $0; changed() }
+                )) {
+                    ForEach(PanelFontSize.allCases, id: \.rawValue) { s in
+                        Text(s.title).tag(s.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 100)
+            }
+
+            settingRow("Font weight:") {
+                Picker("", selection: Binding(
+                    get: { model.fontWeight },
+                    set: { model.fontWeight = $0; changed() }
+                )) {
+                    Text("Regular").tag(0)
+                    Text("Medium").tag(1)
+                    Text("Bold").tag(2)
+                }
+                .labelsHidden()
+                .frame(width: 100)
+            }
+
+            settingRow("Accent:") {
+                HStack(spacing: 5) {
+                    ForEach(AccentColor.allCases, id: \.rawValue) { c in
+                        Circle()
+                            .fill(Color(nsColor: c.color))
+                            .frame(width: 18, height: 18)
+                            .overlay(
+                                Circle().stroke(Color.white, lineWidth: model.accent == c.rawValue ? 2 : 0)
+                            )
+                            .onTapGesture {
+                                model.accent = c.rawValue
+                                changed()
+                            }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var panelSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Panel")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            settingRow("Corner:") {
+                HStack(spacing: 4) {
+                    Slider(value: Binding(
+                        get: { Double(model.cornerRadius) },
+                        set: { model.cornerRadius = Int($0); changed() }
+                    ), in: 0 ... 20, step: 2)
+                        .frame(width: 80)
+                    Text("\(model.cornerRadius)px")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 32)
+                }
+            }
+
+            settingRow("Padding:") {
+                HStack(spacing: 4) {
+                    Slider(value: Binding(
+                        get: { Double(model.padding) },
+                        set: { model.padding = Int($0); changed() }
+                    ), in: 4 ... 24, step: 2)
+                        .frame(width: 80)
+                    Text("\(model.padding)px")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 32)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var largeTypeSection: some View {
+        HStack {
+            Text("Large Type:")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+            Slider(value: Binding(
+                get: { Double(model.largeTypeFontSize) },
+                set: { model.largeTypeFontSize = Int($0); model.syncToSettings() }
+            ), in: 24 ... 120, step: 4)
+                .frame(width: 120)
+            Text("\(model.largeTypeFontSize)pt")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 32)
+        }
+    }
+
+    private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11))
+                .frame(width: 70, alignment: .trailing)
+            content()
+        }
     }
 }

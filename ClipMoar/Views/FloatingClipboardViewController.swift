@@ -32,6 +32,7 @@ final class FloatingClipboardViewController: NSViewController,
 
     private var currentTheme: PanelTheme = .dark
     private var currentFontSize: CGFloat = 15
+    private var currentFontWeight: NSFont.Weight = .regular
     private var currentAccentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
 
     private var selectedItem: ClipboardItem? {
@@ -84,7 +85,7 @@ final class FloatingClipboardViewController: NSViewController,
         }
     }
 
-    private func applyTheme() {
+    func applyTheme() {
         let theme = PanelTheme(rawValue: settings.panelTheme) ?? .dark
         let fontSize = CGFloat(settings.panelFontSize)
         let accent = AccentColor(rawValue: settings.panelAccentColor) ?? .blue
@@ -106,12 +107,30 @@ final class FloatingClipboardViewController: NSViewController,
 
         view.window?.backgroundColor = NSColor(cgColor: view.layer?.backgroundColor ?? CGColor.black) ?? .black
 
+        let cornerRadius = CGFloat(settings.panelCornerRadius)
+        view.layer?.cornerRadius = cornerRadius
+        view.layer?.masksToBounds = cornerRadius > 0
+
         searchField.font = .systemFont(ofSize: fontSize)
         tableView.rowHeight = max(fontSize * 2.2, 28)
 
+        let fw: NSFont.Weight
+        switch settings.panelFontWeight {
+        case 1: fw = .medium
+        case 2: fw = .bold
+        default: fw = .regular
+        }
+
         currentTheme = theme
         currentFontSize = fontSize
+        currentFontWeight = fw
         currentAccentColor = accent.color
+
+        let selectedRow = tableView.selectedRow
+        tableView.reloadData()
+        if selectedRow >= 0, selectedRow < tableView.numberOfRows {
+            tableView.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
+        }
 
         let ltSize = settings.largeTypeFontSize
         largeTypeController.fontSize = ltSize > 0 ? CGFloat(ltSize) : nil
@@ -154,8 +173,8 @@ final class FloatingClipboardViewController: NSViewController,
         NSLayoutConstraint.activate([
             searchIcon.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             searchIcon.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
-            searchIcon.widthAnchor.constraint(equalToConstant: 16),
-            searchIcon.heightAnchor.constraint(equalToConstant: 16),
+            searchIcon.widthAnchor.constraint(equalToConstant: 14),
+            searchIcon.heightAnchor.constraint(equalToConstant: 14),
 
             searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
             searchField.leadingAnchor.constraint(equalTo: searchIcon.trailingAnchor, constant: 6),
@@ -311,11 +330,10 @@ final class FloatingClipboardViewController: NSViewController,
 
             if self.previewOnly {
                 switch event.keyCode {
-                case 125, 126: // Arrow up/down
-                    self.view.window?.makeFirstResponder(self.tableView)
-                    self.tableView.keyDown(with: event)
-                    return nil
-                case 51: // Backspace - search
+                case 53, 36, 48: // Escape, Return, Tab - pass through
+                    return event
+                case 51: // Backspace
+                    if event.modifierFlags.contains(.command) { return event } // Cmd+Delete - pass
                     if self.view.window?.firstResponder !== self.searchField.currentEditor() {
                         self.view.window?.makeFirstResponder(self.searchField)
                     }
@@ -324,10 +342,19 @@ final class FloatingClipboardViewController: NSViewController,
                         self.performSearch()
                     }
                     return nil
+                case 125, 126: // Arrow up/down
+                    self.view.window?.makeFirstResponder(self.tableView)
+                    self.tableView.keyDown(with: event)
+                    return nil
+                case 124: // Arrow right - show preview
+                    if let item = self.selectedItem {
+                        self.showPreview(for: item)
+                    }
+                    return nil
                 default:
-                    let navKeys: Set<UInt16> = [125, 126, 116, 121, 115, 119, 123, 124, 53, 36, 48]
+                    if event.modifierFlags.contains(.command) { return event }
+                    let navKeys: Set<UInt16> = [116, 121, 115, 119, 123]
                     if !navKeys.contains(event.keyCode),
-                       !event.modifierFlags.contains(.command),
                        let chars = event.characters, !chars.isEmpty,
                        chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
                     {
@@ -555,7 +582,7 @@ final class FloatingClipboardViewController: NSViewController,
             textColor = .labelColor
             shortcutColor = .secondaryLabelColor
         }
-        cell.configure(with: item, row: row, fontSize: currentFontSize, textColor: textColor, shortcutColor: shortcutColor)
+        cell.configure(with: item, row: row, fontSize: currentFontSize, textColor: textColor, shortcutColor: shortcutColor, fontWeight: currentFontWeight)
         return cell
     }
 

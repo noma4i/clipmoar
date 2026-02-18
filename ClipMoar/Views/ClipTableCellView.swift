@@ -13,7 +13,7 @@ final class ClipTableCellView: NSTableCellView {
         nil
     }
 
-    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)) {
+    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0), fontWeight: NSFont.Weight = .regular) {
         if item.isImage, let data = item.imageData, let thumb = NSImage(data: data) {
             thumb.size = NSSize(width: 22, height: 22)
             imageView?.image = thumb
@@ -29,9 +29,8 @@ final class ClipTableCellView: NSTableCellView {
 
         textField?.stringValue = item.displayTitle
         textField?.textColor = textColor
-        textField?.font = item.isPinned
-            ? .boldSystemFont(ofSize: fontSize)
-            : .systemFont(ofSize: fontSize)
+        let weight = item.isPinned ? NSFont.Weight.bold : fontWeight
+        textField?.font = .systemFont(ofSize: fontSize, weight: weight)
 
         shortcutLabel.textColor = shortcutColor
 

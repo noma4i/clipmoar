@@ -168,6 +168,9 @@ final class MockSettings: SettingsStore {
     var panelFontSize: Int = 15
     var panelTheme: Int = 0
     var panelAccentColor: Int = 0
+    var panelCornerRadius: Int = 0
+    var panelPadding: Int = 12
+    var panelFontWeight: Int = 0
     var largeTypeFontSize: Int = 48
     func registerDefaults() {}
 }
