@@ -1,34 +1,56 @@
 import Cocoa
 import SwiftUI
 
+private extension Color {
+    init(hex: String) {
+        let scanner = Scanner(string: hex)
+        var rgb: UInt64 = 0
+        scanner.scanHexInt64(&rgb)
+        self.init(
+            red: Double((rgb >> 16) & 0xFF) / 255,
+            green: Double((rgb >> 8) & 0xFF) / 255,
+            blue: Double(rgb & 0xFF) / 255
+        )
+    }
+}
+
 final class LookEditorModel: ObservableObject {
     let settings: SettingsStore
     @Published var theme: Int
     @Published var fontSize: Int
-    @Published var accent: Int
+    @Published var accentHex: String
     @Published var cornerRadius: Int
-    @Published var padding: Int
+    @Published var paddingH: Int
+    @Published var paddingV: Int
+    @Published var margin: Int
     @Published var fontWeight: Int
+    @Published var textColorHex: String
     @Published var largeTypeFontSize: Int
 
     init(settings: SettingsStore) {
         self.settings = settings
         theme = settings.panelTheme
         fontSize = settings.panelFontSize
-        accent = settings.panelAccentColor
+        accentHex = settings.panelAccentHex
         cornerRadius = settings.panelCornerRadius
-        padding = settings.panelPadding
+        paddingH = settings.panelPaddingH
+        paddingV = settings.panelPaddingV
+        margin = settings.panelMargin
         fontWeight = settings.panelFontWeight
+        textColorHex = settings.panelTextColorHex
         largeTypeFontSize = settings.largeTypeFontSize
     }
 
     func syncToSettings() {
         settings.panelTheme = theme
         settings.panelFontSize = fontSize
-        settings.panelAccentColor = accent
+        settings.panelAccentHex = accentHex
         settings.panelCornerRadius = cornerRadius
-        settings.panelPadding = padding
+        settings.panelPaddingH = paddingH
+        settings.panelPaddingV = paddingV
+        settings.panelMargin = margin
         settings.panelFontWeight = fontWeight
+        settings.panelTextColorHex = textColorHex
         settings.largeTypeFontSize = largeTypeFontSize
     }
 }
@@ -70,7 +92,7 @@ final class LookEditorController {
         clipViewController = vc
 
         let mock = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 352),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -113,7 +135,8 @@ final class LookEditorController {
         let mockY = screenFrame.midY - 176
 
         mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
-        editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: mockY - 34))
+        let editorY = mockY + (352 - 420) / 2
+        editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: editorY))
 
         mock.orderFront(nil)
         editor.makeKeyAndOrderFront(nil)
@@ -156,7 +179,6 @@ private struct MockPanelView: View {
         switch theme {
         case .dark: return Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0))
         case .light: return Color(nsColor: NSColor(calibratedWhite: 0.95, alpha: 1.0))
-        case .system: return Color(nsColor: .windowBackgroundColor)
         }
     }
 
@@ -165,7 +187,6 @@ private struct MockPanelView: View {
         switch theme {
         case .dark: return Color(nsColor: NSColor(calibratedWhite: 0.9, alpha: 1.0))
         case .light: return Color(nsColor: NSColor(calibratedWhite: 0.1, alpha: 1.0))
-        case .system: return .primary
         }
     }
 
@@ -174,12 +195,11 @@ private struct MockPanelView: View {
         switch theme {
         case .dark: return Color(nsColor: NSColor(calibratedWhite: 0.45, alpha: 1.0))
         case .light: return Color(nsColor: NSColor(calibratedWhite: 0.5, alpha: 1.0))
-        case .system: return .secondary
         }
     }
 
     private var selectionColor: Color {
-        Color(nsColor: (AccentColor(rawValue: model.accent) ?? .blue).color)
+        Color(nsColor: NSColor(hex: model.accentHex))
     }
 
     private var fontSize: CGFloat {
@@ -202,7 +222,6 @@ private struct MockPanelView: View {
         switch theme {
         case .dark: return Color(nsColor: NSColor(calibratedWhite: 0.10, alpha: 1.0))
         case .light: return Color(nsColor: NSColor(calibratedWhite: 0.90, alpha: 1.0))
-        case .system: return Color(nsColor: .controlBackgroundColor)
         }
     }
 
@@ -296,15 +315,15 @@ private struct EditorControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            themePills
-
-            Divider()
-
             HStack(alignment: .top, spacing: 20) {
                 listSettings
                 Divider()
                 panelSettings
             }
+
+            Divider()
+
+            paletteSection
 
             Spacer()
 
@@ -334,11 +353,11 @@ private struct EditorControlsView: View {
                     Text(theme.title)
                         .font(.system(size: 12, weight: model.theme == theme.rawValue ? .semibold : .regular))
                         .foregroundColor(model.theme == theme.rawValue ? .white : .secondary)
-                        .frame(maxWidth: .infinity)
+                        .frame(width: 80)
                         .padding(.vertical, 6)
                         .background(
                             model.theme == theme.rawValue
-                                ? RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: (AccentColor(rawValue: model.accent) ?? .blue).color))
+                                ? RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: NSColor(hex: model.accentHex)))
                                 : nil
                         )
                 }
@@ -347,6 +366,7 @@ private struct EditorControlsView: View {
         }
         .padding(2)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08)))
+        .frame(maxWidth: .infinity)
     }
 
     private var listSettings: some View {
@@ -355,47 +375,22 @@ private struct EditorControlsView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
 
-            settingRow("Font size:") {
-                Picker("", selection: Binding(
-                    get: { model.fontSize },
-                    set: { model.fontSize = $0; changed() }
-                )) {
-                    ForEach(PanelFontSize.allCases, id: \.rawValue) { s in
-                        Text(s.title).tag(s.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 100)
-            }
+            sliderRow("Size:", value: $model.fontSize, range: 10 ... 24, suffix: "px")
 
-            settingRow("Font weight:") {
-                Picker("", selection: Binding(
-                    get: { model.fontWeight },
-                    set: { model.fontWeight = $0; changed() }
-                )) {
-                    Text("Regular").tag(0)
-                    Text("Medium").tag(1)
-                    Text("Bold").tag(2)
-                }
-                .labelsHidden()
-                .frame(width: 100)
+            sliderRow("Weight:", value: $model.fontWeight, range: 0 ... 2, labels: ["Reg", "Med", "Bold"])
+
+            sliderRow("Pad H:", value: $model.paddingH, range: 4 ... 24, suffix: "px")
+
+            sliderRow("Pad V:", value: $model.paddingV, range: 0 ... 12, suffix: "px")
+
+            sliderRow("Margin:", value: $model.margin, range: 0 ... 16, suffix: "px")
+
+            settingRow("Text:") {
+                colorPickerFor(hex: $model.textColorHex)
             }
 
             settingRow("Accent:") {
-                HStack(spacing: 5) {
-                    ForEach(AccentColor.allCases, id: \.rawValue) { c in
-                        Circle()
-                            .fill(Color(nsColor: c.color))
-                            .frame(width: 18, height: 18)
-                            .overlay(
-                                Circle().stroke(Color.white, lineWidth: model.accent == c.rawValue ? 2 : 0)
-                            )
-                            .onTapGesture {
-                                model.accent = c.rawValue
-                                changed()
-                            }
-                    }
-                }
+                colorPickerFor(hex: $model.accentHex)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -407,52 +402,113 @@ private struct EditorControlsView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
 
-            settingRow("Corner:") {
-                HStack(spacing: 4) {
-                    Slider(value: Binding(
-                        get: { Double(model.cornerRadius) },
-                        set: { model.cornerRadius = Int($0); changed() }
-                    ), in: 0 ... 20, step: 2)
-                        .frame(width: 80)
-                    Text("\(model.cornerRadius)px")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(width: 32)
-                }
-            }
-
-            settingRow("Padding:") {
-                HStack(spacing: 4) {
-                    Slider(value: Binding(
-                        get: { Double(model.padding) },
-                        set: { model.padding = Int($0); changed() }
-                    ), in: 4 ... 24, step: 2)
-                        .frame(width: 80)
-                    Text("\(model.padding)px")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(width: 32)
-                }
-            }
+            sliderRow("Corner:", value: $model.cornerRadius, range: 0 ... 20, suffix: "px")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var largeTypeSection: some View {
-        HStack {
-            Text("Large Type:")
+    private struct PalettePreset: Identifiable {
+        let id: String
+        let name: String
+        let theme: Int
+        let accentHex: String
+        let textHex: String
+        let colors: [Color]
+    }
+
+    private let palettes: [PalettePreset] = [
+        PalettePreset(id: "midnight", name: "Midnight", theme: 0, accentHex: "2A9D8F", textHex: "E9C46A",
+                      colors: [Color(hex: "264653"), Color(hex: "2A9D8F"), Color(hex: "E9C46A")]),
+        PalettePreset(id: "ocean", name: "Ocean", theme: 0, accentHex: "669BBC", textHex: "FDF0D5",
+                      colors: [Color(hex: "003049"), Color(hex: "669BBC"), Color(hex: "FDF0D5")]),
+        PalettePreset(id: "sunset", name: "Sunset", theme: 0, accentHex: "E76F51", textHex: "F4A261",
+                      colors: [Color(hex: "582F0E"), Color(hex: "E76F51"), Color(hex: "F4A261")]),
+        PalettePreset(id: "lavender", name: "Lavender", theme: 0, accentHex: "8D99AE", textHex: "EDF2F4",
+                      colors: [Color(hex: "2B2D42"), Color(hex: "8D99AE"), Color(hex: "EDF2F4")]),
+        PalettePreset(id: "forest", name: "Forest", theme: 0, accentHex: "40916C", textHex: "B7E4C7",
+                      colors: [Color(hex: "1B4332"), Color(hex: "40916C"), Color(hex: "B7E4C7")]),
+        PalettePreset(id: "sand", name: "Sand", theme: 1, accentHex: "DDA15E", textHex: "606C38",
+                      colors: [Color(hex: "FEFAE0"), Color(hex: "DDA15E"), Color(hex: "606C38")]),
+        PalettePreset(id: "rose", name: "Rose", theme: 1, accentHex: "C9184A", textHex: "590D22",
+                      colors: [Color(hex: "FFF0F3"), Color(hex: "C9184A"), Color(hex: "590D22")]),
+        PalettePreset(id: "mono", name: "Mono", theme: 0, accentHex: "6C757D", textHex: "F8F9FA",
+                      colors: [Color(hex: "212529"), Color(hex: "6C757D"), Color(hex: "F8F9FA")]),
+        PalettePreset(id: "nordic", name: "Nordic", theme: 0, accentHex: "5E81AC", textHex: "ECEFF4",
+                      colors: [Color(hex: "2E3440"), Color(hex: "5E81AC"), Color(hex: "ECEFF4")]),
+        PalettePreset(id: "coral", name: "Coral", theme: 0, accentHex: "FF6B6B", textHex: "FFE66D",
+                      colors: [Color(hex: "353535"), Color(hex: "FF6B6B"), Color(hex: "FFE66D")]),
+        PalettePreset(id: "mint", name: "Mint", theme: 1, accentHex: "2EC4B6", textHex: "011627",
+                      colors: [Color(hex: "F0FFF0"), Color(hex: "2EC4B6"), Color(hex: "011627")]),
+        PalettePreset(id: "coffee", name: "Coffee", theme: 0, accentHex: "D4A373", textHex: "FEFAE0",
+                      colors: [Color(hex: "3C2415"), Color(hex: "D4A373"), Color(hex: "FEFAE0")]),
+        PalettePreset(id: "aurora", name: "Aurora", theme: 0, accentHex: "3A86FF", textHex: "E0AAFF",
+                      colors: [Color(hex: "0B132B"), Color(hex: "3A86FF"), Color(hex: "8338EC")]),
+        PalettePreset(id: "earth", name: "Earth", theme: 0, accentHex: "A68A64", textHex: "ECE2D0",
+                      colors: [Color(hex: "2D3319"), Color(hex: "A68A64"), Color(hex: "ECE2D0")]),
+        PalettePreset(id: "berry", name: "Berry", theme: 0, accentHex: "E63946", textHex: "F1FAEE",
+                      colors: [Color(hex: "2B0A3D"), Color(hex: "E63946"), Color(hex: "F1FAEE")]),
+        PalettePreset(id: "snow", name: "Snow", theme: 1, accentHex: "ADB5BD", textHex: "343A40",
+                      colors: [Color(hex: "F8F9FA"), Color(hex: "ADB5BD"), Color(hex: "343A40")]),
+        PalettePreset(id: "dusk", name: "Dusk", theme: 0, accentHex: "C77DFF", textHex: "E0AAFF",
+                      colors: [Color(hex: "1A1423"), Color(hex: "C77DFF"), Color(hex: "E0AAFF")]),
+        PalettePreset(id: "steel", name: "Steel", theme: 0, accentHex: "495057", textHex: "CED4DA",
+                      colors: [Color(hex: "1B1B1E"), Color(hex: "495057"), Color(hex: "CED4DA")]),
+        PalettePreset(id: "autumn", name: "Autumn", theme: 0, accentHex: "CB997E", textHex: "FFE8D6",
+                      colors: [Color(hex: "3D2B1F"), Color(hex: "CB997E"), Color(hex: "FFE8D6")]),
+        PalettePreset(id: "marine", name: "Marine", theme: 0, accentHex: "1B4965", textHex: "BEE9E8",
+                      colors: [Color(hex: "0D1B2A"), Color(hex: "1B4965"), Color(hex: "BEE9E8")]),
+        PalettePreset(id: "candy", name: "Candy", theme: 0, accentHex: "FF6B6B", textHex: "FFD93D",
+                      colors: [Color(hex: "2D0320"), Color(hex: "FF6B6B"), Color(hex: "FFD93D")]),
+    ]
+
+    private var paletteSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Palette")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
-            Slider(value: Binding(
-                get: { Double(model.largeTypeFontSize) },
-                set: { model.largeTypeFontSize = Int($0); model.syncToSettings() }
-            ), in: 24 ... 120, step: 4)
-                .frame(width: 120)
-            Text("\(model.largeTypeFontSize)pt")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 32)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(palettes) { preset in
+                        Button {
+                            model.theme = preset.theme
+                            model.accentHex = preset.accentHex
+                            model.textColorHex = preset.textHex
+                            changed()
+                        } label: {
+                            VStack(spacing: 4) {
+                                HStack(spacing: 2) {
+                                    ForEach(0 ..< preset.colors.count, id: \.self) { i in
+                                        preset.colors[i]
+                                            .frame(width: 16, height: 16)
+                                    }
+                                }
+                                .cornerRadius(4)
+
+                                Text(preset.name)
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
+    }
+
+    private func colorPickerFor(hex: Binding<String>) -> some View {
+        let color = Binding<Color>(
+            get: { Color(nsColor: NSColor(hex: hex.wrappedValue)) },
+            set: { newColor in
+                let ns = NSColor(newColor)
+                hex.wrappedValue = ns.hexString
+                changed()
+            }
+        )
+        return ColorPicker("", selection: color).labelsHidden()
     }
 
     private func settingRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -461,6 +517,29 @@ private struct EditorControlsView: View {
                 .font(.system(size: 11))
                 .frame(width: 70, alignment: .trailing)
             content()
+        }
+    }
+
+    private func sliderRow(_ label: String, value: Binding<Int>, range: ClosedRange<Double>, suffix: String = "", labels: [String]? = nil) -> some View {
+        settingRow(label) {
+            HStack(spacing: 4) {
+                Slider(value: Binding(
+                    get: { Double(value.wrappedValue) },
+                    set: { value.wrappedValue = Int($0); changed() }
+                ), in: range, step: 1)
+                    .frame(width: 80)
+                if let labels = labels {
+                    Text(labels[min(value.wrappedValue, labels.count - 1)])
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 32)
+                } else {
+                    Text("\(value.wrappedValue)\(suffix)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 32)
+                }
+            }
         }
     }
 }

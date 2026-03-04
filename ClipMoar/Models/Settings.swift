@@ -18,9 +18,13 @@ protocol SettingsStore: AnyObject {
     var panelFontSize: Int { get set }
     var panelTheme: Int { get set }
     var panelAccentColor: Int { get set }
+    var panelAccentHex: String { get set }
     var panelCornerRadius: Int { get set }
-    var panelPadding: Int { get set }
+    var panelPaddingH: Int { get set }
+    var panelPaddingV: Int { get set }
+    var panelMargin: Int { get set }
     var panelFontWeight: Int { get set }
+    var panelTextColorHex: String { get set }
     var largeTypeFontSize: Int { get set }
 
     func registerDefaults()
@@ -93,22 +97,24 @@ enum Settings {
     static let panelFontSize = "panelFontSize"
     static let panelTheme = "panelTheme"
     static let panelAccentColor = "panelAccentColor"
+    static let panelAccentHex = "panelAccentHex"
     static let panelCornerRadius = "panelCornerRadius"
-    static let panelPadding = "panelPadding"
+    static let panelPaddingH = "panelPaddingH"
+    static let panelPaddingV = "panelPaddingV"
+    static let panelMargin = "panelMargin"
     static let panelFontWeight = "panelFontWeight"
+    static let panelTextColorHex = "panelTextColorHex"
     static let largeTypeFontSize = "largeTypeFontSize"
 }
 
 enum PanelTheme: Int, CaseIterable {
     case dark = 0
     case light = 1
-    case system = 2
 
     var title: String {
         switch self {
         case .dark: return "Dark"
         case .light: return "Light"
-        case .system: return "System"
         }
     }
 }
@@ -154,6 +160,45 @@ enum AccentColor: Int, CaseIterable {
         case .orange: return NSColor(calibratedRed: 0.7, green: 0.45, blue: 0.15, alpha: 0.9)
         case .red: return NSColor(calibratedRed: 0.65, green: 0.2, blue: 0.2, alpha: 0.9)
         case .gray: return NSColor(calibratedRed: 0.35, green: 0.35, blue: 0.38, alpha: 0.9)
+        }
+    }
+}
+
+extension NSColor {
+    convenience init(hex: String) {
+        let scanner = Scanner(string: hex)
+        var rgb: UInt64 = 0
+        scanner.scanHexInt64(&rgb)
+        self.init(
+            calibratedRed: CGFloat((rgb >> 16) & 0xFF) / 255,
+            green: CGFloat((rgb >> 8) & 0xFF) / 255,
+            blue: CGFloat(rgb & 0xFF) / 255,
+            alpha: 1.0
+        )
+    }
+
+    var hexString: String {
+        guard let c = usingColorSpace(.sRGB) else { return "000000" }
+        return String(format: "%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+    }
+}
+
+enum PanelTextColor: Int, CaseIterable {
+    case white = 0
+    case silver = 1
+    case cream = 2
+    case sky = 3
+    case lime = 4
+    case peach = 5
+
+    var color: NSColor {
+        switch self {
+        case .white: return NSColor(calibratedWhite: 0.9, alpha: 1.0)
+        case .silver: return NSColor(calibratedWhite: 0.7, alpha: 1.0)
+        case .cream: return NSColor(calibratedRed: 0.95, green: 0.92, blue: 0.84, alpha: 1.0)
+        case .sky: return NSColor(calibratedRed: 0.75, green: 0.85, blue: 0.95, alpha: 1.0)
+        case .lime: return NSColor(calibratedRed: 0.8, green: 0.95, blue: 0.75, alpha: 1.0)
+        case .peach: return NSColor(calibratedRed: 0.95, green: 0.82, blue: 0.78, alpha: 1.0)
         }
     }
 }
@@ -245,19 +290,39 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelAccentColor) }
     }
 
+    var panelAccentHex: String {
+        get { defaults.string(forKey: Settings.panelAccentHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.panelAccentHex) }
+    }
+
     var panelCornerRadius: Int {
         get { defaults.integer(forKey: Settings.panelCornerRadius) }
         set { defaults.set(newValue, forKey: Settings.panelCornerRadius) }
     }
 
-    var panelPadding: Int {
-        get { defaults.integer(forKey: Settings.panelPadding) }
-        set { defaults.set(newValue, forKey: Settings.panelPadding) }
+    var panelPaddingH: Int {
+        get { defaults.integer(forKey: Settings.panelPaddingH) }
+        set { defaults.set(newValue, forKey: Settings.panelPaddingH) }
+    }
+
+    var panelPaddingV: Int {
+        get { defaults.integer(forKey: Settings.panelPaddingV) }
+        set { defaults.set(newValue, forKey: Settings.panelPaddingV) }
+    }
+
+    var panelMargin: Int {
+        get { defaults.integer(forKey: Settings.panelMargin) }
+        set { defaults.set(newValue, forKey: Settings.panelMargin) }
     }
 
     var panelFontWeight: Int {
         get { defaults.integer(forKey: Settings.panelFontWeight) }
         set { defaults.set(newValue, forKey: Settings.panelFontWeight) }
+    }
+
+    var panelTextColorHex: String {
+        get { defaults.string(forKey: Settings.panelTextColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.panelTextColorHex) }
     }
 
     var largeTypeFontSize: Int {
@@ -283,9 +348,13 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelFontSize: PanelFontSize.medium.rawValue,
             Settings.panelTheme: PanelTheme.dark.rawValue,
             Settings.panelAccentColor: AccentColor.blue.rawValue,
+            Settings.panelAccentHex: "2672B5",
             Settings.panelCornerRadius: 0,
-            Settings.panelPadding: 12,
+            Settings.panelPaddingH: 12,
+            Settings.panelPaddingV: 4,
+            Settings.panelMargin: 0,
             Settings.panelFontWeight: 0,
+            Settings.panelTextColorHex: "E6E6E6",
             Settings.largeTypeFontSize: 48,
         ])
     }

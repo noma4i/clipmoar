@@ -39,7 +39,7 @@ struct LookAndFeelSettingsView: View {
                     set: { largeTypeFontSize = Int($0); settings.largeTypeFontSize = Int($0) }
                 ), in: 24 ... 120, step: 4)
                     .frame(width: 200)
-                Text("\(largeTypeFontSize)pt")
+                Text("\(largeTypeFontSize)px")
                     .font(.system(size: 11, design: .monospaced))
                     .frame(width: 40)
             }

@@ -3,6 +3,8 @@ import Cocoa
 final class ClipTableCellView: NSTableCellView {
     static let identifier = NSUserInterfaceItemIdentifier("FloatingClipCell")
     private let shortcutLabel = NSTextField(labelWithString: "")
+    private var iconLeading: NSLayoutConstraint?
+    private var shortcutTrailing: NSLayoutConstraint?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -13,7 +15,7 @@ final class ClipTableCellView: NSTableCellView {
         nil
     }
 
-    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0), fontWeight: NSFont.Weight = .regular) {
+    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0), fontWeight: NSFont.Weight = .regular, padding: CGFloat = 10) {
         if item.isImage, let data = item.imageData, let thumb = NSImage(data: data) {
             thumb.size = NSSize(width: 22, height: 22)
             imageView?.image = thumb
@@ -40,6 +42,9 @@ final class ClipTableCellView: NSTableCellView {
         } else {
             shortcutLabel.isHidden = true
         }
+
+        iconLeading?.constant = padding
+        shortcutTrailing?.constant = -padding
     }
 
     private func setupSubviews() {
@@ -63,8 +68,13 @@ final class ClipTableCellView: NSTableCellView {
         shortcutLabel.drawsBackground = false
         addSubview(shortcutLabel)
 
+        let il = icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10)
+        iconLeading = il
+        let st = shortcutLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12)
+        shortcutTrailing = st
+
         NSLayoutConstraint.activate([
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            il,
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: 22),
             icon.heightAnchor.constraint(equalToConstant: 22),
@@ -73,7 +83,7 @@ final class ClipTableCellView: NSTableCellView {
             title.centerYAnchor.constraint(equalTo: centerYAnchor),
             title.trailingAnchor.constraint(equalTo: shortcutLabel.leadingAnchor, constant: -8),
 
-            shortcutLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            st,
             shortcutLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             shortcutLabel.widthAnchor.constraint(equalToConstant: 36),
         ])

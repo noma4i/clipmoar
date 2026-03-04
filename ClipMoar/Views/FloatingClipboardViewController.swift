@@ -33,6 +33,8 @@ final class FloatingClipboardViewController: NSViewController,
     private var currentTheme: PanelTheme = .dark
     private var currentFontSize: CGFloat = 15
     private var currentFontWeight: NSFont.Weight = .regular
+    private var currentPadding: CGFloat = 12
+    private var currentTextColor: NSColor = .init(calibratedWhite: 0.9, alpha: 1.0)
     private var currentAccentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
 
     private var selectedItem: ClipboardItem? {
@@ -88,31 +90,38 @@ final class FloatingClipboardViewController: NSViewController,
     func applyTheme() {
         let theme = PanelTheme(rawValue: settings.panelTheme) ?? .dark
         let fontSize = CGFloat(settings.panelFontSize)
-        let accent = AccentColor(rawValue: settings.panelAccentColor) ?? .blue
 
         switch theme {
         case .dark:
             view.appearance = NSAppearance(named: .darkAqua)
             view.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
-            searchField.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
         case .light:
             view.appearance = NSAppearance(named: .aqua)
             view.layer?.backgroundColor = NSColor(calibratedWhite: 0.95, alpha: 1.0).cgColor
-            searchField.textColor = NSColor(calibratedWhite: 0.1, alpha: 1.0)
-        case .system:
-            view.appearance = nil
-            view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-            searchField.textColor = .labelColor
         }
 
-        view.window?.backgroundColor = NSColor(cgColor: view.layer?.backgroundColor ?? CGColor.black) ?? .black
+        let txtColor = NSColor(hex: settings.panelTextColorHex)
+        searchField.textColor = txtColor
+        searchIcon.contentTintColor = txtColor.withAlphaComponent(0.5)
 
         let cornerRadius = CGFloat(settings.panelCornerRadius)
         view.layer?.cornerRadius = cornerRadius
         view.layer?.masksToBounds = cornerRadius > 0
+        if cornerRadius > 0 {
+            view.window?.isOpaque = false
+            view.window?.backgroundColor = .clear
+        } else {
+            view.window?.isOpaque = true
+            view.window?.backgroundColor = NSColor(cgColor: view.layer?.backgroundColor ?? CGColor.black) ?? .black
+        }
+
+        let pad = CGFloat(settings.panelPaddingH)
+        searchIconLeading?.constant = pad
+        searchFieldTop?.constant = pad
 
         searchField.font = .systemFont(ofSize: fontSize)
-        tableView.rowHeight = max(fontSize * 2.2, 28)
+        let rowPad = CGFloat(settings.panelPaddingV)
+        tableView.rowHeight = max(fontSize + rowPad * 2 + 8, 28)
 
         let fw: NSFont.Weight
         switch settings.panelFontWeight {
@@ -121,10 +130,14 @@ final class FloatingClipboardViewController: NSViewController,
         default: fw = .regular
         }
 
+        let textColor = NSColor(hex: settings.panelTextColorHex)
+
         currentTheme = theme
         currentFontSize = fontSize
         currentFontWeight = fw
-        currentAccentColor = accent.color
+        currentPadding = pad
+        currentTextColor = textColor
+        currentAccentColor = NSColor(hex: settings.panelAccentHex)
 
         let selectedRow = tableView.selectedRow
         tableView.reloadData()
@@ -146,6 +159,8 @@ final class FloatingClipboardViewController: NSViewController,
     // MARK: - Setup
 
     private let searchIcon = NSImageView()
+    private var searchIconLeading: NSLayoutConstraint?
+    private var searchFieldTop: NSLayoutConstraint?
 
     private func setupSearchField() {
         searchIcon.translatesAutoresizingMaskIntoConstraints = false
@@ -171,12 +186,12 @@ final class FloatingClipboardViewController: NSViewController,
         view.addSubview(separator)
 
         NSLayoutConstraint.activate([
-            searchIcon.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            { let c = searchIcon.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12); searchIconLeading = c; return c }(),
             searchIcon.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
             searchIcon.widthAnchor.constraint(equalToConstant: 14),
             searchIcon.heightAnchor.constraint(equalToConstant: 14),
 
-            searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
+            { let c = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 12); searchFieldTop = c; return c }(),
             searchField.leadingAnchor.constraint(equalTo: searchIcon.trailingAnchor, constant: 6),
             searchField.trailingAnchor.constraint(equalTo: view.leadingAnchor, constant: listWidth - 12),
             searchField.heightAnchor.constraint(equalToConstant: 28),
@@ -569,20 +584,8 @@ final class FloatingClipboardViewController: NSViewController,
             cell = ClipTableCellView()
         }
 
-        let textColor: NSColor
-        let shortcutColor: NSColor
-        switch currentTheme {
-        case .dark:
-            textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
-            shortcutColor = NSColor(calibratedWhite: 0.45, alpha: 1.0)
-        case .light:
-            textColor = NSColor(calibratedWhite: 0.1, alpha: 1.0)
-            shortcutColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
-        case .system:
-            textColor = .labelColor
-            shortcutColor = .secondaryLabelColor
-        }
-        cell.configure(with: item, row: row, fontSize: currentFontSize, textColor: textColor, shortcutColor: shortcutColor, fontWeight: currentFontWeight)
+        let shortcutColor = currentTextColor.withAlphaComponent(0.5)
+        cell.configure(with: item, row: row, fontSize: currentFontSize, textColor: currentTextColor, shortcutColor: shortcutColor, fontWeight: currentFontWeight, padding: currentPadding)
         return cell
     }
 
