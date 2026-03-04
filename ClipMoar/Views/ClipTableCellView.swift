@@ -15,24 +15,29 @@ final class ClipTableCellView: NSTableCellView {
         nil
     }
 
-    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0), fontWeight: NSFont.Weight = .regular, padding: CGFloat = 10) {
+    func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, fontName: String = "", textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0), fontWeight: NSFont.Weight = .regular, iconSize: CGFloat = 22, padding: CGFloat = 10) {
+        let iconSz = NSSize(width: iconSize, height: iconSize)
         if item.isImage, let data = item.imageData, let thumb = NSImage(data: data) {
-            thumb.size = NSSize(width: 22, height: 22)
+            thumb.size = iconSz
             imageView?.image = thumb
         } else if item.isFile, let urls = item.fileURLs, let first = urls.first {
             let icon = NSWorkspace.shared.icon(forFile: first.path)
-            icon.size = NSSize(width: 22, height: 22)
+            icon.size = iconSz
             imageView?.image = icon
         } else {
             imageView?.image = item.sourceAppIcon
                 ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-            imageView?.image?.size = NSSize(width: 22, height: 22)
+            imageView?.image?.size = iconSz
         }
 
         textField?.stringValue = item.displayTitle
         textField?.textColor = textColor
         let weight = item.isPinned ? NSFont.Weight.bold : fontWeight
-        textField?.font = .systemFont(ofSize: fontSize, weight: weight)
+        if fontName.isEmpty {
+            textField?.font = .systemFont(ofSize: fontSize, weight: weight)
+        } else {
+            textField?.font = NSFont(name: fontName, size: fontSize) ?? .systemFont(ofSize: fontSize, weight: weight)
+        }
 
         shortcutLabel.textColor = shortcutColor
 

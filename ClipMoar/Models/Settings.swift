@@ -18,13 +18,25 @@ protocol SettingsStore: AnyObject {
     var panelFontSize: Int { get set }
     var panelTheme: Int { get set }
     var panelAccentColor: Int { get set }
+    var panelFontName: String { get set }
     var panelAccentHex: String { get set }
     var panelCornerRadius: Int { get set }
     var panelPaddingH: Int { get set }
     var panelPaddingV: Int { get set }
     var panelMargin: Int { get set }
     var panelFontWeight: Int { get set }
+    var panelIconSize: Int { get set }
     var panelTextColorHex: String { get set }
+    var previewFontName: String { get set }
+    var previewFontSize: Int { get set }
+    var previewPadding: Int { get set }
+    var previewTextColorHex: String { get set }
+    var previewBgColorHex: String { get set }
+    var searchFontName: String { get set }
+    var searchFontSize: Int { get set }
+    var searchTextColorHex: String { get set }
+    var searchPlaceholderColorHex: String { get set }
+    var metaFontSize: Int { get set }
     var largeTypeFontSize: Int { get set }
 
     func registerDefaults()
@@ -97,13 +109,25 @@ enum Settings {
     static let panelFontSize = "panelFontSize"
     static let panelTheme = "panelTheme"
     static let panelAccentColor = "panelAccentColor"
+    static let panelFontName = "panelFontName"
     static let panelAccentHex = "panelAccentHex"
     static let panelCornerRadius = "panelCornerRadius"
     static let panelPaddingH = "panelPaddingH"
     static let panelPaddingV = "panelPaddingV"
     static let panelMargin = "panelMargin"
     static let panelFontWeight = "panelFontWeight"
+    static let panelIconSize = "panelIconSize"
     static let panelTextColorHex = "panelTextColorHex"
+    static let previewFontName = "previewFontName"
+    static let previewFontSize = "previewFontSize"
+    static let previewPadding = "previewPadding"
+    static let previewTextColorHex = "previewTextColorHex"
+    static let previewBgColorHex = "previewBgColorHex"
+    static let searchFontName = "searchFontName"
+    static let searchFontSize = "searchFontSize"
+    static let searchTextColorHex = "searchTextColorHex"
+    static let searchPlaceholderColorHex = "searchPlaceholderColorHex"
+    static let metaFontSize = "metaFontSize"
     static let largeTypeFontSize = "largeTypeFontSize"
 }
 
@@ -177,9 +201,25 @@ extension NSColor {
         )
     }
 
+    static func fromHex(_ hex: String) -> NSColor {
+        NSColor(hex: hex)
+    }
+
     var hexString: String {
         guard let c = usingColorSpace(.sRGB) else { return "000000" }
         return String(format: "%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+    }
+}
+
+extension NSImage {
+    func tinted(with color: NSColor) -> NSImage {
+        let img = copy() as! NSImage
+        img.lockFocus()
+        color.set()
+        NSRect(origin: .zero, size: img.size).fill(using: .sourceAtop)
+        img.unlockFocus()
+        img.isTemplate = false
+        return img
     }
 }
 
@@ -290,6 +330,11 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelAccentColor) }
     }
 
+    var panelFontName: String {
+        get { defaults.string(forKey: Settings.panelFontName) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.panelFontName) }
+    }
+
     var panelAccentHex: String {
         get { defaults.string(forKey: Settings.panelAccentHex) ?? "" }
         set { defaults.set(newValue, forKey: Settings.panelAccentHex) }
@@ -320,9 +365,64 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelFontWeight) }
     }
 
+    var panelIconSize: Int {
+        get { defaults.integer(forKey: Settings.panelIconSize) }
+        set { defaults.set(newValue, forKey: Settings.panelIconSize) }
+    }
+
     var panelTextColorHex: String {
         get { defaults.string(forKey: Settings.panelTextColorHex) ?? "" }
         set { defaults.set(newValue, forKey: Settings.panelTextColorHex) }
+    }
+
+    var previewFontName: String {
+        get { defaults.string(forKey: Settings.previewFontName) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.previewFontName) }
+    }
+
+    var previewFontSize: Int {
+        get { defaults.integer(forKey: Settings.previewFontSize) }
+        set { defaults.set(newValue, forKey: Settings.previewFontSize) }
+    }
+
+    var previewPadding: Int {
+        get { defaults.integer(forKey: Settings.previewPadding) }
+        set { defaults.set(newValue, forKey: Settings.previewPadding) }
+    }
+
+    var previewTextColorHex: String {
+        get { defaults.string(forKey: Settings.previewTextColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.previewTextColorHex) }
+    }
+
+    var previewBgColorHex: String {
+        get { defaults.string(forKey: Settings.previewBgColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.previewBgColorHex) }
+    }
+
+    var searchFontName: String {
+        get { defaults.string(forKey: Settings.searchFontName) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.searchFontName) }
+    }
+
+    var searchFontSize: Int {
+        get { defaults.integer(forKey: Settings.searchFontSize) }
+        set { defaults.set(newValue, forKey: Settings.searchFontSize) }
+    }
+
+    var searchTextColorHex: String {
+        get { defaults.string(forKey: Settings.searchTextColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.searchTextColorHex) }
+    }
+
+    var searchPlaceholderColorHex: String {
+        get { defaults.string(forKey: Settings.searchPlaceholderColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.searchPlaceholderColorHex) }
+    }
+
+    var metaFontSize: Int {
+        get { defaults.integer(forKey: Settings.metaFontSize) }
+        set { defaults.set(newValue, forKey: Settings.metaFontSize) }
     }
 
     var largeTypeFontSize: Int {
@@ -348,13 +448,25 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelFontSize: PanelFontSize.medium.rawValue,
             Settings.panelTheme: PanelTheme.dark.rawValue,
             Settings.panelAccentColor: AccentColor.blue.rawValue,
+            Settings.panelFontName: "",
             Settings.panelAccentHex: "2672B5",
             Settings.panelCornerRadius: 0,
             Settings.panelPaddingH: 12,
             Settings.panelPaddingV: 4,
             Settings.panelMargin: 0,
             Settings.panelFontWeight: 0,
+            Settings.panelIconSize: 22,
             Settings.panelTextColorHex: "E6E6E6",
+            Settings.previewFontName: "",
+            Settings.previewFontSize: 11,
+            Settings.previewPadding: 10,
+            Settings.previewTextColorHex: "D9D9D9",
+            Settings.previewBgColorHex: "1A1A1A",
+            Settings.searchFontName: "",
+            Settings.searchFontSize: 16,
+            Settings.searchTextColorHex: "E6E6E6",
+            Settings.searchPlaceholderColorHex: "666666",
+            Settings.metaFontSize: 10,
             Settings.largeTypeFontSize: 48,
         ])
     }

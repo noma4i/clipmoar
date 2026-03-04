@@ -31,8 +31,10 @@ final class FloatingClipboardViewController: NSViewController,
     var previewOnly = false
 
     private var currentTheme: PanelTheme = .dark
+    private var currentFontName: String = ""
     private var currentFontSize: CGFloat = 15
     private var currentFontWeight: NSFont.Weight = .regular
+    private var currentIconSize: CGFloat = 22
     private var currentPadding: CGFloat = 12
     private var currentTextColor: NSColor = .init(calibratedWhite: 0.9, alpha: 1.0)
     private var currentAccentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
@@ -101,27 +103,37 @@ final class FloatingClipboardViewController: NSViewController,
         }
 
         let txtColor = NSColor(hex: settings.panelTextColorHex)
-        searchField.textColor = txtColor
-        searchIcon.contentTintColor = txtColor.withAlphaComponent(0.5)
 
         let cornerRadius = CGFloat(settings.panelCornerRadius)
+        let margin = CGFloat(settings.panelMargin)
         view.layer?.cornerRadius = cornerRadius
-        view.layer?.masksToBounds = cornerRadius > 0
-        if cornerRadius > 0 {
+        view.layer?.masksToBounds = cornerRadius > 0 || margin > 0
+        if cornerRadius > 0 || margin > 0 {
             view.window?.isOpaque = false
             view.window?.backgroundColor = .clear
         } else {
             view.window?.isOpaque = true
             view.window?.backgroundColor = NSColor(cgColor: view.layer?.backgroundColor ?? CGColor.black) ?? .black
         }
+        if let window = view.window {
+            let wf = window.frame
+            let inset = margin
+            view.frame = NSRect(x: inset, y: inset, width: wf.width - inset * 2, height: wf.height - inset * 2)
+        }
 
-        let pad = CGFloat(settings.panelPaddingH)
-        searchIconLeading?.constant = pad
-        searchFieldTop?.constant = pad
+        let padH = CGFloat(settings.panelPaddingH)
+        let padV = CGFloat(settings.panelPaddingV)
 
-        searchField.font = .systemFont(ofSize: fontSize)
-        let rowPad = CGFloat(settings.panelPaddingV)
-        tableView.rowHeight = max(fontSize + rowPad * 2 + 8, 28)
+        searchFieldTop?.constant = padV
+
+        let searchFontSize = CGFloat(settings.searchFontSize)
+        searchField.font = fontFor(name: settings.searchFontName, size: searchFontSize)
+
+        let searchTextHex = settings.searchTextColorHex
+        searchField.textColor = searchTextHex.isEmpty ? txtColor : NSColor(hex: searchTextHex)
+        updateSearchPlaceholder()
+        searchFieldHeight?.constant = max(searchFontSize + 12, 28)
+        tableView.rowHeight = max(fontSize + padV * 2 + 8, 28)
 
         let fw: NSFont.Weight
         switch settings.panelFontWeight {
@@ -130,13 +142,13 @@ final class FloatingClipboardViewController: NSViewController,
         default: fw = .regular
         }
 
-        let textColor = NSColor(hex: settings.panelTextColorHex)
-
         currentTheme = theme
+        currentFontName = settings.panelFontName
         currentFontSize = fontSize
         currentFontWeight = fw
-        currentPadding = pad
-        currentTextColor = textColor
+        currentIconSize = CGFloat(settings.panelIconSize)
+        currentPadding = padH
+        currentTextColor = txtColor
         currentAccentColor = NSColor(hex: settings.panelAccentHex)
 
         let selectedRow = tableView.selectedRow
@@ -144,6 +156,23 @@ final class FloatingClipboardViewController: NSViewController,
         if selectedRow >= 0, selectedRow < tableView.numberOfRows {
             tableView.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
         }
+
+        let prevFontSize = CGFloat(settings.previewFontSize)
+        previewTextView.font = fontFor(name: settings.previewFontName, size: prevFontSize)
+        previewTextView.textContainerInset = NSSize(width: CGFloat(settings.previewPadding), height: CGFloat(settings.previewPadding))
+
+        let prevTextHex = settings.previewTextColorHex
+        if !prevTextHex.isEmpty {
+            previewTextView.textColor = NSColor(hex: prevTextHex)
+        }
+
+        let prevBgHex = settings.previewBgColorHex
+        if !prevBgHex.isEmpty {
+            previewContainer.layer?.backgroundColor = NSColor(hex: prevBgHex).cgColor
+        }
+
+        metaLabel.font = .systemFont(ofSize: CGFloat(settings.metaFontSize))
+        previewMetaLabel.font = .systemFont(ofSize: CGFloat(settings.metaFontSize))
 
         let ltSize = settings.largeTypeFontSize
         largeTypeController.fontSize = ltSize > 0 ? CGFloat(ltSize) : nil
@@ -158,18 +187,14 @@ final class FloatingClipboardViewController: NSViewController,
 
     // MARK: - Setup
 
-    private let searchIcon = NSImageView()
-    private var searchIconLeading: NSLayoutConstraint?
     private var searchFieldTop: NSLayoutConstraint?
+    private var searchFieldHeight: NSLayoutConstraint?
+    private var scrollViewLeading: NSLayoutConstraint?
+    private var scrollViewBottom: NSLayoutConstraint?
+    private var separatorLeading: NSLayoutConstraint?
 
     private func setupSearchField() {
-        searchIcon.translatesAutoresizingMaskIntoConstraints = false
-        searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
-        searchIcon.contentTintColor = NSColor(calibratedWhite: 0.5, alpha: 1.0)
-        view.addSubview(searchIcon)
-
         searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.placeholderString = "Type to search..."
         searchField.delegate = self
         searchField.focusRingType = .none
         searchField.drawsBackground = false
@@ -178,6 +203,7 @@ final class FloatingClipboardViewController: NSViewController,
         searchField.font = .systemFont(ofSize: 16)
         searchField.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
         searchField.appearance = NSAppearance(named: .darkAqua)
+        updateSearchPlaceholder()
         view.addSubview(searchField)
 
         let separator = NSBox()
@@ -186,18 +212,13 @@ final class FloatingClipboardViewController: NSViewController,
         view.addSubview(separator)
 
         NSLayoutConstraint.activate([
-            { let c = searchIcon.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12); searchIconLeading = c; return c }(),
-            searchIcon.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
-            searchIcon.widthAnchor.constraint(equalToConstant: 14),
-            searchIcon.heightAnchor.constraint(equalToConstant: 14),
-
-            { let c = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 12); searchFieldTop = c; return c }(),
-            searchField.leadingAnchor.constraint(equalTo: searchIcon.trailingAnchor, constant: 6),
-            searchField.trailingAnchor.constraint(equalTo: view.leadingAnchor, constant: listWidth - 12),
-            searchField.heightAnchor.constraint(equalToConstant: 28),
+            { let c = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 8); searchFieldTop = c; return c }(),
+            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            searchField.trailingAnchor.constraint(equalTo: view.leadingAnchor, constant: listWidth - 8),
+            { let c = searchField.heightAnchor.constraint(equalToConstant: 28); searchFieldHeight = c; return c }(),
 
             separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
-            separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            { let c = separator.leadingAnchor.constraint(equalTo: view.leadingAnchor); separatorLeading = c; return c }(),
             separator.widthAnchor.constraint(equalToConstant: listWidth),
         ])
     }
@@ -332,9 +353,9 @@ final class FloatingClipboardViewController: NSViewController,
 
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            { let c = scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor); scrollViewLeading = c; return c }(),
             scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            { let c = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor); scrollViewBottom = c; return c }(),
         ])
     }
 
@@ -585,7 +606,7 @@ final class FloatingClipboardViewController: NSViewController,
         }
 
         let shortcutColor = currentTextColor.withAlphaComponent(0.5)
-        cell.configure(with: item, row: row, fontSize: currentFontSize, textColor: currentTextColor, shortcutColor: shortcutColor, fontWeight: currentFontWeight, padding: currentPadding)
+        cell.configure(with: item, row: row, fontSize: currentFontSize, fontName: currentFontName, textColor: currentTextColor, shortcutColor: shortcutColor, fontWeight: currentFontWeight, iconSize: currentIconSize, padding: currentPadding)
         return cell
     }
 
@@ -603,5 +624,30 @@ final class FloatingClipboardViewController: NSViewController,
 
     func controlTextDidChange(_: Notification) {
         performSearch()
+    }
+
+    private func updateSearchPlaceholder() {
+        let font = searchField.font ?? .systemFont(ofSize: 16)
+        let placeholderHex = settings.searchPlaceholderColorHex
+        let color = placeholderHex.isEmpty ? NSColor(calibratedWhite: 0.4, alpha: 1.0) : NSColor(hex: placeholderHex)
+
+        let attachment = NSTextAttachment()
+        let iconConfig = NSImage.SymbolConfiguration(pointSize: font.pointSize - 2, weight: .regular)
+        attachment.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
+            .withSymbolConfiguration(iconConfig)
+        attachment.image = attachment.image?.tinted(with: color)
+
+        let result = NSMutableAttributedString()
+        result.append(NSAttributedString(attachment: attachment))
+        result.append(NSAttributedString(string: " Type to search...", attributes: [
+            .foregroundColor: color,
+            .font: font,
+        ]))
+        searchField.placeholderAttributedString = result
+    }
+
+    private func fontFor(name: String, size: CGFloat) -> NSFont {
+        if name.isEmpty { return .systemFont(ofSize: size) }
+        return NSFont(name: name, size: size) ?? .systemFont(ofSize: size)
     }
 }

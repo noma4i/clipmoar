@@ -17,40 +17,76 @@ private extension Color {
 final class LookEditorModel: ObservableObject {
     let settings: SettingsStore
     @Published var theme: Int
+    @Published var fontName: String
     @Published var fontSize: Int
+    @Published var fontWeight: Int
+    @Published var iconSize: Int
     @Published var accentHex: String
+    @Published var textColorHex: String
     @Published var cornerRadius: Int
     @Published var paddingH: Int
     @Published var paddingV: Int
     @Published var margin: Int
-    @Published var fontWeight: Int
-    @Published var textColorHex: String
+    @Published var previewFontName: String
+    @Published var previewFontSize: Int
+    @Published var previewPadding: Int
+    @Published var previewTextColorHex: String
+    @Published var previewBgColorHex: String
+    @Published var searchFontName: String
+    @Published var searchFontSize: Int
+    @Published var searchTextColorHex: String
+    @Published var searchPlaceholderColorHex: String
+    @Published var metaFontSize: Int
     @Published var largeTypeFontSize: Int
 
     init(settings: SettingsStore) {
         self.settings = settings
         theme = settings.panelTheme
+        fontName = settings.panelFontName
         fontSize = settings.panelFontSize
+        fontWeight = settings.panelFontWeight
+        iconSize = settings.panelIconSize
         accentHex = settings.panelAccentHex
+        textColorHex = settings.panelTextColorHex
         cornerRadius = settings.panelCornerRadius
         paddingH = settings.panelPaddingH
         paddingV = settings.panelPaddingV
         margin = settings.panelMargin
-        fontWeight = settings.panelFontWeight
-        textColorHex = settings.panelTextColorHex
+        previewFontName = settings.previewFontName
+        previewFontSize = settings.previewFontSize
+        previewPadding = settings.previewPadding
+        previewTextColorHex = settings.previewTextColorHex
+        previewBgColorHex = settings.previewBgColorHex
+        searchFontName = settings.searchFontName
+        searchFontSize = settings.searchFontSize
+        searchTextColorHex = settings.searchTextColorHex
+        searchPlaceholderColorHex = settings.searchPlaceholderColorHex
+        metaFontSize = settings.metaFontSize
         largeTypeFontSize = settings.largeTypeFontSize
     }
 
     func syncToSettings() {
         settings.panelTheme = theme
+        settings.panelFontName = fontName
         settings.panelFontSize = fontSize
+        settings.panelFontWeight = fontWeight
+        settings.panelIconSize = iconSize
         settings.panelAccentHex = accentHex
+        settings.panelTextColorHex = textColorHex
         settings.panelCornerRadius = cornerRadius
         settings.panelPaddingH = paddingH
         settings.panelPaddingV = paddingV
         settings.panelMargin = margin
-        settings.panelFontWeight = fontWeight
-        settings.panelTextColorHex = textColorHex
+        settings.previewFontName = previewFontName
+        settings.previewFontSize = previewFontSize
+        settings.previewPadding = previewPadding
+        settings.previewTextColorHex = previewTextColorHex
+        settings.previewBgColorHex = previewBgColorHex
+        settings.searchFontName = searchFontName
+        settings.searchFontSize = searchFontSize
+        settings.searchTextColorHex = searchTextColorHex
+        settings.searchPlaceholderColorHex = searchPlaceholderColorHex
+        settings.metaFontSize = metaFontSize
         settings.largeTypeFontSize = largeTypeFontSize
     }
 }
@@ -92,7 +128,7 @@ final class LookEditorController {
         clipViewController = vc
 
         let mock = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
+            contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -108,7 +144,7 @@ final class LookEditorController {
         vc.refresh()
 
         let editor = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
+            contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -135,7 +171,8 @@ final class LookEditorController {
         let mockY = screenFrame.midY - 176
 
         mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
-        let editorY = mockY + (352 - 420) / 2
+        let editorH = editor.frame.height
+        let editorY = mockY + (352 - editorH) / 2
         editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: editorY))
 
         mock.orderFront(nil)
@@ -328,6 +365,8 @@ private struct EditorControlsView: View {
             Spacer()
 
             HStack {
+                Button("Reset") { resetDefaults() }
+                    .controlSize(.small)
                 Text("ESC to close")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -337,8 +376,8 @@ private struct EditorControlsView: View {
                     .controlSize(.regular)
             }
         }
-        .padding(16)
-        .frame(width: 460, height: 420)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
         .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
         .environment(\.colorScheme, .dark)
     }
@@ -369,40 +408,77 @@ private struct EditorControlsView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private let fontOptions = ["", "SF Mono", "Menlo", "Monaco", "Helvetica Neue", "Courier New"]
+    private let fontLabels = ["System", "SF Mono", "Menlo", "Monaco", "Helvetica", "Courier"]
+
+    private func fontPicker(selection: Binding<String>) -> some View {
+        Picker("", selection: selection) {
+            ForEach(Array(zip(fontOptions, fontLabels)), id: \.0) { value, label in
+                Text(label).tag(value)
+            }
+        }
+        .labelsHidden()
+        .frame(width: 100)
+        .onChange(of: selection.wrappedValue) { _, _ in changed() }
+    }
+
     private var listSettings: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("List")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
 
+            settingRow("Font:") { fontPicker(selection: $model.fontName) }
             sliderRow("Size:", value: $model.fontSize, range: 10 ... 24, suffix: "px")
-
             sliderRow("Weight:", value: $model.fontWeight, range: 0 ... 2, labels: ["Reg", "Med", "Bold"])
-
+            sliderRow("Icon:", value: $model.iconSize, range: 12 ... 36, suffix: "px")
             sliderRow("Pad H:", value: $model.paddingH, range: 4 ... 24, suffix: "px")
-
             sliderRow("Pad V:", value: $model.paddingV, range: 0 ... 12, suffix: "px")
-
-            sliderRow("Margin:", value: $model.margin, range: 0 ... 16, suffix: "px")
-
-            settingRow("Text:") {
-                colorPickerFor(hex: $model.textColorHex)
-            }
-
-            settingRow("Accent:") {
-                colorPickerFor(hex: $model.accentHex)
-            }
+            settingRow("Text:") { colorPickerFor(hex: $model.textColorHex) }
+            settingRow("Accent:") { colorPickerFor(hex: $model.accentHex) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var panelSettings: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Panel")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
 
             sliderRow("Corner:", value: $model.cornerRadius, range: 0 ... 20, suffix: "px")
+            sliderRow("Margin:", value: $model.margin, range: 0 ... 16, suffix: "px")
+
+            Divider()
+
+            Text("Preview")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            settingRow("Font:") { fontPicker(selection: $model.previewFontName) }
+            sliderRow("Size:", value: $model.previewFontSize, range: 8 ... 18, suffix: "px")
+            sliderRow("Padding:", value: $model.previewPadding, range: 4 ... 20, suffix: "px")
+            settingRow("Text:") { colorPickerFor(hex: $model.previewTextColorHex) }
+            settingRow("BG:") { colorPickerFor(hex: $model.previewBgColorHex) }
+
+            Divider()
+
+            Text("Search")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            settingRow("Font:") { fontPicker(selection: $model.searchFontName) }
+            sliderRow("Size:", value: $model.searchFontSize, range: 10 ... 24, suffix: "px")
+            settingRow("Text:") { colorPickerFor(hex: $model.searchTextColorHex) }
+            settingRow("Holder:") { colorPickerFor(hex: $model.searchPlaceholderColorHex) }
+
+            Divider()
+
+            Text("Meta")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            sliderRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -497,6 +573,31 @@ private struct EditorControlsView: View {
                 }
             }
         }
+    }
+
+    private func resetDefaults() {
+        model.theme = PanelTheme.dark.rawValue
+        model.fontName = ""
+        model.fontSize = 15
+        model.fontWeight = 0
+        model.iconSize = 22
+        model.accentHex = "2672B5"
+        model.textColorHex = "E6E6E6"
+        model.cornerRadius = 0
+        model.paddingH = 12
+        model.paddingV = 4
+        model.margin = 0
+        model.previewFontName = ""
+        model.previewFontSize = 11
+        model.previewPadding = 10
+        model.previewTextColorHex = "D9D9D9"
+        model.previewBgColorHex = "1A1A1A"
+        model.searchFontName = ""
+        model.searchFontSize = 16
+        model.searchTextColorHex = "E6E6E6"
+        model.searchPlaceholderColorHex = "666666"
+        model.metaFontSize = 10
+        changed()
     }
 
     private func colorPickerFor(hex: Binding<String>) -> some View {
