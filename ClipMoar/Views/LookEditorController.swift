@@ -95,6 +95,7 @@ final class LookEditorModel: ObservableObject {
 }
 
 final class LookEditorController {
+    private var overlayWindow: NSWindow?
     private var mockPanel: NSPanel?
     private var editorPanel: NSPanel?
     private var clipViewController: FloatingClipboardViewController?
@@ -103,6 +104,8 @@ final class LookEditorController {
     private let actionService: ClipboardActionServicing
     private let onDismiss: () -> Void
     private var escapeMonitor: Any?
+    private var moveObserver: Any?
+    private var isSnapping = false
 
     init(settings: SettingsStore, repository: ClipboardRepository, actionService: ClipboardActionServicing, onDismiss: @escaping () -> Void) {
         self.settings = settings
@@ -129,6 +132,26 @@ final class LookEditorController {
         )
         vc.previewOnly = true
         clipViewController = vc
+
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let screenFrame = screen.frame
+
+        let overlay = NSWindow(
+            contentRect: screenFrame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        overlay.level = .floating
+        overlay.isOpaque = false
+        overlay.backgroundColor = NSColor(calibratedWhite: 0, alpha: 0.5)
+        overlay.ignoresMouseEvents = true
+        overlay.collectionBehavior = [.canJoinAllSpaces]
+
+        let gridView = GridOverlayView(frame: NSRect(origin: .zero, size: screenFrame.size))
+        overlay.contentView = gridView
+        overlay.orderFront(nil)
+        overlayWindow = overlay
 
         let rows = CGFloat(max(settings.panelVisibleRows, 5))
         let rowH = max(CGFloat(settings.panelFontSize) + CGFloat(settings.panelPaddingV) * 2 + 8, 28)
@@ -171,11 +194,10 @@ final class LookEditorController {
         let editorHosting = NSHostingController(rootView: editorView)
         editor.contentViewController = editorHosting
 
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let screenFrame = screen.visibleFrame
+        let visibleFrame = screen.visibleFrame
         let mockWidth: CGFloat = 460
-        let mockX = screenFrame.midX - mockWidth / 2
-        let mockY = screenFrame.midY - mockH / 2
+        let mockX = visibleFrame.origin.x + (visibleFrame.width - mockWidth) * settings.panelPositionX
+        let mockY = visibleFrame.origin.y + (visibleFrame.height - mockH) * settings.panelPositionY
 
         mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
         editorHosting.view.layoutSubtreeIfNeeded()
@@ -185,10 +207,54 @@ final class LookEditorController {
         editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: editorY))
 
         mock.orderFront(nil)
+        mock.addChildWindow(editor, ordered: .above)
         editor.makeKeyAndOrderFront(nil)
 
         mockPanel = mock
         editorPanel = editor
+
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: mock,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self, !self.isSnapping, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+            let frame = mock.frame
+            let sf = screen.visibleFrame
+            let panelW: CGFloat = 460
+            let rows = CGFloat(max(self.settings.panelVisibleRows, 5))
+            let rowH = max(CGFloat(self.settings.panelFontSize) + CGFloat(self.settings.panelPaddingV) * 2 + 8, 28)
+            let panelH = rows * rowH + 44
+
+            let snapThreshold: CGFloat = 12
+            var x = frame.origin.x
+            var y = frame.origin.y
+
+            let gridCols: [CGFloat] = [0.25, 0.5, 0.75]
+            let gridRows: [CGFloat] = [1.0 / 3, 0.5, 2.0 / 3]
+
+            for col in gridCols {
+                let guideX = sf.origin.x + sf.width * col - panelW / 2
+                if abs(x - guideX) < snapThreshold { x = guideX }
+            }
+            for row in gridRows {
+                let guideY = sf.origin.y + sf.height * row - panelH / 2
+                if abs(y - guideY) < snapThreshold { y = guideY }
+            }
+
+            if x != frame.origin.x || y != frame.origin.y {
+                self.isSnapping = true
+                DispatchQueue.main.async {
+                    mock.setFrameOrigin(NSPoint(x: x, y: y))
+                    self.isSnapping = false
+                }
+            }
+
+            let posX = (x - sf.origin.x) / max(sf.width - panelW, 1)
+            let posY = (y - sf.origin.y) / max(sf.height - panelH, 1)
+            self.settings.panelPositionX = Double(max(0, min(1, posX)))
+            self.settings.panelPositionY = Double(max(0, min(1, posY)))
+        }
 
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.keyCode == 53,
@@ -208,6 +274,15 @@ final class LookEditorController {
         if let monitor = escapeMonitor {
             NSEvent.removeMonitor(monitor)
             escapeMonitor = nil
+        }
+        if let obs = moveObserver {
+            NotificationCenter.default.removeObserver(obs)
+            moveObserver = nil
+        }
+        overlayWindow?.orderOut(nil)
+        overlayWindow = nil
+        if let editor = editorPanel, let mock = mockPanel {
+            mock.removeChildWindow(editor)
         }
         mockPanel?.orderOut(nil)
         mockPanel = nil
@@ -651,5 +726,40 @@ private struct EditorControlsView: View {
                 }
             }
         }
+    }
+}
+
+private final class GridOverlayView: NSView {
+    override func draw(_: NSRect) {
+        let dash: [CGFloat] = [6, 4]
+        let w = bounds.width
+        let h = bounds.height
+
+        let lineColor = NSColor(calibratedWhite: 1, alpha: 0.15)
+        let centerColor = NSColor(calibratedWhite: 1, alpha: 0.25)
+
+        func drawLine(from: NSPoint, to: NSPoint, color: NSColor) {
+            color.setStroke()
+            let path = NSBezierPath()
+            path.move(to: from)
+            path.line(to: to)
+            path.setLineDash(dash, count: 2, phase: 0)
+            path.lineWidth = 1
+            path.stroke()
+        }
+
+        for i in 1 ..< 4 {
+            let x = w * CGFloat(i) / 4
+            let color = i == 2 ? centerColor : lineColor
+            drawLine(from: NSPoint(x: x, y: 0), to: NSPoint(x: x, y: h), color: color)
+        }
+
+        for i in 1 ..< 3 {
+            let y = h * CGFloat(i) / 3
+            drawLine(from: NSPoint(x: 0, y: y), to: NSPoint(x: w, y: y), color: lineColor)
+        }
+
+        let cy = h / 2
+        drawLine(from: NSPoint(x: 0, y: cy), to: NSPoint(x: w, y: cy), color: centerColor)
     }
 }
