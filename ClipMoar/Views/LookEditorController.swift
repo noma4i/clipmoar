@@ -21,6 +21,7 @@ final class LookEditorModel: ObservableObject {
     @Published var fontSize: Int
     @Published var fontWeight: Int
     @Published var iconSize: Int
+    @Published var visibleRows: Int
     @Published var accentHex: String
     @Published var textColorHex: String
     @Published var cornerRadius: Int
@@ -46,6 +47,7 @@ final class LookEditorModel: ObservableObject {
         fontSize = settings.panelFontSize
         fontWeight = settings.panelFontWeight
         iconSize = settings.panelIconSize
+        visibleRows = settings.panelVisibleRows
         accentHex = settings.panelAccentHex
         textColorHex = settings.panelTextColorHex
         cornerRadius = settings.panelCornerRadius
@@ -71,6 +73,7 @@ final class LookEditorModel: ObservableObject {
         settings.panelFontSize = fontSize
         settings.panelFontWeight = fontWeight
         settings.panelIconSize = iconSize
+        settings.panelVisibleRows = visibleRows
         settings.panelAccentHex = accentHex
         settings.panelTextColorHex = textColorHex
         settings.panelCornerRadius = cornerRadius
@@ -127,8 +130,12 @@ final class LookEditorController {
         vc.previewOnly = true
         clipViewController = vc
 
+        let rows = CGFloat(max(settings.panelVisibleRows, 5))
+        let rowH = max(CGFloat(settings.panelFontSize) + CGFloat(settings.panelPaddingV) * 2 + 8, 28)
+        let mockH = rows * rowH + 44
+
         let mock = NSPanel(
-            contentRect: .zero,
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: mockH),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -168,11 +175,13 @@ final class LookEditorController {
         let screenFrame = screen.visibleFrame
         let mockWidth: CGFloat = 460
         let mockX = screenFrame.midX - mockWidth / 2
-        let mockY = screenFrame.midY - 176
+        let mockY = screenFrame.midY - mockH / 2
 
         mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
-        let editorH = editor.frame.height
-        let editorY = mockY + (352 - editorH) / 2
+        editorHosting.view.layoutSubtreeIfNeeded()
+        let editorSize = editorHosting.view.fittingSize
+        editor.setContentSize(editorSize)
+        let editorY = mockY + (mockH - editorSize.height) / 2
         editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: editorY))
 
         mock.orderFront(nil)
@@ -362,22 +371,20 @@ private struct EditorControlsView: View {
 
             paletteSection
 
-            Spacer()
-
             HStack {
                 Button("Reset") { resetDefaults() }
                     .controlSize(.small)
-                Text("ESC to close")
+                Spacer()
+                Text("ESC")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                Spacer()
                 Button("Done") { onDone() }
                     .keyboardShortcut(.return)
                     .controlSize(.regular)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 24)
+        .padding(20)
+        .frame(width: 500)
         .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
         .environment(\.colorScheme, .dark)
     }
@@ -432,6 +439,7 @@ private struct EditorControlsView: View {
             sliderRow("Size:", value: $model.fontSize, range: 10 ... 24, suffix: "px")
             sliderRow("Weight:", value: $model.fontWeight, range: 0 ... 2, labels: ["Reg", "Med", "Bold"])
             sliderRow("Icon:", value: $model.iconSize, range: 12 ... 36, suffix: "px")
+            sliderRow("Rows:", value: $model.visibleRows, range: 5 ... 20, suffix: "")
             sliderRow("Pad H:", value: $model.paddingH, range: 4 ... 24, suffix: "px")
             sliderRow("Pad V:", value: $model.paddingV, range: 0 ... 12, suffix: "px")
             settingRow("Text:") { colorPickerFor(hex: $model.textColorHex) }
@@ -581,6 +589,7 @@ private struct EditorControlsView: View {
         model.fontSize = 15
         model.fontWeight = 0
         model.iconSize = 22
+        model.visibleRows = 9
         model.accentHex = "2672B5"
         model.textColorHex = "E6E6E6"
         model.cornerRadius = 0

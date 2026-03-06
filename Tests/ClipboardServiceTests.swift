@@ -176,6 +176,7 @@ final class MockSettings: SettingsStore {
     var panelMargin: Int = 0
     var panelFontWeight: Int = 0
     var panelIconSize: Int = 22
+    var panelVisibleRows: Int = 9
     var panelTextColorHex: String = "E6E6E6"
     var previewFontName: String = ""
     var previewFontSize: Int = 11

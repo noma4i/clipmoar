@@ -26,6 +26,7 @@ protocol SettingsStore: AnyObject {
     var panelMargin: Int { get set }
     var panelFontWeight: Int { get set }
     var panelIconSize: Int { get set }
+    var panelVisibleRows: Int { get set }
     var panelTextColorHex: String { get set }
     var previewFontName: String { get set }
     var previewFontSize: Int { get set }
@@ -117,6 +118,7 @@ enum Settings {
     static let panelMargin = "panelMargin"
     static let panelFontWeight = "panelFontWeight"
     static let panelIconSize = "panelIconSize"
+    static let panelVisibleRows = "panelVisibleRows"
     static let panelTextColorHex = "panelTextColorHex"
     static let previewFontName = "previewFontName"
     static let previewFontSize = "previewFontSize"
@@ -370,6 +372,11 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelIconSize) }
     }
 
+    var panelVisibleRows: Int {
+        get { defaults.integer(forKey: Settings.panelVisibleRows) }
+        set { defaults.set(newValue, forKey: Settings.panelVisibleRows) }
+    }
+
     var panelTextColorHex: String {
         get { defaults.string(forKey: Settings.panelTextColorHex) ?? "" }
         set { defaults.set(newValue, forKey: Settings.panelTextColorHex) }
@@ -456,6 +463,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelMargin: 0,
             Settings.panelFontWeight: 0,
             Settings.panelIconSize: 22,
+            Settings.panelVisibleRows: 9,
             Settings.panelTextColorHex: "E6E6E6",
             Settings.previewFontName: "",
             Settings.previewFontSize: 11,

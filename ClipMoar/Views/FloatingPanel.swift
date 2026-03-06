@@ -77,7 +77,9 @@ final class FloatingPanelController: NSWindowController {
               let screen = targetScreen() else { return }
 
         let panelWidth: CGFloat = 460
-        let panelHeight: CGFloat = 352
+        let rows = CGFloat(max(settings.panelVisibleRows, 5))
+        let rowH = max(CGFloat(settings.panelFontSize) + CGFloat(settings.panelPaddingV) * 2 + 8, 28)
+        let panelHeight = rows * rowH + 44
         let screenFrame = screen.visibleFrame
 
         let x = screenFrame.origin.x + (screenFrame.width - panelWidth) * settings.panelPositionX

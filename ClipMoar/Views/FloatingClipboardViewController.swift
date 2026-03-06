@@ -176,6 +176,15 @@ final class FloatingClipboardViewController: NSViewController,
 
         let ltSize = settings.largeTypeFontSize
         largeTypeController.fontSize = ltSize > 0 ? CGFloat(ltSize) : nil
+
+        let rows = CGFloat(max(settings.panelVisibleRows, 5))
+        let newHeight = rows * tableView.rowHeight + searchFieldHeight!.constant + 12
+        if let window = view.window {
+            let frame = window.frame
+            let previewW = isPreviewVisible ? previewWidth : 0
+            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y + frame.height - newHeight,
+                                   width: listWidth + previewW, height: newHeight), display: true)
+        }
     }
 
     func focusOnList() {
@@ -632,10 +641,13 @@ final class FloatingClipboardViewController: NSViewController,
         let color = placeholderHex.isEmpty ? NSColor(calibratedWhite: 0.4, alpha: 1.0) : NSColor(hex: placeholderHex)
 
         let attachment = NSTextAttachment()
-        let iconConfig = NSImage.SymbolConfiguration(pointSize: font.pointSize - 2, weight: .regular)
+        let iconSize = font.pointSize - 2
+        let iconConfig = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
         attachment.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
             .withSymbolConfiguration(iconConfig)
         attachment.image = attachment.image?.tinted(with: color)
+        let yOffset = (font.capHeight - iconSize) / 2
+        attachment.bounds = NSRect(x: 0, y: yOffset, width: iconSize, height: iconSize)
 
         let result = NSMutableAttributedString()
         result.append(NSAttributedString(attachment: attachment))
