@@ -188,7 +188,6 @@ final class LookEditorController {
 
         let editorView = EditorControlsView(
             model: model,
-            onDone: { [weak self] in self?.dismiss() },
             onChanged: { [weak self] in self?.clipViewController?.applyTheme() }
         )
         let editorHosting = NSHostingController(rootView: editorView)
@@ -426,7 +425,6 @@ private struct MockPanelView: View {
 
 private struct EditorControlsView: View {
     @ObservedObject var model: LookEditorModel
-    let onDone: () -> Void
     var onChanged: (() -> Void)?
 
     private func changed() {
@@ -450,12 +448,9 @@ private struct EditorControlsView: View {
                 Button("Reset") { resetDefaults() }
                     .controlSize(.small)
                 Spacer()
-                Text("ESC")
+                Text("ESC to close")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                Button("Done") { onDone() }
-                    .keyboardShortcut(.return)
-                    .controlSize(.regular)
             }
         }
         .padding(20)

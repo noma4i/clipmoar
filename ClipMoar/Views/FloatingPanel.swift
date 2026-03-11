@@ -77,17 +77,17 @@ final class FloatingPanelController: NSWindowController {
               let screen = targetScreen() else { return }
 
         let panelWidth: CGFloat = 460
-        let rows = CGFloat(max(settings.panelVisibleRows, 5))
-        let rowH = max(CGFloat(settings.panelFontSize) + CGFloat(settings.panelPaddingV) * 2 + 8, 28)
-        let panelHeight = rows * rowH + 44
+
+        clipViewController.refresh()
+
+        let panelHeight = panel.frame.height > 0 ? panel.frame.height : 352
         let screenFrame = screen.visibleFrame
 
         let x = screenFrame.origin.x + (screenFrame.width - panelWidth) * settings.panelPositionX
         let y = screenFrame.origin.y + (screenFrame.height - panelHeight) * settings.panelPositionY
 
-        panel.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: false)
-
-        clipViewController.refresh()
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        clipViewController.updateAccessibilityBanner()
 
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

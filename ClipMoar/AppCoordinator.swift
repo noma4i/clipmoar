@@ -140,7 +140,7 @@ final class AppCoordinator {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
-        for item in menu.items {
+        for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) {
             item.target = self
         }
 

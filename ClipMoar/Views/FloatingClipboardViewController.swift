@@ -3,7 +3,7 @@ import Cocoa
 private let listWidth: CGFloat = 460
 private let previewWidth: CGFloat = 260
 private let rowHeight: CGFloat = 32
-private let panelHeight: CGFloat = 32 * 9 + 36 + 28
+private let defaultPanelHeight: CGFloat = 32 * 9 + 36 + 28
 private let cellFont = NSFont.systemFont(ofSize: 15)
 private let availableTextWidth: CGFloat = 460 - 80
 
@@ -15,6 +15,7 @@ final class FloatingClipboardViewController: NSViewController,
     private let scrollView = NSScrollView()
     private let metaLabel = NSTextField(labelWithString: "")
 
+    private var accessibilityBannerWindow: NSPanel?
     private let previewContainer = NSView()
     private let previewTextView = NSTextView()
     private let previewScrollView = NSScrollView()
@@ -39,6 +40,13 @@ final class FloatingClipboardViewController: NSViewController,
     private var currentTextColor: NSColor = .init(calibratedWhite: 0.9, alpha: 1.0)
     private var currentAccentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
 
+    private var currentPanelHeight: CGFloat {
+        let rows = CGFloat(max(settings.panelVisibleRows, 5))
+        let rowH = tableView.rowHeight > 0 ? tableView.rowHeight : 32
+        let searchH = searchFieldHeight?.constant ?? 28
+        return rows * rowH + searchH + 12
+    }
+
     private var selectedItem: ClipboardItem? {
         dataSource.item(at: tableView.selectedRow)
     }
@@ -54,7 +62,7 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     override func loadView() {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: panelHeight))
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: defaultPanelHeight))
         v.appearance = NSAppearance(named: .darkAqua)
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
@@ -64,6 +72,7 @@ final class FloatingClipboardViewController: NSViewController,
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        setupAccessibilityBanner()
         setupSearchField()
         setupMetaLabel()
         setupPreviewContainer()
@@ -177,13 +186,12 @@ final class FloatingClipboardViewController: NSViewController,
         let ltSize = settings.largeTypeFontSize
         largeTypeController.fontSize = ltSize > 0 ? CGFloat(ltSize) : nil
 
-        let rows = CGFloat(max(settings.panelVisibleRows, 5))
-        let newHeight = rows * tableView.rowHeight + searchFieldHeight!.constant + 12
         if let window = view.window {
             let frame = window.frame
+            let newH = currentPanelHeight
             let previewW = isPreviewVisible ? previewWidth : 0
-            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y + frame.height - newHeight,
-                                   width: listWidth + previewW, height: newHeight), display: true)
+            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y + frame.height - newH,
+                                   width: listWidth + previewW, height: newH), display: true)
         }
     }
 
@@ -201,6 +209,72 @@ final class FloatingClipboardViewController: NSViewController,
     private var scrollViewLeading: NSLayoutConstraint?
     private var scrollViewBottom: NSLayoutConstraint?
     private var separatorLeading: NSLayoutConstraint?
+
+    private func setupAccessibilityBanner() {}
+
+    @objc private func openAccessibilitySettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        NSWorkspace.shared.open(url)
+    }
+
+    func updateAccessibilityBanner() {
+        let trusted = AXIsProcessTrusted()
+        if trusted {
+            accessibilityBannerWindow?.orderOut(nil)
+            accessibilityBannerWindow = nil
+            return
+        }
+
+        guard let window = view.window else { return }
+
+        if accessibilityBannerWindow == nil {
+            let bannerH: CGFloat = 28
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: listWidth, height: bannerH),
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            panel.level = .floating
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hidesOnDeactivate = false
+
+            let bg = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: bannerH))
+            bg.wantsLayer = true
+            bg.layer?.backgroundColor = NSColor(calibratedRed: 0.85, green: 0.5, blue: 0.1, alpha: 0.95).cgColor
+            bg.layer?.cornerRadius = 6
+
+            let icon = NSImageView(frame: NSRect(x: 8, y: 6, width: 16, height: 16))
+            icon.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
+            icon.contentTintColor = .white
+            bg.addSubview(icon)
+
+            let label = NSTextField(labelWithString: "Accessibility required for paste. Click to fix.")
+            label.frame = NSRect(x: 30, y: 5, width: listWidth - 40, height: 18)
+            label.font = .systemFont(ofSize: 11, weight: .medium)
+            label.textColor = .white
+            label.isBezeled = false
+            label.drawsBackground = false
+            label.isEditable = false
+            label.lineBreakMode = .byTruncatingTail
+            bg.addSubview(label)
+
+            let btn = NSButton(frame: NSRect(x: 0, y: 0, width: listWidth, height: bannerH))
+            btn.isBordered = false
+            btn.isTransparent = true
+            btn.target = self
+            btn.action = #selector(openAccessibilitySettings)
+            bg.addSubview(btn)
+
+            panel.contentView = bg
+            accessibilityBannerWindow = panel
+        }
+
+        let wf = window.frame
+        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: wf.origin.x, y: wf.maxY))
+        accessibilityBannerWindow?.orderFront(nil)
+    }
 
     private func setupSearchField() {
         searchField.translatesAutoresizingMaskIntoConstraints = false
@@ -326,7 +400,7 @@ final class FloatingClipboardViewController: NSViewController,
             previewImageView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
             previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
             previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
-            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: panelHeight - 30),
+            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: defaultPanelHeight - 30),
 
             metaPill.centerXAnchor.constraint(equalTo: previewContainer.centerXAnchor),
             metaPill.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -6),
@@ -415,6 +489,7 @@ final class FloatingClipboardViewController: NSViewController,
             switch event.keyCode {
             case 53: // Escape
                 self.largeTypeController.dismiss()
+                self.accessibilityBannerWindow?.orderOut(nil)
                 self.view.window?.orderOut(nil)
                 return nil
 
@@ -541,7 +616,7 @@ final class FloatingClipboardViewController: NSViewController,
             let frame = window.frame
             previewWidthConstraint.constant = previewWidth
             window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
-                                   width: listWidth + previewWidth, height: panelHeight), display: true)
+                                   width: listWidth + previewWidth, height: currentPanelHeight), display: true)
         }
     }
 
@@ -556,7 +631,7 @@ final class FloatingClipboardViewController: NSViewController,
         let frame = window.frame
         previewWidthConstraint.constant = 0
         window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
-                               width: listWidth, height: panelHeight), display: true)
+                               width: listWidth, height: currentPanelHeight), display: true)
     }
 
     // MARK: - Private
@@ -592,6 +667,7 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     private func pasteAt(_ index: Int) {
+        accessibilityBannerWindow?.orderOut(nil)
         view.window?.orderOut(nil)
         dataSource.paste(at: index)
     }
