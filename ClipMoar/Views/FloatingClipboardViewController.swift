@@ -1,11 +1,6 @@
 import Cocoa
 
-private let listWidth: CGFloat = 460
-private let previewWidth: CGFloat = 260
-private let rowHeight: CGFloat = 32
 private let defaultPanelHeight: CGFloat = 32 * 9 + 36 + 28
-private let cellFont = NSFont.systemFont(ofSize: 15)
-private let availableTextWidth: CGFloat = 460 - 80
 
 final class FloatingClipboardViewController: NSViewController,
     NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate
@@ -21,39 +16,38 @@ final class FloatingClipboardViewController: NSViewController,
     private let previewScrollView = NSScrollView()
     private let previewImageView = NSImageView()
     private let previewMetaLabel = NSTextField(labelWithString: "")
-    private var previewWidthConstraint: NSLayoutConstraint!
-    private var isPreviewVisible = false
+    private let metaPill = NSView()
     private var rulePillView: NSView?
+    private var previewWidthConstraint: NSLayoutConstraint!
+    private var searchFieldTop: NSLayoutConstraint?
+    private var searchFieldHeight: NSLayoutConstraint?
+    private var searchFieldWidth: NSLayoutConstraint?
+    private var separatorWidth: NSLayoutConstraint?
+    private var scrollViewWidth: NSLayoutConstraint?
+    private var previewImageHeight: NSLayoutConstraint?
 
-    private let dataSource: FloatingPanelDataSource
+    var previousApp: NSRunningApplication?
+    private let stateController: FloatingPanelStateController
     private let settings: SettingsStore
     private let largeTypeController = LargeTypeController()
+
+    private var currentConfiguration: PanelConfiguration
+
     var onOpenPreferences: (() -> Void)?
     var previewOnly = false
 
-    private var currentTheme: PanelTheme = .dark
-    private var currentFontName: String = ""
-    private var currentFontSize: CGFloat = 15
-    private var currentFontWeight: NSFont.Weight = .regular
-    private var currentIconSize: CGFloat = 22
-    private var currentPadding: CGFloat = 12
-    private var currentTextColor: NSColor = .init(calibratedWhite: 0.9, alpha: 1.0)
-    private var currentAccentColor: NSColor = .init(calibratedRed: 0.15, green: 0.45, blue: 0.65, alpha: 0.9)
-
     private var currentPanelHeight: CGFloat {
-        let rows = CGFloat(max(settings.panelVisibleRows, 5))
-        let rowH = tableView.rowHeight > 0 ? tableView.rowHeight : 32
-        let searchH = searchFieldHeight?.constant ?? 28
-        return rows * rowH + searchH + 12
+        currentConfiguration.layout.panelHeight
     }
 
     private var selectedItem: ClipboardItem? {
-        dataSource.item(at: tableView.selectedRow)
+        stateController.selectedItem
     }
 
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
         self.settings = settings
-        dataSource = FloatingPanelDataSource(repository: repository, actionService: actionService)
+        stateController = FloatingPanelStateController(repository: repository, actionService: actionService)
+        currentConfiguration = settings.panelConfiguration()
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -62,17 +56,22 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     override func loadView() {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: defaultPanelHeight))
-        v.appearance = NSAppearance(named: .darkAqua)
-        v.wantsLayer = true
-        v.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
-        v.autoresizingMask = [.width]
-        view = v
+        let frame = NSRect(
+            x: 0,
+            y: 0,
+            width: currentConfiguration.layout.listWidth,
+            height: defaultPanelHeight
+        )
+        let rootView = NSView(frame: frame)
+        rootView.appearance = NSAppearance(named: .darkAqua)
+        rootView.wantsLayer = true
+        rootView.layer?.backgroundColor = currentConfiguration.backgroundColor.cgColor
+        rootView.autoresizingMask = [.width]
+        view = rootView
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupAccessibilityBanner()
         setupSearchField()
         setupMetaLabel()
         setupPreviewContainer()
@@ -80,137 +79,29 @@ final class FloatingClipboardViewController: NSViewController,
         setupKeyHandling()
     }
 
-    // MARK: - Public
-
     func refresh() {
-        applyTheme()
+        currentConfiguration = settings.panelConfiguration()
         searchField.stringValue = ""
         largeTypeController.dismiss()
-        hidePreview()
-        dataSource.fetch()
-        tableView.reloadData()
-
-        if !dataSource.items.isEmpty {
-            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-            updateSelection(for: 0)
-        } else {
-            metaLabel.stringValue = ""
-        }
+        stateController.reload(configuration: currentConfiguration)
+        applyTheme()
+        renderState(reloadTable: true)
     }
 
     func applyTheme() {
-        let theme = PanelTheme(rawValue: settings.panelTheme) ?? .dark
-        let fontSize = CGFloat(settings.panelFontSize)
-
-        switch theme {
-        case .dark:
-            view.appearance = NSAppearance(named: .darkAqua)
-            view.layer?.backgroundColor = NSColor(calibratedWhite: 0.13, alpha: 1.0).cgColor
-        case .light:
-            view.appearance = NSAppearance(named: .aqua)
-            view.layer?.backgroundColor = NSColor(calibratedWhite: 0.95, alpha: 1.0).cgColor
-        }
-
-        let txtColor = NSColor(hex: settings.panelTextColorHex)
-
-        let cornerRadius = CGFloat(settings.panelCornerRadius)
-        let margin = CGFloat(settings.panelMargin)
-        view.layer?.cornerRadius = cornerRadius
-        view.layer?.masksToBounds = cornerRadius > 0 || margin > 0
-        if cornerRadius > 0 || margin > 0 {
-            view.window?.isOpaque = false
-            view.window?.backgroundColor = .clear
-        } else {
-            view.window?.isOpaque = true
-            view.window?.backgroundColor = NSColor(cgColor: view.layer?.backgroundColor ?? CGColor.black) ?? .black
-        }
-        if let window = view.window {
-            let wf = window.frame
-            let inset = margin
-            view.frame = NSRect(x: inset, y: inset, width: wf.width - inset * 2, height: wf.height - inset * 2)
-        }
-
-        let padH = CGFloat(settings.panelPaddingH)
-        let padV = CGFloat(settings.panelPaddingV)
-
-        searchFieldTop?.constant = padV
-
-        let searchFontSize = CGFloat(settings.searchFontSize)
-        searchField.font = fontFor(name: settings.searchFontName, size: searchFontSize)
-
-        let searchTextHex = settings.searchTextColorHex
-        searchField.textColor = searchTextHex.isEmpty ? txtColor : NSColor(hex: searchTextHex)
-        updateSearchPlaceholder()
-        searchFieldHeight?.constant = max(searchFontSize + 12, 28)
-        tableView.rowHeight = max(fontSize + padV * 2 + 8, 28)
-
-        let fw: NSFont.Weight
-        switch settings.panelFontWeight {
-        case 1: fw = .medium
-        case 2: fw = .bold
-        default: fw = .regular
-        }
-
-        currentTheme = theme
-        currentFontName = settings.panelFontName
-        currentFontSize = fontSize
-        currentFontWeight = fw
-        currentIconSize = CGFloat(settings.panelIconSize)
-        currentPadding = padH
-        currentTextColor = txtColor
-        currentAccentColor = NSColor(hex: settings.panelAccentHex)
-
-        let selectedRow = tableView.selectedRow
+        currentConfiguration = settings.panelConfiguration()
+        applyConfiguration()
         tableView.reloadData()
-        if selectedRow >= 0, selectedRow < tableView.numberOfRows {
-            tableView.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
-        }
-
-        let prevFontSize = CGFloat(settings.previewFontSize)
-        previewTextView.font = fontFor(name: settings.previewFontName, size: prevFontSize)
-        previewTextView.textContainerInset = NSSize(width: CGFloat(settings.previewPadding), height: CGFloat(settings.previewPadding))
-
-        let prevTextHex = settings.previewTextColorHex
-        if !prevTextHex.isEmpty {
-            previewTextView.textColor = NSColor(hex: prevTextHex)
-        }
-
-        let prevBgHex = settings.previewBgColorHex
-        if !prevBgHex.isEmpty {
-            previewContainer.layer?.backgroundColor = NSColor(hex: prevBgHex).cgColor
-        }
-
-        metaLabel.font = .systemFont(ofSize: CGFloat(settings.metaFontSize))
-        previewMetaLabel.font = .systemFont(ofSize: CGFloat(settings.metaFontSize))
-
-        let ltSize = settings.largeTypeFontSize
-        largeTypeController.fontSize = ltSize > 0 ? CGFloat(ltSize) : nil
-
-        if let window = view.window {
-            let frame = window.frame
-            let newH = currentPanelHeight
-            let previewW = isPreviewVisible ? previewWidth : 0
-            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y + frame.height - newH,
-                                   width: listWidth + previewW, height: newH), display: true)
-        }
+        renderState(reloadTable: false)
     }
 
     func focusOnList() {
         view.window?.makeFirstResponder(tableView)
         if tableView.numberOfRows > 0, tableView.selectedRow < 0 {
-            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+            let row = max(stateController.state.selectedRow, 0)
+            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         }
     }
-
-    // MARK: - Setup
-
-    private var searchFieldTop: NSLayoutConstraint?
-    private var searchFieldHeight: NSLayoutConstraint?
-    private var scrollViewLeading: NSLayoutConstraint?
-    private var scrollViewBottom: NSLayoutConstraint?
-    private var separatorLeading: NSLayoutConstraint?
-
-    private func setupAccessibilityBanner() {}
 
     @objc private func openAccessibilitySettings() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
@@ -228,9 +119,9 @@ final class FloatingClipboardViewController: NSViewController,
         guard let window = view.window else { return }
 
         if accessibilityBannerWindow == nil {
-            let bannerH: CGFloat = 28
+            let bannerHeight: CGFloat = 28
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: listWidth, height: bannerH),
+                contentRect: NSRect(x: 0, y: 0, width: currentConfiguration.layout.listWidth, height: bannerHeight),
                 styleMask: [.borderless],
                 backing: .buffered,
                 defer: false
@@ -240,40 +131,49 @@ final class FloatingClipboardViewController: NSViewController,
             panel.backgroundColor = .clear
             panel.hidesOnDeactivate = false
 
-            let bg = NSView(frame: NSRect(x: 0, y: 0, width: listWidth, height: bannerH))
-            bg.wantsLayer = true
-            bg.layer?.backgroundColor = NSColor(calibratedRed: 0.85, green: 0.5, blue: 0.1, alpha: 0.95).cgColor
-            bg.layer?.cornerRadius = 6
+            let backgroundView = NSView(
+                frame: NSRect(x: 0, y: 0, width: currentConfiguration.layout.listWidth, height: bannerHeight)
+            )
+            backgroundView.wantsLayer = true
+            backgroundView.layer?.backgroundColor = NSColor(
+                calibratedRed: 0.85,
+                green: 0.5,
+                blue: 0.1,
+                alpha: 0.95
+            ).cgColor
+            backgroundView.layer?.cornerRadius = 6
 
-            let icon = NSImageView(frame: NSRect(x: 8, y: 6, width: 16, height: 16))
-            icon.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
-            icon.contentTintColor = .white
-            bg.addSubview(icon)
+            let iconView = NSImageView(frame: NSRect(x: 8, y: 6, width: 16, height: 16))
+            iconView.image = NSImage(
+                systemSymbolName: "exclamationmark.triangle.fill",
+                accessibilityDescription: nil
+            )
+            iconView.contentTintColor = .white
+            backgroundView.addSubview(iconView)
 
             let label = NSTextField(labelWithString: "Accessibility required for paste. Click to fix.")
-            label.frame = NSRect(x: 30, y: 5, width: listWidth - 40, height: 18)
+            label.frame = NSRect(x: 30, y: 5, width: currentConfiguration.layout.listWidth - 40, height: 18)
             label.font = .systemFont(ofSize: 11, weight: .medium)
             label.textColor = .white
-            label.isBezeled = false
-            label.drawsBackground = false
-            label.isEditable = false
             label.lineBreakMode = .byTruncatingTail
-            bg.addSubview(label)
+            backgroundView.addSubview(label)
 
-            let btn = NSButton(frame: NSRect(x: 0, y: 0, width: listWidth, height: bannerH))
-            btn.isBordered = false
-            btn.isTransparent = true
-            btn.target = self
-            btn.action = #selector(openAccessibilitySettings)
-            bg.addSubview(btn)
+            let button = NSButton(frame: NSRect(x: 0, y: 0, width: currentConfiguration.layout.listWidth, height: bannerHeight))
+            button.isBordered = false
+            button.isTransparent = true
+            button.target = self
+            button.action = #selector(openAccessibilitySettings)
+            backgroundView.addSubview(button)
 
-            panel.contentView = bg
+            panel.contentView = backgroundView
             accessibilityBannerWindow = panel
         }
 
-        let wf = window.frame
-        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: wf.origin.x, y: wf.maxY))
-        accessibilityBannerWindow?.orderFront(nil)
+        let frame = window.frame
+        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: frame.origin.x, y: frame.maxY + 4))
+        if let banner = accessibilityBannerWindow {
+            window.addChildWindow(banner, ordered: .above)
+        }
     }
 
     private func setupSearchField() {
@@ -283,10 +183,7 @@ final class FloatingClipboardViewController: NSViewController,
         searchField.drawsBackground = false
         searchField.isBordered = false
         searchField.isBezeled = false
-        searchField.font = .systemFont(ofSize: 16)
-        searchField.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
         searchField.appearance = NSAppearance(named: .darkAqua)
-        updateSearchPlaceholder()
         view.addSubview(searchField)
 
         let separator = NSBox()
@@ -295,18 +192,16 @@ final class FloatingClipboardViewController: NSViewController,
         view.addSubview(separator)
 
         NSLayoutConstraint.activate([
-            { let c = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 8); searchFieldTop = c; return c }(),
+            { let constraint = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 8); searchFieldTop = constraint; return constraint }(),
             searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            searchField.trailingAnchor.constraint(equalTo: view.leadingAnchor, constant: listWidth - 8),
-            { let c = searchField.heightAnchor.constraint(equalToConstant: 28); searchFieldHeight = c; return c }(),
+            { let constraint = searchField.widthAnchor.constraint(equalToConstant: currentConfiguration.layout.listWidth - 16); searchFieldWidth = constraint; return constraint }(),
+            { let constraint = searchField.heightAnchor.constraint(equalToConstant: currentConfiguration.layout.searchFieldHeight); searchFieldHeight = constraint; return constraint }(),
 
             separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
-            { let c = separator.leadingAnchor.constraint(equalTo: view.leadingAnchor); separatorLeading = c; return c }(),
-            separator.widthAnchor.constraint(equalToConstant: listWidth),
+            separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            { let constraint = separator.widthAnchor.constraint(equalToConstant: currentConfiguration.layout.listWidth); separatorWidth = constraint; return constraint }(),
         ])
     }
-
-    private let metaPill = NSView()
 
     private func setupMetaLabel() {
         metaPill.translatesAutoresizingMaskIntoConstraints = false
@@ -317,17 +212,15 @@ final class FloatingClipboardViewController: NSViewController,
 
         metaLabel.translatesAutoresizingMaskIntoConstraints = false
         metaLabel.isEditable = false
-        metaLabel.textColor = NSColor(calibratedWhite: 0.7, alpha: 1.0)
-        metaLabel.font = .systemFont(ofSize: 10)
-        metaLabel.alignment = .center
         metaLabel.drawsBackground = false
+        metaLabel.alignment = .center
         metaPill.addSubview(metaLabel)
     }
 
     private func setupPreviewContainer() {
         previewContainer.translatesAutoresizingMaskIntoConstraints = false
         previewContainer.wantsLayer = true
-        previewContainer.layer?.backgroundColor = NSColor(calibratedWhite: 0.10, alpha: 1.0).cgColor
+        previewContainer.layer?.backgroundColor = currentConfiguration.preview.backgroundColor.cgColor
         view.addSubview(previewContainer)
 
         previewWidthConstraint = previewContainer.widthAnchor.constraint(equalToConstant: 0)
@@ -348,9 +241,6 @@ final class FloatingClipboardViewController: NSViewController,
         previewTextView.isEditable = false
         previewTextView.isSelectable = true
         previewTextView.drawsBackground = false
-        previewTextView.textColor = NSColor(calibratedWhite: 0.85, alpha: 1.0)
-        previewTextView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        previewTextView.textContainerInset = NSSize(width: 6, height: 6)
         previewTextView.isVerticallyResizable = true
         previewTextView.isHorizontallyResizable = false
         previewTextView.textContainer?.widthTracksTextView = true
@@ -369,8 +259,6 @@ final class FloatingClipboardViewController: NSViewController,
         rulePill.layer?.cornerRadius = 8
 
         previewMetaLabel.translatesAutoresizingMaskIntoConstraints = false
-        previewMetaLabel.font = .systemFont(ofSize: 10)
-        previewMetaLabel.textColor = NSColor(calibratedWhite: 0.8, alpha: 1.0)
         previewMetaLabel.isEditable = false
         previewMetaLabel.drawsBackground = false
         previewMetaLabel.alignment = .center
@@ -400,7 +288,7 @@ final class FloatingClipboardViewController: NSViewController,
             previewImageView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
             previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
             previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
-            previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: defaultPanelHeight - 30),
+            { let constraint = previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: currentPanelHeight - 30); previewImageHeight = constraint; return constraint }(),
 
             metaPill.centerXAnchor.constraint(equalTo: previewContainer.centerXAnchor),
             metaPill.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -6),
@@ -427,7 +315,6 @@ final class FloatingClipboardViewController: NSViewController,
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
-        tableView.rowHeight = rowHeight
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
         tableView.doubleAction = #selector(pasteSelected)
         tableView.style = .plain
@@ -436,23 +323,201 @@ final class FloatingClipboardViewController: NSViewController,
 
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
-            { let c = scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor); scrollViewLeading = c; return c }(),
-            scrollView.widthAnchor.constraint(equalToConstant: listWidth),
-            { let c = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor); scrollViewBottom = c; return c }(),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            { let constraint = scrollView.widthAnchor.constraint(equalToConstant: currentConfiguration.layout.listWidth); scrollViewWidth = constraint; return constraint }(),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+    }
+
+    private func applyConfiguration() {
+        let configuration = currentConfiguration
+
+        view.appearance = NSAppearance(named: configuration.theme == .dark ? .darkAqua : .aqua)
+        view.layer?.backgroundColor = configuration.backgroundColor.cgColor
+        previewContainer.layer?.backgroundColor = configuration.preview.backgroundColor.cgColor
+
+        let layout = configuration.layout
+
+        view.layer?.cornerRadius = layout.cornerRadius
+        view.layer?.masksToBounds = layout.cornerRadius > 0 || layout.margin > 0
+        if layout.cornerRadius > 0 || layout.margin > 0 {
+            view.window?.isOpaque = false
+            view.window?.backgroundColor = .clear
+        } else {
+            view.window?.isOpaque = true
+            view.window?.backgroundColor = configuration.backgroundColor
+        }
+
+        if let window = view.window {
+            let frame = window.frame
+            let inset = layout.margin
+            view.frame = NSRect(
+                x: inset,
+                y: inset,
+                width: frame.width - inset * 2,
+                height: frame.height - inset * 2
+            )
+        }
+
+        searchFieldTop?.constant = layout.verticalPadding
+        searchFieldHeight?.constant = layout.searchFieldHeight
+        searchFieldWidth?.constant = layout.listWidth - 16
+        separatorWidth?.constant = layout.listWidth
+        scrollViewWidth?.constant = layout.listWidth
+        previewImageHeight?.constant = currentPanelHeight - 30
+
+        searchField.font = font(named: configuration.search.fontName, size: configuration.search.fontSize)
+        searchField.textColor = configuration.search.textColor
+        updateSearchPlaceholder()
+
+        tableView.rowHeight = layout.rowHeight
+        previewTextView.font = font(named: configuration.preview.fontName, size: configuration.preview.fontSize)
+        previewTextView.textContainerInset = NSSize(width: configuration.preview.padding, height: configuration.preview.padding)
+        previewTextView.textColor = configuration.preview.textColor
+
+        metaLabel.font = .systemFont(ofSize: configuration.preview.metaFontSize)
+        metaLabel.textColor = configuration.theme == .dark
+            ? NSColor(calibratedWhite: 0.7, alpha: 1.0)
+            : NSColor(calibratedWhite: 0.35, alpha: 1.0)
+        previewMetaLabel.font = .systemFont(ofSize: configuration.preview.metaFontSize)
+        previewMetaLabel.textColor = configuration.theme == .dark
+            ? NSColor(calibratedWhite: 0.8, alpha: 1.0)
+            : NSColor(calibratedWhite: 0.25, alpha: 1.0)
+
+        largeTypeController.fontSize = configuration.largeTypeFontSize
+        resizeWindow()
+    }
+
+    private func renderState(reloadTable: Bool) {
+        if reloadTable {
+            tableView.reloadData()
+        }
+
+        let selectedRow = stateController.state.selectedRow
+        if selectedRow >= 0, selectedRow < stateController.items.count {
+            tableView.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
+        } else {
+            tableView.deselectAll(nil)
+        }
+
+        metaLabel.stringValue = stateController.state.metaText
+        metaPill.isHidden = stateController.state.metaText.isEmpty
+        renderPreview()
+        resizeWindow()
+    }
+
+    private func renderPreview() {
+        let previewState = stateController.state.preview
+        previewWidthConstraint.constant = previewState.isVisible ? currentConfiguration.layout.previewWidth : 0
+
+        guard previewState.isVisible else {
+            previewTextView.string = ""
+            previewImageView.image = nil
+            previewImageView.isHidden = true
+            previewScrollView.isHidden = false
+            rulePillView?.isHidden = true
+            return
+        }
+
+        switch previewState.content {
+        case let .text(text):
+            previewScrollView.isHidden = false
+            previewImageView.isHidden = true
+            previewTextView.string = text
+            previewImageView.image = nil
+        case let .image(data):
+            previewScrollView.isHidden = true
+            previewImageView.isHidden = false
+            previewImageView.image = NSImage(data: data)
+            previewTextView.string = ""
+        case .none:
+            previewScrollView.isHidden = false
+            previewImageView.isHidden = true
+            previewTextView.string = ""
+            previewImageView.image = nil
+        }
+
+        if let rule = previewState.ruleText, !rule.isEmpty {
+            previewMetaLabel.stringValue = "Rule: \(rule)"
+            rulePillView?.isHidden = false
+        } else {
+            previewMetaLabel.stringValue = previewState.infoText
+            rulePillView?.isHidden = previewState.infoText.isEmpty
+        }
+    }
+
+    private func resizeWindow() {
+        guard let window = view.window else { return }
+        let frame = window.frame
+        let width = currentConfiguration.layout.listWidth
+            + (stateController.state.preview.isVisible ? currentConfiguration.layout.previewWidth : 0)
+        let height = currentPanelHeight
+        let originY = frame.origin.y + frame.height - height
+        window.setFrame(NSRect(x: frame.origin.x, y: originY, width: width, height: height), display: true)
+    }
+
+    private func performSearch() {
+        stateController.updateFilter(searchField.stringValue, configuration: currentConfiguration)
+        renderState(reloadTable: true)
+    }
+
+    private func selectRow(_ row: Int, forcePreview: Bool) {
+        stateController.selectRow(row, configuration: currentConfiguration, forcePreview: forcePreview)
+        renderState(reloadTable: false)
+    }
+
+    private func updateSearchPlaceholder() {
+        let font = searchField.font ?? .systemFont(ofSize: currentConfiguration.search.fontSize)
+        let color = currentConfiguration.search.placeholderColor
+
+        let attachment = NSTextAttachment()
+        let iconSize = font.pointSize - 2
+        let iconConfiguration = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
+        attachment.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
+            .withSymbolConfiguration(iconConfiguration)?
+            .tinted(with: color)
+        let yOffset = (font.capHeight - iconSize) / 2
+        attachment.bounds = NSRect(x: 0, y: yOffset, width: iconSize, height: iconSize)
+
+        let placeholder = NSMutableAttributedString()
+        placeholder.append(NSAttributedString(attachment: attachment))
+        placeholder.append(NSAttributedString(
+            string: " Type to search...",
+            attributes: [
+                .foregroundColor: color,
+                .font: font,
+            ]
+        ))
+        searchField.placeholderAttributedString = placeholder
+    }
+
+    private func font(named name: String, size: CGFloat) -> NSFont {
+        if let font = NSFont(name: name, size: size) {
+            return font
+        }
+        return .systemFont(ofSize: size)
+    }
+
+    private func currentCellFont() -> NSFont {
+        if let font = NSFont(name: currentConfiguration.typography.fontName, size: currentConfiguration.typography.fontSize) {
+            return font
+        }
+        return .systemFont(
+            ofSize: currentConfiguration.typography.fontSize,
+            weight: currentConfiguration.typography.fontWeight
+        )
     }
 
     private func setupKeyHandling() {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self,
-                  self.view.window?.isVisible == true else { return event }
+            guard let self = self, self.view.window?.isVisible == true else { return event }
 
             if self.previewOnly {
                 switch event.keyCode {
-                case 53, 36, 48: // Escape, Return, Tab - pass through
+                case 53, 36, 48:
                     return event
-                case 51: // Backspace
-                    if event.modifierFlags.contains(.command) { return event } // Cmd+Delete - pass
+                case 51:
+                    if event.modifierFlags.contains(.command) { return event }
                     if self.view.window?.firstResponder !== self.searchField.currentEditor() {
                         self.view.window?.makeFirstResponder(self.searchField)
                     }
@@ -461,24 +526,23 @@ final class FloatingClipboardViewController: NSViewController,
                         self.performSearch()
                     }
                     return nil
-                case 125, 126: // Arrow up/down
+                case 125, 126:
                     self.view.window?.makeFirstResponder(self.tableView)
                     self.tableView.keyDown(with: event)
                     return nil
-                case 124: // Arrow right - show preview
-                    if let item = self.selectedItem {
-                        self.showPreview(for: item)
-                    }
+                case 124:
+                    self.stateController.showPreviewForSelection()
+                    self.renderState(reloadTable: false)
                     return nil
                 default:
                     if event.modifierFlags.contains(.command) { return event }
-                    let navKeys: Set<UInt16> = [116, 121, 115, 119, 123]
-                    if !navKeys.contains(event.keyCode),
-                       let chars = event.characters, !chars.isEmpty,
-                       chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+                    let navigationKeys: Set<UInt16> = [116, 121, 115, 119, 123]
+                    if !navigationKeys.contains(event.keyCode),
+                       let characters = event.characters, !characters.isEmpty,
+                       characters.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
                     {
                         self.view.window?.makeFirstResponder(self.searchField)
-                        self.searchField.stringValue += chars
+                        self.searchField.stringValue += characters
                         self.performSearch()
                         return nil
                     }
@@ -487,17 +551,16 @@ final class FloatingClipboardViewController: NSViewController,
             }
 
             switch event.keyCode {
-            case 53: // Escape
+            case 53:
                 self.largeTypeController.dismiss()
-                self.accessibilityBannerWindow?.orderOut(nil)
                 self.view.window?.orderOut(nil)
                 return nil
 
-            case 36: // Return
+            case 36:
                 self.pasteSelected()
                 return nil
 
-            case 48: // Tab - Large Type toggle
+            case 48:
                 if self.settings.largeTypeEnabled {
                     if self.largeTypeController.isVisible {
                         self.largeTypeController.dismiss()
@@ -507,36 +570,28 @@ final class FloatingClipboardViewController: NSViewController,
                 }
                 return nil
 
-            case 124: // Arrow right - only when Large Type is not showing
-                if !self.largeTypeController.isVisible,
-                   let item = self.selectedItem
-                {
-                    self.dataSource.openInExternalPreview(item)
+            case 124:
+                if !self.largeTypeController.isVisible {
+                    self.stateController.openExternalPreviewForSelection()
                 }
                 return nil
 
-            case 125, 126: // Arrow up/down
+            case 125, 126:
                 self.view.window?.makeFirstResponder(self.tableView)
                 self.tableView.keyDown(with: event)
-                if self.largeTypeController.isVisible,
-                   let item = self.selectedItem
-                {
+                if self.largeTypeController.isVisible, let item = self.selectedItem {
                     self.largeTypeController.show(item: item)
                 }
                 return nil
 
-            case 51: // Backspace
+            case 51:
                 if event.modifierFlags.contains(.command) {
-                    let row = self.tableView.selectedRow
-                    if row >= 0 {
-                        self.dataSource.remove(at: row)
-                        self.tableView.reloadData()
-                        let newRow = min(row, self.dataSource.items.count - 1)
-                        if newRow >= 0 {
-                            self.tableView.selectRowIndexes(IndexSet(integer: newRow), byExtendingSelection: false)
-                            self.updateSelection(for: newRow)
-                        }
+                    let newRow = self.stateController.removeSelected(configuration: self.currentConfiguration)
+                    self.tableView.reloadData()
+                    if let newRow {
+                        self.tableView.selectRowIndexes(IndexSet(integer: newRow), byExtendingSelection: false)
                     }
+                    self.renderState(reloadTable: false)
                     return nil
                 }
 
@@ -550,30 +605,27 @@ final class FloatingClipboardViewController: NSViewController,
                 return nil
 
             default:
-                // Cmd+, opens preferences
                 if event.modifierFlags.contains(.command), event.characters == "," {
                     self.onOpenPreferences?()
                     return nil
                 }
 
-                // Cmd+1..9
                 if event.modifierFlags.contains(.command),
-                   let char = event.characters,
-                   let num = Int(char), num >= 1, num <= 9
+                   let characters = event.characters,
+                   let number = Int(characters), number >= 1, number <= 9
                 {
-                    self.pasteAt(num - 1)
+                    self.pasteAt(number - 1)
                     return nil
                 }
 
-                // Typing goes to search
-                let navKeys: Set<UInt16> = [125, 126, 116, 121, 115, 119, 123, 124]
-                if !navKeys.contains(event.keyCode),
+                let navigationKeys: Set<UInt16> = [125, 126, 116, 121, 115, 119, 123, 124]
+                if !navigationKeys.contains(event.keyCode),
                    !event.modifierFlags.contains(.command),
-                   let chars = event.characters, !chars.isEmpty,
-                   chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+                   let characters = event.characters, !characters.isEmpty,
+                   characters.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
                 {
                     self.view.window?.makeFirstResponder(self.searchField)
-                    self.searchField.stringValue += chars
+                    self.searchField.stringValue += characters
                     self.performSearch()
                     return nil
                 }
@@ -583,159 +635,59 @@ final class FloatingClipboardViewController: NSViewController,
         }
     }
 
-    // MARK: - Preview
-
-    private func showPreview(for item: ClipboardItem) {
-        previewImageView.image = nil
-        previewTextView.string = ""
-
-        if item.isImage, let data = item.imageData {
-            previewScrollView.isHidden = true
-            previewImageView.isHidden = false
-            previewImageView.image = NSImage(data: data)
-            rulePillView?.isHidden = true
-            previewMetaLabel.stringValue = dataSource.imageMetadata(for: item)
-        } else {
-            previewImageView.isHidden = true
-            previewScrollView.isHidden = false
-            previewTextView.string = item.content ?? ""
-        }
-
-        if let rule = item.appliedRule, !rule.isEmpty {
-            rulePillView?.isHidden = false
-            previewMetaLabel.stringValue = "Rule: \(rule)"
-        } else {
-            rulePillView?.isHidden = true
-        }
-
-        metaPill.isHidden = false
-
-        if !isPreviewVisible {
-            isPreviewVisible = true
-            guard let window = view.window else { return }
-            let frame = window.frame
-            previewWidthConstraint.constant = previewWidth
-            window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
-                                   width: listWidth + previewWidth, height: currentPanelHeight), display: true)
-        }
-    }
-
-    private func hidePreview() {
-        guard isPreviewVisible else { return }
-        isPreviewVisible = false
-        previewTextView.string = ""
-        previewImageView.image = nil
-        metaPill.isHidden = true
-
-        guard let window = view.window else { return }
-        let frame = window.frame
-        previewWidthConstraint.constant = 0
-        window.setFrame(NSRect(x: frame.origin.x, y: frame.origin.y,
-                               width: listWidth, height: currentPanelHeight), display: true)
-    }
-
-    // MARK: - Private
-
-    private func performSearch() {
-        dataSource.fetch(filter: searchField.stringValue)
-        tableView.reloadData()
-
-        if !dataSource.items.isEmpty {
-            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-            updateSelection(for: 0)
-        } else {
-            metaLabel.stringValue = ""
-            hidePreview()
-        }
-    }
-
-    private func updateSelection(for row: Int) {
-        guard let item = dataSource.item(at: row) else {
-            metaLabel.stringValue = ""
-            hidePreview()
-            return
-        }
-
-        let meta = dataSource.meta(for: item, availableTextWidth: availableTextWidth, font: cellFont)
-        metaLabel.stringValue = meta.text
-
-        showPreview(for: item)
-    }
-
     @objc private func pasteSelected() {
-        pasteAt(tableView.selectedRow)
+        pasteAt(stateController.state.selectedRow)
     }
 
     private func pasteAt(_ index: Int) {
-        accessibilityBannerWindow?.orderOut(nil)
+        let app = previousApp
         view.window?.orderOut(nil)
-        dataSource.paste(at: index)
+        stateController.paste(at: index, previousApp: app)
     }
-
-    // MARK: - NSTableViewDataSource
 
     func numberOfRows(in _: NSTableView) -> Int {
-        dataSource.items.count
+        stateController.items.count
     }
 
-    // MARK: - NSTableViewDelegate
-
     func tableView(_ tableView: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
-        guard let item = dataSource.item(at: row) else { return nil }
+        guard let item = stateController.item(at: row) else { return nil }
 
         let cell: ClipTableCellView
-        if let reused = tableView.makeView(withIdentifier: ClipTableCellView.identifier, owner: nil) as? ClipTableCellView {
+        if let reused = tableView.makeView(
+            withIdentifier: ClipTableCellView.identifier,
+            owner: nil
+        ) as? ClipTableCellView {
             cell = reused
         } else {
             cell = ClipTableCellView()
         }
 
-        let shortcutColor = currentTextColor.withAlphaComponent(0.5)
-        cell.configure(with: item, row: row, fontSize: currentFontSize, fontName: currentFontName, textColor: currentTextColor, shortcutColor: shortcutColor, fontWeight: currentFontWeight, iconSize: currentIconSize, padding: currentPadding)
+        let typography = currentConfiguration.typography
+        cell.configure(
+            with: item,
+            row: row,
+            fontSize: typography.fontSize,
+            fontName: typography.fontName,
+            textColor: typography.textColor,
+            shortcutColor: typography.textColor.withAlphaComponent(0.5),
+            fontWeight: typography.fontWeight,
+            iconSize: typography.iconSize,
+            padding: currentConfiguration.layout.horizontalPadding
+        )
         return cell
     }
 
     func tableView(_: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
-        let row = ClipTableRowView()
-        row.accentColor = currentAccentColor
-        return row
+        let rowView = ClipTableRowView()
+        rowView.accentColor = currentConfiguration.typography.accentColor
+        return rowView
     }
 
     func tableViewSelectionDidChange(_: Notification) {
-        updateSelection(for: tableView.selectedRow)
+        selectRow(tableView.selectedRow, forcePreview: stateController.state.preview.isVisible)
     }
-
-    // MARK: - NSTextFieldDelegate
 
     func controlTextDidChange(_: Notification) {
         performSearch()
-    }
-
-    private func updateSearchPlaceholder() {
-        let font = searchField.font ?? .systemFont(ofSize: 16)
-        let placeholderHex = settings.searchPlaceholderColorHex
-        let color = placeholderHex.isEmpty ? NSColor(calibratedWhite: 0.4, alpha: 1.0) : NSColor(hex: placeholderHex)
-
-        let attachment = NSTextAttachment()
-        let iconSize = font.pointSize - 2
-        let iconConfig = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
-        attachment.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
-            .withSymbolConfiguration(iconConfig)
-        attachment.image = attachment.image?.tinted(with: color)
-        let yOffset = (font.capHeight - iconSize) / 2
-        attachment.bounds = NSRect(x: 0, y: yOffset, width: iconSize, height: iconSize)
-
-        let result = NSMutableAttributedString()
-        result.append(NSAttributedString(attachment: attachment))
-        result.append(NSAttributedString(string: " Type to search...", attributes: [
-            .foregroundColor: color,
-            .font: font,
-        ]))
-        searchField.placeholderAttributedString = result
-    }
-
-    private func fontFor(name: String, size: CGFloat) -> NSFont {
-        if name.isEmpty { return .systemFont(ofSize: size) }
-        return NSFont(name: name, size: size) ?? .systemFont(ofSize: size)
     }
 }

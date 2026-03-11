@@ -1,6 +1,16 @@
 import Cocoa
 import CryptoKit
 
+protocol ClipboardLogger {
+    func log(_ message: StaticString, _ args: CVarArg...)
+}
+
+struct SystemClipboardLogger: ClipboardLogger {
+    func log(_ message: StaticString, _ args: CVarArg...) {
+        withVaList(args) { NSLogv(String(describing: message), $0) }
+    }
+}
+
 protocol PasteboardReadable {
     var changeCount: Int { get }
     var frontmostBundleId: String? { get }
@@ -66,28 +76,51 @@ enum ContentFingerprint {
     }
 }
 
+private enum ClipboardSnapshotContent {
+    case empty
+    case text(String)
+    case image(Data)
+    case files([URL])
+    case unsupported
+}
+
+private struct ClipboardSnapshot {
+    let changeCount: Int
+    let sourceAppBundleId: String?
+    let hasMarkerType: Bool
+    let hasIgnoredSystemType: Bool
+    let content: ClipboardSnapshotContent
+}
+
 final class ClipboardService {
     private let repository: ClipboardRepository
     private let settings: SettingsStore
     private let pasteboard: PasteboardReadable
     private let ruleEngine: ClipboardRuleEngine
+    private let logger: ClipboardLogger
     private var timer: Timer?
     private var lastChangeCount: Int = 0
     private let monitorInterval: TimeInterval
+    private let maintenanceInterval: Int
     private var lastInsertedUUID: UUID?
+    private var pendingMaintenancePasses = 0
 
     init(
         repository: ClipboardRepository = CoreDataClipboardRepository(),
         settings: SettingsStore = UserDefaultsSettingsStore(),
         pasteboard: PasteboardReadable = NSPasteboardGateway(),
         ruleEngine: ClipboardRuleEngine = ClipboardRuleEngine(),
-        monitorInterval: TimeInterval = 0.5
+        monitorInterval: TimeInterval = 0.5,
+        maintenanceInterval: Int = 20,
+        logger: ClipboardLogger = SystemClipboardLogger()
     ) {
         self.repository = repository
         self.settings = settings
         self.pasteboard = pasteboard
         self.ruleEngine = ruleEngine
         self.monitorInterval = monitorInterval
+        self.maintenanceInterval = max(1, maintenanceInterval)
+        self.logger = logger
     }
 
     func startMonitoring() {
@@ -107,73 +140,108 @@ final class ClipboardService {
         let newCount = pasteboard.changeCount
         guard newCount != lastChangeCount else { return }
         let gap = newCount - lastChangeCount
-        lastChangeCount = newCount
+        let snapshot = readSnapshot(changeCount: newCount)
+        lastChangeCount = snapshot.changeCount
 
-        if pasteboard.hasMarkerType() {
-            NSLog("[ClipMoar] skip: own marker")
+        if snapshot.hasMarkerType {
+            logger.log("[ClipMoar] skip: own marker")
             return
         }
-        if pasteboard.hasIgnoredSystemType() {
-            NSLog("[ClipMoar] skip: ignored system type (transient/auto-generated)")
+        if snapshot.hasIgnoredSystemType {
+            logger.log("[ClipMoar] skip: ignored system type (transient/auto-generated)")
             return
         }
 
-        if pasteboard.isEmpty() {
-            NSLog("[ClipMoar] skip: empty pasteboard")
+        switch snapshot.content {
+        case .empty:
+            logger.log("[ClipMoar] skip: empty pasteboard")
             if let uuid = lastInsertedUUID {
                 repository.removeItem(uuid: uuid)
                 lastInsertedUUID = nil
             }
             return
-        }
-
-        let sourceAppBundleId = pasteboard.frontmostBundleId
-        NSLog("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
-
-        if let urls = pasteboard.fileURLs() {
+        case let .files(urls):
+            let sourceAppBundleId = snapshot.sourceAppBundleId
+            logger.log("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
             let paths = urls.map { $0.path }.joined(separator: "\n")
             let fingerprint = ContentFingerprint.hash(text: "file:" + paths)
             guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
-                NSLog("[ClipMoar] skip: duplicate file")
+                logger.log("[ClipMoar] skip: duplicate file")
                 return
             }
 
             lastInsertedUUID = repository.insertFile(paths, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
-            NSLog("[ClipMoar] inserted file: %@", paths)
-
-        } else if settings.storeText, let string = pasteboard.stringValue(), !string.isEmpty {
+            logger.log("[ClipMoar] inserted file: %@", paths)
+            scheduleMaintenance()
+        case let .text(string):
+            guard settings.storeText, !string.isEmpty else {
+                logger.log("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, 1, 0)
+                return
+            }
+            let sourceAppBundleId = snapshot.sourceAppBundleId
+            logger.log("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
             let result = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
 
             if result.text != string {
-                NSLog("[ClipMoar] text transformed, writing back to clipboard")
+                logger.log("[ClipMoar] text transformed, writing back to clipboard")
                 writeTransformedText(result.text)
             }
 
             let fingerprint = ContentFingerprint.hash(text: result.text)
             guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
-                NSLog("[ClipMoar] skip: duplicate text (transform still applied)")
+                logger.log("[ClipMoar] skip: duplicate text (transform still applied)")
                 return
             }
 
             let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
             lastInsertedUUID = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
-            NSLog("[ClipMoar] inserted text (rule: %@): %@", appliedRule ?? "none", String(result.text.prefix(80)))
-
-        } else if settings.storeImages, let imageData = pasteboard.imageData() {
+            logger.log("[ClipMoar] inserted text (rule: %@): %@", appliedRule ?? "none", String(result.text.prefix(80)))
+            scheduleMaintenance()
+        case let .image(imageData):
+            guard settings.storeImages else {
+                logger.log("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, 0, 1)
+                return
+            }
+            let sourceAppBundleId = snapshot.sourceAppBundleId
+            logger.log("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
             let fingerprint = ContentFingerprint.hash(data: imageData)
             guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
-                NSLog("[ClipMoar] skip: duplicate image")
+                logger.log("[ClipMoar] skip: duplicate image")
                 return
             }
 
             lastInsertedUUID = repository.insertImage(imageData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
-            NSLog("[ClipMoar] inserted image: %d bytes", imageData.count)
+            logger.log("[ClipMoar] inserted image: %d bytes", imageData.count)
+            scheduleMaintenance()
+        case .unsupported:
+            logger.log("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, 0, 0)
+        }
+    }
+
+    private func readSnapshot(changeCount: Int) -> ClipboardSnapshot {
+        let hasMarkerType = pasteboard.hasMarkerType()
+        let hasIgnoredSystemType = pasteboard.hasIgnoredSystemType()
+
+        let content: ClipboardSnapshotContent
+        if pasteboard.isEmpty() {
+            content = .empty
+        } else if let urls = pasteboard.fileURLs() {
+            content = .files(urls)
+        } else if let text = pasteboard.stringValue() {
+            content = .text(text)
+        } else if let data = pasteboard.imageData() {
+            content = .image(data)
         } else {
-            NSLog("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, pasteboard.stringValue() != nil ? 1 : 0, pasteboard.imageData() != nil ? 1 : 0)
+            content = .unsupported
         }
 
-        repository.trimHistory(maxSize: max(settings.maxHistorySize, 1))
-        cleanupOldItems()
+        return ClipboardSnapshot(
+            changeCount: changeCount,
+            sourceAppBundleId: pasteboard.frontmostBundleId,
+            hasMarkerType: hasMarkerType,
+            hasIgnoredSystemType: hasIgnoredSystemType,
+            content: content
+        )
     }
 
     private func handleDuplicate(fingerprint: String, gap: Int) -> Bool {
@@ -191,6 +259,14 @@ final class ClipboardService {
         pb.setString(text, forType: .string)
         pb.setData(Data(), forType: ClipboardActionService.markerType)
         lastChangeCount = pb.changeCount
+    }
+
+    private func scheduleMaintenance() {
+        pendingMaintenancePasses += 1
+        guard pendingMaintenancePasses >= maintenanceInterval else { return }
+        pendingMaintenancePasses = 0
+        repository.trimHistory(maxSize: max(settings.maxHistorySize, 1))
+        cleanupOldItems()
     }
 
     private func cleanupOldItems() {

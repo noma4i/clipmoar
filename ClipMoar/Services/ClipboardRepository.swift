@@ -128,10 +128,13 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
         request.predicate = NSPredicate(format: "isPinned == NO")
         request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+        request.fetchOffset = maxSize
+        request.fetchBatchSize = 100
+        request.includesPropertyValues = false
 
-        guard let items = try? context.fetch(request), items.count > maxSize else { return }
+        guard let items = try? context.fetch(request), !items.isEmpty else { return }
 
-        for item in items[maxSize...] {
+        for item in items {
             context.delete(item)
         }
 
@@ -141,7 +144,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
     func removeOlderThan(hours: Int, contentType: String?) {
         guard hours > 0 else { return }
         let cutoff = Calendar.current.date(byAdding: .hour, value: -hours, to: Date()) ?? Date()
-        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "ClipboardItem")
 
         if let contentType = contentType {
             request.predicate = NSPredicate(format: "isPinned == NO AND createdAt < %@ AND contentType == %@", cutoff as CVarArg, contentType)
@@ -149,11 +152,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
             request.predicate = NSPredicate(format: "isPinned == NO AND createdAt < %@", cutoff as CVarArg)
         }
 
-        guard let items = try? context.fetch(request), !items.isEmpty else { return }
-        for item in items {
-            context.delete(item)
-        }
-        CoreDataStack.shared.saveIfNeeded()
+        executeBatchDelete(request)
     }
 
     func storageStats() -> StorageStats {
@@ -179,17 +178,27 @@ final class CoreDataClipboardRepository: ClipboardRepository {
     }
 
     func clearAll(contentType: String?) {
-        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "ClipboardItem")
         if let contentType = contentType {
             request.predicate = NSPredicate(format: "isPinned == NO AND contentType == %@", contentType)
         } else {
             request.predicate = NSPredicate(format: "isPinned == NO")
         }
 
-        guard let items = try? context.fetch(request), !items.isEmpty else { return }
-        for item in items {
-            context.delete(item)
-        }
-        CoreDataStack.shared.saveIfNeeded()
+        executeBatchDelete(request)
+    }
+
+    private func executeBatchDelete(_ request: NSFetchRequest<NSFetchRequestResult>) {
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+        deleteRequest.resultType = .resultTypeObjectIDs
+
+        guard let result = try? context.execute(deleteRequest) as? NSBatchDeleteResult,
+              let objectIDs = result.result as? [NSManagedObjectID],
+              !objectIDs.isEmpty else { return }
+
+        NSManagedObjectContext.mergeChanges(
+            fromRemoteContextSave: [NSDeletedObjectsKey: objectIDs],
+            into: [context]
+        )
     }
 }

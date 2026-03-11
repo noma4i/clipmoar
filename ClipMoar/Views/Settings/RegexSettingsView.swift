@@ -128,7 +128,7 @@ struct RegexSettingsView: View {
                         .frame(width: 70, alignment: .trailing)
                     TextField("Pattern name", text: $store.patterns[idx].name)
                         .font(.system(size: 11))
-                        .onChange(of: store.patterns[idx].name) { _ in store.save() }
+                        .onChange(of: store.patterns[idx].name) { store.save() }
                 }
 
                 HStack(spacing: 8) {
@@ -137,7 +137,10 @@ struct RegexSettingsView: View {
                         .frame(width: 70, alignment: .trailing)
                     TextField("Regular expression", text: $store.patterns[idx].pattern)
                         .font(.system(size: 11, design: .monospaced))
-                        .onChange(of: store.patterns[idx].pattern) { _ in store.save(); runTest() }
+                        .onChange(of: store.patterns[idx].pattern) {
+                            store.save()
+                            runTest()
+                        }
                 }
 
                 HStack(spacing: 8) {
@@ -146,7 +149,10 @@ struct RegexSettingsView: View {
                         .frame(width: 70, alignment: .trailing)
                     TextField("Replacement ($1, $2...)", text: $store.patterns[idx].replacement)
                         .font(.system(size: 11, design: .monospaced))
-                        .onChange(of: store.patterns[idx].replacement) { _ in store.save(); runTest() }
+                        .onChange(of: store.patterns[idx].replacement) {
+                            store.save()
+                            runTest()
+                        }
                 }
 
                 Divider().padding(.vertical, 4)
@@ -160,7 +166,7 @@ struct RegexSettingsView: View {
                     .padding(6)
                     .frame(height: 60, alignment: .topLeading)
                     .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
-                    .onChange(of: testInput) { _ in runTest() }
+                    .onChange(of: testInput) { runTest() }
 
                 HStack {
                     Text("Result").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)

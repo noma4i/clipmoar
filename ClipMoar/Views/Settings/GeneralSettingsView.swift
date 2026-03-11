@@ -64,13 +64,19 @@ struct GeneralSettingsView: View {
                     Text("Visibility").font(.system(size: 13, weight: .semibold))
 
                     Toggle("Launch at Login", isOn: $launchAtLogin)
-                        .onChange(of: launchAtLogin) { setLaunchAtLogin($0) }
+                        .onChange(of: launchAtLogin) { setLaunchAtLogin(launchAtLogin) }
 
                     Toggle("Show in Dock", isOn: $showInDock)
-                        .onChange(of: showInDock) { settings.showInDock = $0; onVisibilityChange?() }
+                        .onChange(of: showInDock) {
+                            settings.showInDock = showInDock
+                            onVisibilityChange?()
+                        }
 
                     Toggle("Show in Menu Bar", isOn: $showInMenuBar)
-                        .onChange(of: showInMenuBar) { settings.showInMenuBar = $0; onVisibilityChange?() }
+                        .onChange(of: showInMenuBar) {
+                            settings.showInMenuBar = showInMenuBar
+                            onVisibilityChange?()
+                        }
 
                     Spacer().frame(height: 12)
 
@@ -80,7 +86,7 @@ struct GeneralSettingsView: View {
                         Text("Max items:")
                         TextField("500", value: $maxHistorySize, format: .number)
                             .frame(width: 70)
-                            .onChange(of: maxHistorySize) { settings.maxHistorySize = max(10, $0) }
+                            .onChange(of: maxHistorySize) { settings.maxHistorySize = max(10, maxHistorySize) }
                     }
 
                     Spacer().frame(height: 4)
@@ -88,7 +94,7 @@ struct GeneralSettingsView: View {
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 6) {
                             Toggle("Keep Plain Text", isOn: $storeText)
-                                .onChange(of: storeText) { settings.storeText = $0 }
+                                .onChange(of: storeText) { settings.storeText = storeText }
 
                             Picker("", selection: $textRetentionHours) {
                                 ForEach(TextRetention.allCases, id: \.rawValue) { p in
@@ -98,14 +104,14 @@ struct GeneralSettingsView: View {
                             .labelsHidden()
                             .frame(width: 120)
                             .disabled(!storeText)
-                            .onChange(of: textRetentionHours) { settings.textRetentionHours = $0 }
+                            .onChange(of: textRetentionHours) { settings.textRetentionHours = textRetentionHours }
                         }
                         .padding(10)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
 
                         VStack(alignment: .leading, spacing: 6) {
                             Toggle("Keep Images", isOn: $storeImages)
-                                .onChange(of: storeImages) { settings.storeImages = $0 }
+                                .onChange(of: storeImages) { settings.storeImages = storeImages }
 
                             Picker("", selection: $imageRetentionHours) {
                                 ForEach(ImageRetention.allCases, id: \.rawValue) { p in
@@ -115,7 +121,7 @@ struct GeneralSettingsView: View {
                             .labelsHidden()
                             .frame(width: 120)
                             .disabled(!storeImages)
-                            .onChange(of: imageRetentionHours) { settings.imageRetentionHours = $0 }
+                            .onChange(of: imageRetentionHours) { settings.imageRetentionHours = imageRetentionHours }
                         }
                         .padding(10)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
@@ -138,8 +144,8 @@ struct GeneralSettingsView: View {
                         positionY: $positionY
                     )
                     .frame(height: 150)
-                    .onChange(of: positionX) { settings.panelPositionX = $0 }
-                    .onChange(of: positionY) { settings.panelPositionY = $0 }
+                    .onChange(of: positionX) { settings.panelPositionX = positionX }
+                    .onChange(of: positionY) { settings.panelPositionY = positionY }
 
                     Text("Drag to set panel position")
                         .font(.system(size: 11))
@@ -153,7 +159,7 @@ struct GeneralSettingsView: View {
                             }
                         }
                         .labelsHidden()
-                        .onChange(of: screenMode) { settings.panelScreenMode = $0 }
+                        .onChange(of: screenMode) { settings.panelScreenMode = screenMode }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

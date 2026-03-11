@@ -13,6 +13,9 @@ echo "Build complete."
 # Always create .app bundle
 ./scripts/release.sh "$CONFIG"
 
+# Ad-hoc sign for stable Accessibility permission
+codesign -fs - ".build/$CONFIG/ClipMoar.app"
+
 # Always restart
 pkill -x ClipMoar 2>/dev/null || true
 sleep 0.5

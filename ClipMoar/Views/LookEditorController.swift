@@ -15,6 +15,7 @@ private extension Color {
 }
 
 final class LookEditorModel: ObservableObject {
+    // Mirror of persisted panel settings used by the live editor UI.
     let settings: SettingsStore
     @Published var theme: Int
     @Published var fontName: String
@@ -153,12 +154,11 @@ final class LookEditorController {
         overlay.orderFront(nil)
         overlayWindow = overlay
 
-        let rows = CGFloat(max(settings.panelVisibleRows, 5))
-        let rowH = max(CGFloat(settings.panelFontSize) + CGFloat(settings.panelPaddingV) * 2 + 8, 28)
-        let mockH = rows * rowH + 44
+        let initialConfiguration = settings.panelConfiguration()
+        let mockH = initialConfiguration.layout.panelHeight
 
         let mock = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: mockH),
+            contentRect: NSRect(x: 0, y: 0, width: initialConfiguration.layout.listWidth, height: mockH),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -194,7 +194,7 @@ final class LookEditorController {
         editor.contentViewController = editorHosting
 
         let visibleFrame = screen.visibleFrame
-        let mockWidth: CGFloat = 460
+        let mockWidth = initialConfiguration.layout.listWidth
         let mockX = visibleFrame.origin.x + (visibleFrame.width - mockWidth) * settings.panelPositionX
         let mockY = visibleFrame.origin.y + (visibleFrame.height - mockH) * settings.panelPositionY
 
@@ -220,10 +220,9 @@ final class LookEditorController {
             guard let self = self, !self.isSnapping, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
             let frame = mock.frame
             let sf = screen.visibleFrame
-            let panelW: CGFloat = 460
-            let rows = CGFloat(max(self.settings.panelVisibleRows, 5))
-            let rowH = max(CGFloat(self.settings.panelFontSize) + CGFloat(self.settings.panelPaddingV) * 2 + 8, 28)
-            let panelH = rows * rowH + 44
+            let configuration = self.settings.panelConfiguration()
+            let panelW = configuration.layout.listWidth
+            let panelH = configuration.layout.panelHeight
 
             let snapThreshold: CGFloat = 12
             var x = frame.origin.x

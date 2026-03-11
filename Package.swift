@@ -8,7 +8,11 @@ let package = Package(
         .executableTarget(
             name: "ClipMoar",
             path: "ClipMoar",
-            exclude: ["Resources"]
+            exclude: [
+                "Resources",
+                
+                
+            ]
         ),
         .testTarget(
             name: "ClipMoarTests",

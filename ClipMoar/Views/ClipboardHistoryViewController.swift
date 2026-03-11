@@ -62,7 +62,7 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
 
         fetchedResultsController = NSFetchedResultsController(
             fetchRequest: request,
-            managedObjectContext: CoreDataStack.shared.viewContext,
+            managedObjectContext: context,
             sectionNameKeyPath: nil,
             cacheName: nil
         )
@@ -73,7 +73,7 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
             self,
             selector: #selector(contextDidChange),
             name: .NSManagedObjectContextObjectsDidChange,
-            object: CoreDataStack.shared.viewContext
+            object: context
         )
     }
 
@@ -140,13 +140,6 @@ final class ClipboardHistoryViewController: NSViewController, NSTableViewDataSou
               row < items.count else { return }
 
         let item = items[row]
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        if item.contentType == "image", let data = item.imageData {
-            pasteboard.setData(data, forType: .tiff)
-        } else if let content = item.content {
-            pasteboard.setString(content, forType: .string)
-        }
+        actionService.writeToPasteboard(item: item)
     }
 }

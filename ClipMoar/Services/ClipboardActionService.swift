@@ -2,7 +2,7 @@ import Cocoa
 
 protocol ClipboardActionServicing: AnyObject {
     func writeToPasteboard(item: ClipboardItem)
-    func pasteFromPasteboard(item: ClipboardItem)
+    func pasteFromPasteboard(item: ClipboardItem, previousApp: NSRunningApplication?)
 }
 
 final class ClipboardActionService: ClipboardActionServicing {
@@ -23,10 +23,12 @@ final class ClipboardActionService: ClipboardActionServicing {
         pasteboard.setData(Data(), forType: Self.markerType)
     }
 
-    func pasteFromPasteboard(item: ClipboardItem) {
+    func pasteFromPasteboard(item: ClipboardItem, previousApp: NSRunningApplication? = nil) {
         writeToPasteboard(item: item)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        previousApp?.activate()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
             guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false) else { return }

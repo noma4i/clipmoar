@@ -45,6 +45,7 @@ final class MockPasteboard: PasteboardReadable {
         _changeCount += 1
         _string = text
         _imageData = nil
+        _fileURLs = nil
         _hasMarker = false
         _hasIgnoredSystemType = false
     }
@@ -53,6 +54,7 @@ final class MockPasteboard: PasteboardReadable {
         _changeCount += 1
         _string = text
         _imageData = nil
+        _fileURLs = nil
         _hasMarker = false
         _hasIgnoredSystemType = true
     }
@@ -61,6 +63,16 @@ final class MockPasteboard: PasteboardReadable {
         _changeCount += 1
         _string = nil
         _imageData = imageData
+        _fileURLs = nil
+        _hasMarker = false
+        _hasIgnoredSystemType = false
+    }
+
+    func simulateCopy(fileURLs: [URL]) {
+        _changeCount += 1
+        _string = nil
+        _imageData = nil
+        _fileURLs = fileURLs
         _hasMarker = false
         _hasIgnoredSystemType = false
     }
@@ -69,6 +81,7 @@ final class MockPasteboard: PasteboardReadable {
         _changeCount += 1
         _string = nil
         _imageData = nil
+        _fileURLs = nil
         _hasMarker = false
         _hasIgnoredSystemType = false
     }
@@ -77,6 +90,7 @@ final class MockPasteboard: PasteboardReadable {
         _changeCount += 1
         _string = text
         _imageData = nil
+        _fileURLs = nil
         _hasMarker = true
         _hasIgnoredSystemType = false
     }
@@ -85,6 +99,7 @@ final class MockPasteboard: PasteboardReadable {
         _changeCount += 2
         _string = text
         _imageData = nil
+        _fileURLs = nil
         _hasMarker = false
         _hasIgnoredSystemType = false
     }
@@ -107,6 +122,8 @@ final class MockRepository: ClipboardRepository {
     var insertedFiles: [(paths: String, fingerprint: String, uuid: UUID)] = []
     var removedUUIDs: [UUID] = []
     var fingerprints: Set<String> = []
+    var trimHistoryCalls = 0
+    var removeOlderThanCalls: [(hours: Int, contentType: String?)] = []
 
     @discardableResult
     func insertText(_ text: String, sourceAppBundleId _: String?, fingerprint: String, appliedRule _: String? = nil) -> UUID {
@@ -138,8 +155,14 @@ final class MockRepository: ClipboardRepository {
         insertedImages.removeAll { $0.uuid == uuid }
     }
 
-    func trimHistory(maxSize _: Int) {}
-    func removeOlderThan(hours _: Int, contentType _: String?) {}
+    func trimHistory(maxSize _: Int) {
+        trimHistoryCalls += 1
+    }
+
+    func removeOlderThan(hours: Int, contentType: String?) {
+        removeOlderThanCalls.append((hours, contentType))
+    }
+
     func storageStats() -> StorageStats {
         StorageStats()
     }
@@ -362,6 +385,49 @@ final class ClipboardServiceTests: XCTestCase {
         pasteboard.simulateClear()
         triggerCheck(service)
         XCTAssertEqual(repo.removedUUIDs.count, 1, "Should remove real item, not be confused by transient")
+    }
+
+    func testFileCopyIsInserted() {
+        let pasteboard = MockPasteboard()
+        let repo = MockRepository()
+        let service = ClipboardService(
+            repository: repo,
+            settings: MockSettings(),
+            pasteboard: pasteboard
+        )
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(fileURLs: [
+            URL(fileURLWithPath: "/tmp/one.txt"),
+            URL(fileURLWithPath: "/tmp/two.txt"),
+        ])
+        triggerCheck(service)
+
+        XCTAssertEqual(repo.insertedFiles.count, 1)
+        XCTAssertEqual(repo.insertedFiles.first?.paths, "/tmp/one.txt\n/tmp/two.txt")
+    }
+
+    func testMaintenanceRunsOnConfiguredInterval() {
+        let pasteboard = MockPasteboard()
+        let repo = MockRepository()
+        let service = ClipboardService(
+            repository: repo,
+            settings: MockSettings(),
+            pasteboard: pasteboard,
+            maintenanceInterval: 2
+        )
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(text: "First")
+        triggerCheck(service)
+        XCTAssertEqual(repo.trimHistoryCalls, 0)
+        XCTAssertTrue(repo.removeOlderThanCalls.isEmpty)
+
+        pasteboard.simulateCopy(text: "Second")
+        triggerCheck(service)
+
+        XCTAssertEqual(repo.trimHistoryCalls, 1)
+        XCTAssertEqual(repo.removeOlderThanCalls.count, 3)
     }
 
     private func triggerCheck(_ service: ClipboardService) {

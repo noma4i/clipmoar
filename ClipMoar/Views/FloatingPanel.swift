@@ -76,11 +76,14 @@ final class FloatingPanelController: NSWindowController {
         guard let panel = window,
               let screen = targetScreen() else { return }
 
-        let panelWidth: CGFloat = 460
+        clipViewController.previousApp = NSWorkspace.shared.frontmostApplication
+
+        let configuration = settings.panelConfiguration()
+        let panelWidth = configuration.layout.listWidth
 
         clipViewController.refresh()
 
-        let panelHeight = panel.frame.height > 0 ? panel.frame.height : 352
+        let panelHeight = configuration.layout.panelHeight
         let screenFrame = screen.visibleFrame
 
         let x = screenFrame.origin.x + (screenFrame.width - panelWidth) * settings.panelPositionX

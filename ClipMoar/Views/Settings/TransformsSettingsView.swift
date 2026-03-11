@@ -69,7 +69,7 @@ struct TransformsSettingsView: View {
                 .padding(6)
                 .frame(height: 80, alignment: .topLeading)
                 .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
-                .onChange(of: inputText) { _ in runTransform() }
+                .onChange(of: inputText) { runTransform() }
 
             HStack {
                 Text("Output").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
@@ -147,7 +147,7 @@ struct TransformsSettingsView: View {
                     }
                 }
                 .labelsHidden()
-                .onChange(of: selectedRegexId) { _ in runTransform() }
+                .onChange(of: selectedRegexId) { runTransform() }
             }
             if let r = selectedRegex {
                 Text("\(r.pattern) -> \(r.replacement)")
