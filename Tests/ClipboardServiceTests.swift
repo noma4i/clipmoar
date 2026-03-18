@@ -213,6 +213,10 @@ final class MockSettings: SettingsStore {
     var searchPlaceholderColorHex: String = "666666"
     var metaFontSize: Int = 10
     var largeTypeFontSize: Int = 48
+    var compressImages: Bool = false
+    var imageMaxWidth: Int = 0
+    var imageMaxHeight: Int = 0
+    var imageQuality: Int = 80
     func registerDefaults() {}
 }
 

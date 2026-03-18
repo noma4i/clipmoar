@@ -224,8 +224,9 @@ final class ClipboardService {
                 return
             }
 
-            lastInsertedUUID = repository.insertImage(imageData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
-            logger.log("[ClipMoar] inserted image: %d bytes", imageData.count)
+            let finalData = compressImageIfNeeded(imageData)
+            lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+            logger.log("[ClipMoar] inserted image: %d bytes (original: %d)", finalData.count, imageData.count)
             scheduleMaintenance()
         case .unsupported:
             logger.log("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, 0, 0)
@@ -287,6 +288,42 @@ final class ClipboardService {
         repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.text.rawValue)
         repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.file.rawValue)
         repository.removeOlderThan(hours: settings.imageRetentionHours, contentType: ClipboardItemType.image.rawValue)
+    }
+
+    private func compressImageIfNeeded(_ data: Data) -> Data {
+        guard settings.compressImages else { return data }
+        guard let image = NSImage(data: data) else { return data }
+
+        var size = image.representations.first.map {
+            NSSize(width: $0.pixelsWide, height: $0.pixelsHigh)
+        } ?? image.size
+
+        let maxW = CGFloat(settings.imageMaxWidth)
+        let maxH = CGFloat(settings.imageMaxHeight)
+
+        if maxW > 0, size.width > maxW {
+            let scale = maxW / size.width
+            size = NSSize(width: maxW, height: size.height * scale)
+        }
+        if maxH > 0, size.height > maxH {
+            let scale = maxH / size.height
+            size = NSSize(width: size.width * scale, height: maxH)
+        }
+
+        let resized = NSImage(size: size)
+        resized.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: size),
+                   from: NSRect(origin: .zero, size: image.size),
+                   operation: .copy, fraction: 1.0)
+        resized.unlockFocus()
+
+        guard let tiff = resized.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let jpeg = bitmap.representation(using: .jpeg,
+                                               properties: [.compressionFactor: CGFloat(settings.imageQuality) / 100.0])
+        else { return data }
+
+        return jpeg
     }
 
     private func shouldIgnoreSnapshot(from sourceAppBundleId: String?) -> Bool {

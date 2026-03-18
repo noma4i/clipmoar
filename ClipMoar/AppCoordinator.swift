@@ -10,7 +10,6 @@ final class AppCoordinator {
     private let hotkeyService: HotkeyServiceProtocol
 
     private var statusItem: NSStatusItem?
-    private var mainWindowController: MainWindowController?
     private lazy var floatingPanelController = FloatingPanelController(
         repository: repository,
         actionService: clipboardActions,
@@ -63,7 +62,7 @@ final class AppCoordinator {
 
     func handleReopen(hasVisibleWindows: Bool) -> Bool {
         if !hasVisibleWindows {
-            showMainWindow()
+            toggleFloatingPanel()
         }
         return true
     }
@@ -75,21 +74,6 @@ final class AppCoordinator {
 
     func reregisterHotkey() {
         hotkeyService.reregister()
-    }
-
-    @objc func showMainWindow() {
-        if mainWindowController == nil {
-            let historyController = ClipboardHistoryViewController(
-                repository: repository,
-                actionService: clipboardActions,
-                context: context
-            )
-            mainWindowController = MainWindowController(historyViewController: historyController)
-        }
-
-        mainWindowController?.showWindow(nil)
-        mainWindowController?.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc func toggleFloatingPanel() {
@@ -133,8 +117,7 @@ final class AppCoordinator {
         }
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Show ClipMoar", action: #selector(showMainWindow), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Show Clipboard", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Show ClipMoar", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())

@@ -42,6 +42,10 @@
         var searchPlaceholderColorHex = "666666"
         var metaFontSize = 10
         var largeTypeFontSize = 48
+        var compressImages = false
+        var imageMaxWidth = 0
+        var imageMaxHeight = 0
+        var imageQuality = 80
 
         init(theme: PanelTheme = .dark) {
             applyTheme(theme)

@@ -39,6 +39,8 @@ struct SettingsView: View {
                     .tag("transforms")
                 Label("Regex", systemImage: "number.circle")
                     .tag("regex")
+                Label("Images", systemImage: "photo")
+                    .tag("images")
 
                 Divider()
 
@@ -63,6 +65,8 @@ struct SettingsView: View {
                     TransformsSettingsView()
                 case "regex":
                     RegexSettingsView()
+                case "images":
+                    ImageSettingsView(settings: settings)
                 case "about":
                     AboutSettingsView()
                 default:

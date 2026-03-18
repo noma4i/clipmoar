@@ -62,7 +62,7 @@ final class FloatingPanelStateController {
             return
         }
 
-        selectRow(0, configuration: configuration, forcePreview: false)
+        selectRow(0, configuration: configuration, forcePreview: true)
     }
 
     func updateFilter(_ filter: String, configuration: PanelConfiguration) {

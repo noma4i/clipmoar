@@ -39,6 +39,10 @@ protocol SettingsStore: AnyObject {
     var searchPlaceholderColorHex: String { get set }
     var metaFontSize: Int { get set }
     var largeTypeFontSize: Int { get set }
+    var compressImages: Bool { get set }
+    var imageMaxWidth: Int { get set }
+    var imageMaxHeight: Int { get set }
+    var imageQuality: Int { get set }
 
     func registerDefaults()
 }
@@ -131,6 +135,10 @@ enum Settings {
     static let searchPlaceholderColorHex = "searchPlaceholderColorHex"
     static let metaFontSize = "metaFontSize"
     static let largeTypeFontSize = "largeTypeFontSize"
+    static let compressImages = "compressImages"
+    static let imageMaxWidth = "imageMaxWidth"
+    static let imageMaxHeight = "imageMaxHeight"
+    static let imageQuality = "imageQuality"
 }
 
 enum PanelTheme: Int, CaseIterable {
@@ -437,6 +445,26 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.largeTypeFontSize) }
     }
 
+    var compressImages: Bool {
+        get { defaults.bool(forKey: Settings.compressImages) }
+        set { defaults.set(newValue, forKey: Settings.compressImages) }
+    }
+
+    var imageMaxWidth: Int {
+        get { defaults.integer(forKey: Settings.imageMaxWidth) }
+        set { defaults.set(newValue, forKey: Settings.imageMaxWidth) }
+    }
+
+    var imageMaxHeight: Int {
+        get { defaults.integer(forKey: Settings.imageMaxHeight) }
+        set { defaults.set(newValue, forKey: Settings.imageMaxHeight) }
+    }
+
+    var imageQuality: Int {
+        get { defaults.integer(forKey: Settings.imageQuality) }
+        set { defaults.set(newValue, forKey: Settings.imageQuality) }
+    }
+
     func registerDefaults() {
         defaults.register(defaults: [
             Settings.showInDock: true,
@@ -476,6 +504,10 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.searchPlaceholderColorHex: "666666",
             Settings.metaFontSize: 10,
             Settings.largeTypeFontSize: 48,
+            Settings.compressImages: false,
+            Settings.imageMaxWidth: 0,
+            Settings.imageMaxHeight: 0,
+            Settings.imageQuality: 80,
         ])
     }
 }

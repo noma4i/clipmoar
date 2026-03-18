@@ -26,23 +26,6 @@
         }
     }
 
-    struct ClipboardHistoryPreviewHost: NSViewControllerRepresentable {
-        let context: NSManagedObjectContext
-
-        func makeNSViewController(context _: Context) -> ClipboardHistoryViewController {
-            let repository = CoreDataClipboardRepository(context: context)
-            let controller = ClipboardHistoryViewController(
-                repository: repository,
-                actionService: PreviewClipboardActionService(),
-                context: context
-            )
-            controller.loadViewIfNeeded()
-            return controller
-        }
-
-        func updateNSViewController(_: ClipboardHistoryViewController, context _: Context) {}
-    }
-
     private struct FauxWindowSurface<Content: View>: View {
         let title: String
         let content: Content
@@ -219,14 +202,6 @@
         let layout = settings.panelConfiguration().layout
         return FloatingClipboardPreviewHost(scenario: .imagePreview, settings: settings)
             .frame(width: layout.listWidth + layout.previewWidth, height: layout.panelHeight)
-    }
-
-    @available(macOS 14.0, *)
-    #Preview("History Window") {
-        FauxWindowSurface(title: "ClipMoar") {
-            ClipboardHistoryPreviewHost(context: PreviewFixtures.makeHistoryContext())
-        }
-        .frame(width: 400, height: 600)
     }
 
     @available(macOS 14.0, *)

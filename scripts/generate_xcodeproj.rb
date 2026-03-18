@@ -86,18 +86,12 @@ configure_build_settings(
 main_group = project.main_group
 main_group.set_source_tree("<group>")
 
-clipmoar_group = main_group.find_subpath("ClipMoar", true)
-tests_group = main_group.find_subpath("Tests", true)
-scripts_group = main_group.find_subpath("scripts", true)
-
 swift_sources = Dir.glob("ClipMoar/**/*.swift").sort
 test_sources = Dir.glob("Tests/**/*.swift").sort
-resource_files = Dir.glob("assets/*").sort + ["LICENSE"]
+resource_files = Dir.glob("assets/*").sort
 support_files = [
   "ClipMoar/Resources/Info.plist",
   "ClipMoar/Resources/ClipMoar.entitlements",
-  "Package.swift",
-  "README.md",
 ]
 
 swift_sources.each do |path|
@@ -115,8 +109,15 @@ resource_files.each do |path|
   app_target.resources_build_phase.add_file_reference(ref)
 end
 
-(support_files + ["scripts/build.sh", "scripts/release.sh", "scripts/run.sh", "scripts/lint.sh", "scripts/clean.sh", "scripts/generate_xcodeproj.rb"]).each do |path|
+support_files.each do |path|
   add_file(main_group, path)
+end
+
+app_target.resources_build_phase.files.each do |build_file|
+  path = build_file.file_ref&.path
+  next unless support_files.include?(path)
+
+  app_target.resources_build_phase.remove_build_file(build_file)
 end
 
 project.products_group.set_source_tree("<group>")
