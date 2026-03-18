@@ -22,6 +22,8 @@ Clipboard manager for macOS. Built with Swift, AppKit and SwiftUI.
 
 - macOS 14.0+
 - Swift 5.9+
+- Xcode 26+
+- Ruby gem `xcodeproj` for regenerating `ClipMoar.xcodeproj`
 
 ## Build
 
@@ -34,6 +36,16 @@ Clipboard manager for macOS. Built with Swift, AppKit and SwiftUI.
 ```bash
 make run
 ```
+
+## Xcode Project
+
+Generate or refresh the checked-in Xcode project:
+
+```bash
+ruby scripts/generate_xcodeproj.rb
+```
+
+Then open `ClipMoar.xcodeproj` in Xcode.
 
 ## License
 

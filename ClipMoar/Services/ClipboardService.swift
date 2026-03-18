@@ -93,11 +93,20 @@ private struct ClipboardSnapshot {
 }
 
 final class ClipboardService {
+    /// These sources become noisy only when the app runs under the Xcode test host.
+    private static let testHarnessIgnoredBundleIds: Set<String> = [
+        "com.apple.dt.Xcode",
+        "com.apple.dt.XcodePreviews",
+        "com.apple.iphonesimulator",
+        "com.apple.CoreSimulator.SimulatorTrampoline",
+    ]
+
     private let repository: ClipboardRepository
     private let settings: SettingsStore
     private let pasteboard: PasteboardReadable
     private let ruleEngine: ClipboardRuleEngine
     private let logger: ClipboardLogger
+    private let isRunningUnderTestHarness: () -> Bool
     private var timer: Timer?
     private var lastChangeCount: Int = 0
     private let monitorInterval: TimeInterval
@@ -112,7 +121,8 @@ final class ClipboardService {
         ruleEngine: ClipboardRuleEngine = ClipboardRuleEngine(),
         monitorInterval: TimeInterval = 0.5,
         maintenanceInterval: Int = 20,
-        logger: ClipboardLogger = SystemClipboardLogger()
+        logger: ClipboardLogger = SystemClipboardLogger(),
+        isRunningUnderTestHarness: @escaping () -> Bool = ClipboardService.defaultTestHarnessDetector
     ) {
         self.repository = repository
         self.settings = settings
@@ -121,6 +131,7 @@ final class ClipboardService {
         self.monitorInterval = monitorInterval
         self.maintenanceInterval = max(1, maintenanceInterval)
         self.logger = logger
+        self.isRunningUnderTestHarness = isRunningUnderTestHarness
     }
 
     func startMonitoring() {
@@ -149,6 +160,9 @@ final class ClipboardService {
         }
         if snapshot.hasIgnoredSystemType {
             logger.log("[ClipMoar] skip: ignored system type (transient/auto-generated)")
+            return
+        }
+        if shouldIgnoreSnapshot(from: snapshot.sourceAppBundleId) {
             return
         }
 
@@ -273,5 +287,18 @@ final class ClipboardService {
         repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.text.rawValue)
         repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.file.rawValue)
         repository.removeOlderThan(hours: settings.imageRetentionHours, contentType: ClipboardItemType.image.rawValue)
+    }
+
+    private func shouldIgnoreSnapshot(from sourceAppBundleId: String?) -> Bool {
+        guard isRunningUnderTestHarness(), let sourceAppBundleId else { return false }
+        return Self.testHarnessIgnoredBundleIds.contains(sourceAppBundleId)
+    }
+
+    private static func defaultTestHarnessDetector() -> Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestSessionIdentifier"] != nil
+            || environment["XCInjectBundleInto"] != nil
+            || environment["XCTestBundlePath"] != nil
     }
 }

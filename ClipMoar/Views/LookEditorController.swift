@@ -96,9 +96,12 @@ final class LookEditorModel: ObservableObject {
 }
 
 final class LookEditorController {
+    /// Editor content width is fixed by the SwiftUI view contract.
+    private static let editorPanelWidth: CGFloat = 500
+
     private var overlayWindow: NSWindow?
     private var mockPanel: NSPanel?
-    private var editorPanel: NSPanel?
+    private var editorPanel: KeyablePanel?
     private var clipViewController: FloatingClipboardViewController?
     private let settings: SettingsStore
     private let repository: ClipboardRepository
@@ -117,7 +120,7 @@ final class LookEditorController {
 
     func show() {
         if let m = mockPanel, m.isVisible, let e = editorPanel, e.isVisible {
-            m.makeKeyAndOrderFront(nil)
+            m.orderFront(nil)
             e.makeKeyAndOrderFront(nil)
             return
         }
@@ -173,7 +176,7 @@ final class LookEditorController {
 
         vc.refresh()
 
-        let editor = NSPanel(
+        let editor = KeyablePanel(
             contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
@@ -199,8 +202,7 @@ final class LookEditorController {
         let mockY = visibleFrame.origin.y + (visibleFrame.height - mockH) * settings.panelPositionY
 
         mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
-        editorHosting.view.layoutSubtreeIfNeeded()
-        let editorSize = editorHosting.view.fittingSize
+        let editorSize = editorPanelSize(for: editorHosting)
         editor.setContentSize(editorSize)
         let editorY = mockY + (mockH - editorSize.height) / 2
         editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: editorY))
@@ -288,9 +290,16 @@ final class LookEditorController {
         editorPanel = nil
         clipViewController = nil
     }
+
+    private func editorPanelSize(for hostingController: NSHostingController<EditorControlsView>) -> NSSize {
+        let hostingView = hostingController.view
+        hostingView.frame = NSRect(x: 0, y: 0, width: Self.editorPanelWidth, height: 1)
+        let fittingSize = hostingView.fittingSize
+        return NSSize(width: Self.editorPanelWidth, height: fittingSize.height)
+    }
 }
 
-private struct MockPanelView: View {
+struct MockPanelView: View {
     @ObservedObject var model: LookEditorModel
 
     private var bgColor: Color {
@@ -422,7 +431,7 @@ private struct MockPanelView: View {
     }
 }
 
-private struct EditorControlsView: View {
+struct EditorControlsView: View {
     @ObservedObject var model: LookEditorModel
     var onChanged: (() -> Void)?
 

@@ -6,6 +6,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         let settings = UserDefaultsSettingsStore()
         settings.registerDefaults()
+        guard !Self.isRunningUnderTestHarness else { return }
         setupMainMenu()
         coordinator.start()
     }
@@ -40,5 +41,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         coordinator.handleReopen(hasVisibleWindows: flag)
+    }
+
+    private static var isRunningUnderTestHarness: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestSessionIdentifier"] != nil
+            || environment["XCInjectBundleInto"] != nil
+            || environment["XCTestBundlePath"] != nil
     }
 }

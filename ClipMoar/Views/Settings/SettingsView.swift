@@ -7,6 +7,20 @@ struct SettingsView: View {
     var onVisibilityChange: (() -> Void)?
     var onEditLook: (() -> Void)?
 
+    init(
+        settings: SettingsStore,
+        hotkeyRecorder: HotkeyRecorder,
+        onVisibilityChange: (() -> Void)? = nil,
+        onEditLook: (() -> Void)? = nil,
+        initialTab: String = "general"
+    ) {
+        self.settings = settings
+        self.hotkeyRecorder = hotkeyRecorder
+        self.onVisibilityChange = onVisibilityChange
+        self.onEditLook = onEditLook
+        _selectedTab = State(initialValue: initialTab)
+    }
+
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedTab) {

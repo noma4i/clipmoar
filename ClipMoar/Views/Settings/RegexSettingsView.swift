@@ -9,19 +9,21 @@ struct SavedRegex: Codable, Identifiable {
 
 final class RegexStore: ObservableObject {
     private let key = "savedRegexPatterns"
+    private let defaults: UserDefaults
     @Published var patterns: [SavedRegex] = []
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         load()
     }
 
     func save() {
         guard let data = try? JSONEncoder().encode(patterns) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        defaults.set(data, forKey: key)
     }
 
     func load() {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = defaults.data(forKey: key),
               let decoded = try? JSONDecoder().decode([SavedRegex].self, from: data) else { return }
         patterns = decoded
     }
@@ -39,11 +41,15 @@ final class RegexStore: ObservableObject {
 }
 
 struct RegexSettingsView: View {
-    @StateObject private var store = RegexStore()
+    @StateObject private var store: RegexStore
     @State private var selectedId: UUID?
     @State private var testInput = ""
     @State private var testOutput = ""
     @State private var testError = ""
+
+    init(store: RegexStore = RegexStore()) {
+        _store = StateObject(wrappedValue: store)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

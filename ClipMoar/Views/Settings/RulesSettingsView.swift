@@ -55,10 +55,15 @@ final class RulesSettingsModel: ObservableObject {
 }
 
 struct RulesSettingsView: View {
-    @StateObject private var model = RulesSettingsModel()
-    @StateObject private var regexStore = RegexStore()
+    @StateObject private var model: RulesSettingsModel
+    @StateObject private var regexStore: RegexStore
     @State private var testInput = ""
     @State private var testOutput = ""
+
+    init(model: RulesSettingsModel = RulesSettingsModel(), regexStore: RegexStore = RegexStore()) {
+        _model = StateObject(wrappedValue: model)
+        _regexStore = StateObject(wrappedValue: regexStore)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

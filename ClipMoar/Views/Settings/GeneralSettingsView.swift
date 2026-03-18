@@ -25,6 +25,7 @@ struct ScreenPositionPickerRepresentable: NSViewRepresentable {
 struct GeneralSettingsView: View {
     let settings: SettingsStore
     let repository: ClipboardRepository
+    let launchAtLoginProvider: () -> Bool
     var onVisibilityChange: (() -> Void)?
     @State private var showInDock: Bool
     @State private var showInMenuBar: Bool
@@ -40,10 +41,16 @@ struct GeneralSettingsView: View {
     @State private var launchAtLogin: Bool = false
     @State private var stats: StorageStats = .init()
 
-    init(settings: SettingsStore, repository: ClipboardRepository = CoreDataClipboardRepository(), onVisibilityChange: (() -> Void)? = nil) {
+    init(
+        settings: SettingsStore,
+        repository: ClipboardRepository = CoreDataClipboardRepository(),
+        onVisibilityChange: (() -> Void)? = nil,
+        launchAtLoginProvider: @escaping () -> Bool = { SMAppService.mainApp.status == .enabled }
+    ) {
         self.settings = settings
         self.repository = repository
         self.onVisibilityChange = onVisibilityChange
+        self.launchAtLoginProvider = launchAtLoginProvider
         _showInDock = State(initialValue: settings.showInDock)
         _showInMenuBar = State(initialValue: settings.showInMenuBar)
         _maxHistorySize = State(initialValue: settings.maxHistorySize)
@@ -170,7 +177,7 @@ struct GeneralSettingsView: View {
         .padding(24)
         .onAppear {
             refreshStats()
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            launchAtLogin = launchAtLoginProvider()
         }
     }
 

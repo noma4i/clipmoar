@@ -5,7 +5,11 @@ struct TransformsSettingsView: View {
     @State private var inputText = ""
     @State private var outputText = ""
     @State private var selectedRegexId: UUID?
-    @StateObject private var regexStore = RegexStore()
+    @StateObject private var regexStore: RegexStore
+
+    init(regexStore: RegexStore = RegexStore()) {
+        _regexStore = StateObject(wrappedValue: regexStore)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {

@@ -1,6 +1,16 @@
 import Cocoa
 
-final class FloatingPanel: NSPanel {
+class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        true
+    }
+}
+
+final class FloatingPanel: KeyablePanel {
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 344),
@@ -17,14 +27,6 @@ final class FloatingPanel: NSPanel {
         hidesOnDeactivate = true
         becomesKeyOnlyIfNeeded = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-    }
-
-    override var canBecomeKey: Bool {
-        true
-    }
-
-    override var canBecomeMain: Bool {
-        true
     }
 
     override func resignKey() {

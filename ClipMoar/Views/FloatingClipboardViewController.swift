@@ -5,12 +5,19 @@ private let defaultPanelHeight: CGFloat = 32 * 9 + 36 + 28
 final class FloatingClipboardViewController: NSViewController,
     NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate
 {
+    /// Preview content uses mutually exclusive constraint groups per presentation mode.
+    private enum PreviewLayoutMode {
+        case collapsed
+        case text
+        case image
+    }
+
     private let searchField = NSTextField()
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
     private let metaLabel = NSTextField(labelWithString: "")
 
-    private var accessibilityBannerWindow: NSPanel?
+    private var accessibilityBannerWindow: NSWindow?
     private let previewContainer = NSView()
     private let previewTextView = NSTextView()
     private let previewScrollView = NSScrollView()
@@ -19,17 +26,21 @@ final class FloatingClipboardViewController: NSViewController,
     private let metaPill = NSView()
     private var rulePillView: NSView?
     private var previewWidthConstraint: NSLayoutConstraint!
+    private var previewTextConstraints: [NSLayoutConstraint] = []
+    private var previewImageConstraints: [NSLayoutConstraint] = []
     private var searchFieldTop: NSLayoutConstraint?
     private var searchFieldHeight: NSLayoutConstraint?
     private var searchFieldWidth: NSLayoutConstraint?
     private var separatorWidth: NSLayoutConstraint?
     private var scrollViewWidth: NSLayoutConstraint?
     private var previewImageHeight: NSLayoutConstraint?
+    private var previewLayoutMode: PreviewLayoutMode = .collapsed
 
     var previousApp: NSRunningApplication?
     private let stateController: FloatingPanelStateController
     private let settings: SettingsStore
     private let largeTypeController = LargeTypeController()
+    private let isPreviewRenderer: Bool
 
     private var currentConfiguration: PanelConfiguration
 
@@ -44,10 +55,16 @@ final class FloatingClipboardViewController: NSViewController,
         stateController.selectedItem
     }
 
-    init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
+    init(
+        repository: ClipboardRepository,
+        actionService: ClipboardActionServicing,
+        settings: SettingsStore = UserDefaultsSettingsStore(),
+        isPreviewRenderer: Bool = false
+    ) {
         self.settings = settings
         stateController = FloatingPanelStateController(repository: repository, actionService: actionService)
         currentConfiguration = settings.panelConfiguration()
+        self.isPreviewRenderer = isPreviewRenderer
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -76,7 +93,9 @@ final class FloatingClipboardViewController: NSViewController,
         setupMetaLabel()
         setupPreviewContainer()
         setupTableView()
-        setupKeyHandling()
+        if !isPreviewRenderer {
+            setupKeyHandling()
+        }
     }
 
     func refresh() {
@@ -120,7 +139,7 @@ final class FloatingClipboardViewController: NSViewController,
 
         if accessibilityBannerWindow == nil {
             let bannerHeight: CGFloat = 28
-            let panel = NSPanel(
+            let panel = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: currentConfiguration.layout.listWidth, height: bannerHeight),
                 styleMask: [.borderless],
                 backing: .buffered,
@@ -271,6 +290,9 @@ final class FloatingClipboardViewController: NSViewController,
 
         rulePillView = rulePill
 
+        let imageHeightConstraint = previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: currentPanelHeight - 30)
+        previewImageHeight = imageHeightConstraint
+
         NSLayoutConstraint.activate([
             rulePill.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 8),
             rulePill.centerXAnchor.constraint(equalTo: previewContainer.centerXAnchor),
@@ -280,16 +302,6 @@ final class FloatingClipboardViewController: NSViewController,
             previewMetaLabel.leadingAnchor.constraint(equalTo: rulePill.leadingAnchor, constant: 8),
             previewMetaLabel.trailingAnchor.constraint(equalTo: rulePill.trailingAnchor, constant: -8),
 
-            previewScrollView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
-            previewScrollView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
-            previewScrollView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
-            previewScrollView.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -12),
-
-            previewImageView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
-            previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
-            previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
-            { let constraint = previewImageView.heightAnchor.constraint(lessThanOrEqualToConstant: currentPanelHeight - 30); previewImageHeight = constraint; return constraint }(),
-
             metaPill.centerXAnchor.constraint(equalTo: previewContainer.centerXAnchor),
             metaPill.bottomAnchor.constraint(equalTo: previewContainer.bottomAnchor, constant: -6),
 
@@ -298,6 +310,23 @@ final class FloatingClipboardViewController: NSViewController,
             metaLabel.leadingAnchor.constraint(equalTo: metaPill.leadingAnchor, constant: 10),
             metaLabel.trailingAnchor.constraint(equalTo: metaPill.trailingAnchor, constant: -10),
         ])
+
+        previewTextConstraints = [
+            previewScrollView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
+            previewScrollView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
+            previewScrollView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+            previewScrollView.bottomAnchor.constraint(equalTo: metaPill.topAnchor, constant: -8),
+        ]
+
+        previewImageConstraints = [
+            previewImageView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
+            previewImageView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
+            previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+            previewImageView.bottomAnchor.constraint(lessThanOrEqualTo: metaPill.topAnchor, constant: -8),
+            imageHeightConstraint,
+        ]
+
+        applyPreviewLayout(mode: .collapsed)
     }
 
     private func setupTableView() {
@@ -408,31 +437,26 @@ final class FloatingClipboardViewController: NSViewController,
 
     private func renderPreview() {
         let previewState = stateController.state.preview
-        previewWidthConstraint.constant = previewState.isVisible ? currentConfiguration.layout.previewWidth : 0
 
         guard previewState.isVisible else {
+            applyPreviewLayout(mode: .collapsed)
             previewTextView.string = ""
             previewImageView.image = nil
-            previewImageView.isHidden = true
-            previewScrollView.isHidden = false
             rulePillView?.isHidden = true
             return
         }
 
         switch previewState.content {
         case let .text(text):
-            previewScrollView.isHidden = false
-            previewImageView.isHidden = true
+            applyPreviewLayout(mode: .text)
             previewTextView.string = text
             previewImageView.image = nil
         case let .image(data):
-            previewScrollView.isHidden = true
-            previewImageView.isHidden = false
+            applyPreviewLayout(mode: .image)
             previewImageView.image = NSImage(data: data)
             previewTextView.string = ""
         case .none:
-            previewScrollView.isHidden = false
-            previewImageView.isHidden = true
+            applyPreviewLayout(mode: .text)
             previewTextView.string = ""
             previewImageView.image = nil
         }
@@ -443,6 +467,36 @@ final class FloatingClipboardViewController: NSViewController,
         } else {
             previewMetaLabel.stringValue = previewState.infoText
             rulePillView?.isHidden = previewState.infoText.isEmpty
+        }
+    }
+
+    private func applyPreviewLayout(mode: PreviewLayoutMode) {
+        let desiredWidth = mode == .collapsed ? 0 : currentConfiguration.layout.previewWidth
+        guard previewLayoutMode != mode || previewWidthConstraint.constant != desiredWidth else { return }
+
+        NSLayoutConstraint.deactivate(previewTextConstraints)
+        NSLayoutConstraint.deactivate(previewImageConstraints)
+
+        previewLayoutMode = mode
+
+        switch mode {
+        case .collapsed:
+            previewWidthConstraint.constant = desiredWidth
+            previewContainer.isHidden = true
+            previewScrollView.isHidden = true
+            previewImageView.isHidden = true
+        case .text:
+            previewWidthConstraint.constant = desiredWidth
+            previewContainer.isHidden = false
+            previewScrollView.isHidden = false
+            previewImageView.isHidden = true
+            NSLayoutConstraint.activate(previewTextConstraints)
+        case .image:
+            previewWidthConstraint.constant = desiredWidth
+            previewContainer.isHidden = false
+            previewScrollView.isHidden = true
+            previewImageView.isHidden = false
+            NSLayoutConstraint.activate(previewImageConstraints)
         }
     }
 

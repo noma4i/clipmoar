@@ -8,13 +8,14 @@ final class MockPasteboard: PasteboardReadable {
     var _fileURLs: [URL]?
     var _hasMarker = false
     var _hasIgnoredSystemType = false
+    var frontmostBundleIdValue = "com.test.app"
 
     var changeCount: Int {
         _changeCount
     }
 
     var frontmostBundleId: String? {
-        "com.test.app"
+        frontmostBundleIdValue
     }
 
     func stringValue() -> String? {
@@ -215,15 +216,15 @@ final class MockSettings: SettingsStore {
     func registerDefaults() {}
 }
 
+struct SilentClipboardLogger: ClipboardLogger {
+    func log(_: StaticString, _: CVarArg...) {}
+}
+
 final class ClipboardServiceTests: XCTestCase {
     func testNewTextIsInserted() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateCopy(text: "Hello World")
@@ -237,11 +238,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testDuplicateTextIsNotInserted() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateCopy(text: "Hello")
@@ -256,11 +253,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testMarkerTypeIsSkipped() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateMarkerWrite(text: "From ClipMoar")
@@ -272,11 +265,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testEmptyClipboardRemovesLastItem() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateCopy(text: "To be deleted")
@@ -292,11 +281,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testGapDuplicateRemovesPreviousItem() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         // Insert "A" then "B"
@@ -316,11 +301,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testNewImageIsInserted() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateCopy(imageData: Data([0xFF, 0xD8, 0xFF, 0xE0]))
@@ -332,11 +313,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testDuplicateImageIsNotInserted() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         let imageData = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10])
@@ -352,11 +329,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testTransientTypeIsSkipped() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateTransientCopy(text: "Transient text")
@@ -368,11 +341,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testTransientDoesNotAffectLastInsertedUUID() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateCopy(text: "Real text")
@@ -390,11 +359,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testFileCopyIsInserted() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard)
         service.startMonitoring()
 
         pasteboard.simulateCopy(fileURLs: [
@@ -410,12 +375,7 @@ final class ClipboardServiceTests: XCTestCase {
     func testMaintenanceRunsOnConfiguredInterval() {
         let pasteboard = MockPasteboard()
         let repo = MockRepository()
-        let service = ClipboardService(
-            repository: repo,
-            settings: MockSettings(),
-            pasteboard: pasteboard,
-            maintenanceInterval: 2
-        )
+        let service = makeService(repository: repo, pasteboard: pasteboard, maintenanceInterval: 2)
         service.startMonitoring()
 
         pasteboard.simulateCopy(text: "First")
@@ -430,7 +390,58 @@ final class ClipboardServiceTests: XCTestCase {
         XCTAssertEqual(repo.removeOlderThanCalls.count, 3)
     }
 
+    func testXcodeClipboardIsIgnoredOnlyUnderTestHarness() {
+        let pasteboard = MockPasteboard()
+        pasteboard.frontmostBundleIdValue = "com.apple.dt.Xcode"
+        let repo = MockRepository()
+        let service = makeService(
+            repository: repo,
+            pasteboard: pasteboard,
+            isRunningUnderTestHarness: { true }
+        )
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(text: "Copied from Xcode")
+        triggerCheck(service)
+
+        XCTAssertTrue(repo.insertedTexts.isEmpty)
+    }
+
+    func testXcodeClipboardStillWorksOutsideTestHarness() {
+        let pasteboard = MockPasteboard()
+        pasteboard.frontmostBundleIdValue = "com.apple.dt.Xcode"
+        let repo = MockRepository()
+        let service = makeService(
+            repository: repo,
+            pasteboard: pasteboard,
+            isRunningUnderTestHarness: { false }
+        )
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(text: "Copied from Xcode")
+        triggerCheck(service)
+
+        XCTAssertEqual(repo.insertedTexts.count, 1)
+        XCTAssertEqual(repo.insertedTexts.first?.text, "Copied from Xcode")
+    }
+
     private func triggerCheck(_ service: ClipboardService) {
         service.checkForChanges()
+    }
+
+    private func makeService(
+        repository: MockRepository,
+        pasteboard: MockPasteboard,
+        maintenanceInterval: Int = 20,
+        isRunningUnderTestHarness: @escaping () -> Bool = { false }
+    ) -> ClipboardService {
+        ClipboardService(
+            repository: repository,
+            settings: MockSettings(),
+            pasteboard: pasteboard,
+            maintenanceInterval: maintenanceInterval,
+            logger: SilentClipboardLogger(),
+            isRunningUnderTestHarness: isRunningUnderTestHarness
+        )
     }
 }
