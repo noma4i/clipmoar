@@ -217,6 +217,17 @@ final class MockSettings: SettingsStore {
     var imageMaxWidth: Int = 0
     var imageMaxHeight: Int = 0
     var imageQuality: Int = 80
+    var imageRemoveBackground: Bool = false
+    var imageConvertToPNG: Bool = false
+    var imageConvertToJPEG: Bool = false
+    var imageStripMetadata: Bool = false
+    var imageAutoEnhance: Bool = false
+    var imageGrayscale: Bool = false
+    var imageAutoRotate: Bool = false
+    var imageTrimWhitespace: Bool = false
+    var imageSharpen: Bool = false
+    var imageReduceNoise: Bool = false
+    var ignoredAppBundleIds: [String] = []
     func registerDefaults() {}
 }
 
@@ -433,15 +444,46 @@ final class ClipboardServiceTests: XCTestCase {
         service.checkForChanges()
     }
 
+    func testIgnoredAppIsSkipped() {
+        let pasteboard = MockPasteboard()
+        pasteboard.frontmostBundleIdValue = "com.ignored.app"
+        let repo = MockRepository()
+        let settings = MockSettings()
+        settings.ignoredAppBundleIds = ["com.ignored.app"]
+        let service = makeService(repository: repo, pasteboard: pasteboard, settings: settings)
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(text: "Should be ignored")
+        triggerCheck(service)
+
+        XCTAssertEqual(repo.insertedTexts.count, 0)
+    }
+
+    func testNonIgnoredAppIsNotSkipped() {
+        let pasteboard = MockPasteboard()
+        pasteboard.frontmostBundleIdValue = "com.normal.app"
+        let repo = MockRepository()
+        let settings = MockSettings()
+        settings.ignoredAppBundleIds = ["com.ignored.app"]
+        let service = makeService(repository: repo, pasteboard: pasteboard, settings: settings)
+        service.startMonitoring()
+
+        pasteboard.simulateCopy(text: "Should be saved")
+        triggerCheck(service)
+
+        XCTAssertEqual(repo.insertedTexts.count, 1)
+    }
+
     private func makeService(
         repository: MockRepository,
         pasteboard: MockPasteboard,
         maintenanceInterval: Int = 20,
+        settings: MockSettings = MockSettings(),
         isRunningUnderTestHarness: @escaping () -> Bool = { false }
     ) -> ClipboardService {
         ClipboardService(
             repository: repository,
-            settings: MockSettings(),
+            settings: settings,
             pasteboard: pasteboard,
             maintenanceInterval: maintenanceInterval,
             logger: SilentClipboardLogger(),

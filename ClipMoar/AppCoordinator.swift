@@ -8,6 +8,7 @@ final class AppCoordinator {
     private let clipboardActions: ClipboardActionServicing
     private let clipboardService: ClipboardService
     private let hotkeyService: HotkeyServiceProtocol
+    private let secureInputDetector = SecureInputDetector()
 
     private var statusItem: NSStatusItem?
     private lazy var floatingPanelController = FloatingPanelController(
@@ -50,6 +51,7 @@ final class AppCoordinator {
         setupStatusItem()
         setupHotkey()
         setupKeyboardShortcuts()
+        setupSecureInputDetector()
         applyVisibilitySettings()
         clipboardService.startMonitoring()
         floatingPanelController.onOpenPreferences = { [weak self] in self?.showPreferences() }
@@ -58,6 +60,7 @@ final class AppCoordinator {
     func stop() {
         clipboardService.stopMonitoring()
         hotkeyService.unregister()
+        secureInputDetector.stopMonitoring()
     }
 
     func handleReopen(hasVisibleWindows: Bool) -> Bool {
@@ -77,6 +80,7 @@ final class AppCoordinator {
     }
 
     @objc func toggleFloatingPanel() {
+        secureInputDetector.check()
         floatingPanelController.toggle()
     }
 
@@ -119,6 +123,18 @@ final class AppCoordinator {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Show ClipMoar", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+
+        let secureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        secureItem.tag = 100
+        secureItem.isHidden = true
+        menu.addItem(secureItem)
+
+        let hintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        hintItem.tag = 101
+        hintItem.isHidden = true
+        menu.addItem(hintItem)
+        menu.addItem(NSMenuItem.separator())
+
         menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -143,6 +159,61 @@ final class AppCoordinator {
     private func setupHotkey() {
         hotkeyService.register { [weak self] in
             self?.toggleFloatingPanel()
+        }
+    }
+
+    private func setupSecureInputDetector() {
+        secureInputDetector.onChange = { [weak self] isActive in
+            self?.updateStatusBarIcon(secureInput: isActive)
+            self?.floatingPanelController.setSecureInputActive(isActive)
+        }
+        secureInputDetector.startMonitoring()
+    }
+
+    private func updateStatusBarIcon(secureInput: Bool) {
+        guard let button = statusItem?.button else { return }
+        if let iconPath = Bundle.main.path(forResource: "menubar_icon@2x", ofType: "png"),
+           let image = NSImage(contentsOfFile: iconPath)
+        {
+            image.size = NSSize(width: 22, height: 22)
+            if secureInput {
+                image.isTemplate = false
+                button.image = image.tinted(with: .systemRed)
+            } else {
+                image.isTemplate = true
+                button.image = image
+            }
+        } else {
+            let name = secureInput ? "clipboard.fill" : "clipboard"
+            let icon = NSImage(systemSymbolName: name, accessibilityDescription: "ClipMoar")
+            if secureInput {
+                icon?.isTemplate = false
+                button.image = icon?.tinted(with: .systemRed)
+            } else {
+                button.image = icon
+            }
+        }
+
+        if let secureItem = statusItem?.menu?.item(withTag: 100) {
+            secureItem.isHidden = !secureInput
+            secureItem.title = secureInput ? "Secure Input is active" : ""
+            secureItem.image = secureInput
+                ? NSImage(systemSymbolName: "lock.fill", accessibilityDescription: nil)
+                : nil
+        }
+
+        if let hintItem = statusItem?.menu?.item(withTag: 101) {
+            hintItem.isHidden = !secureInput
+            if secureInput {
+                let hint = "Another app has enabled Secure Keyboard\n"
+                    + "Entry. Clipboard monitoring and hotkeys\n"
+                    + "will not work until it is disabled."
+                let attr = NSAttributedString(string: hint, attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ])
+                hintItem.attributedTitle = attr
+            }
         }
     }
 }

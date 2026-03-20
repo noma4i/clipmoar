@@ -41,6 +41,10 @@ struct SettingsView: View {
                     .tag("regex")
                 Label("Images", systemImage: "photo")
                     .tag("images")
+                Label("Ignore Apps", systemImage: "nosign")
+                    .tag("ignore")
+                Label("AI", systemImage: "brain")
+                    .tag("ai")
 
                 Divider()
 
@@ -60,13 +64,17 @@ struct SettingsView: View {
                 case "rules":
                     RulesSettingsView()
                 case "lookfeel":
-                    LookAndFeelSettingsView(settings: settings, onEditLook: onEditLook)
+                    GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 case "transforms":
                     TransformsSettingsView()
                 case "regex":
                     RegexSettingsView()
                 case "images":
                     ImageSettingsView(settings: settings)
+                case "ignore":
+                    IgnoreAppsSettingsView(settings: settings)
+                case "ai":
+                    AISettingsView()
                 case "about":
                     AboutSettingsView()
                 default:
@@ -76,5 +84,11 @@ struct SettingsView: View {
         }
         .toolbar(.hidden)
         .navigationSplitViewStyle(.balanced)
+        .onChange(of: selectedTab) {
+            if selectedTab == "lookfeel" {
+                selectedTab = "general"
+                onEditLook?()
+            }
+        }
     }
 }

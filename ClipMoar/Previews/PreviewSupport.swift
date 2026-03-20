@@ -46,6 +46,17 @@
         var imageMaxWidth = 0
         var imageMaxHeight = 0
         var imageQuality = 80
+        var imageRemoveBackground = false
+        var imageConvertToPNG = false
+        var imageConvertToJPEG = false
+        var imageStripMetadata = false
+        var imageAutoEnhance = false
+        var imageGrayscale = false
+        var imageAutoRotate = false
+        var imageTrimWhitespace = false
+        var imageSharpen = false
+        var imageReduceNoise = false
+        var ignoredAppBundleIds: [String] = []
 
         init(theme: PanelTheme = .dark) {
             applyTheme(theme)

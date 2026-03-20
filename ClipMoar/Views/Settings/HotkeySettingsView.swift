@@ -99,8 +99,48 @@ struct HotkeySettingsView: View {
                     .foregroundColor(model.statusColor)
             }
 
+            Divider()
+                .padding(.vertical, 4)
+
+            Text("Panel shortcuts")
+                .font(.system(size: 14, weight: .semibold))
+
+            shortcutsTable
+
             Spacer()
         }
         .padding(24)
+    }
+
+    private var shortcutsTable: some View {
+        let shortcuts: [(String, String)] = [
+            ("Return", "Paste selected item"),
+            ("Escape", "Close panel"),
+            ("Up / Down", "Navigate list"),
+            ("Right", "Open image in Preview.app"),
+            ("Tab", "Large Type preview"),
+            ("Cmd + 1-9", "Paste by number"),
+            ("Cmd + Delete", "Delete item"),
+            ("Cmd + ,", "Open preferences"),
+        ]
+
+        return VStack(spacing: 0) {
+            ForEach(Array(shortcuts.enumerated()), id: \.offset) { index, item in
+                HStack {
+                    Text(item.0)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .frame(width: 130, alignment: .leading)
+                    Text(item.1)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.vertical, 5)
+                .padding(.horizontal, 8)
+                .background(index % 2 == 0 ? Color.primary.opacity(0.03) : Color.clear)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.08)))
     }
 }

@@ -29,6 +29,11 @@ if [ -d "assets" ]; then
     cp -R assets/* "$APP_BUNDLE/Contents/Resources/" 2>/dev/null || true
 fi
 
+# Copy JSON resources
+for json in ClipMoar/Resources/*.json; do
+    [ -f "$json" ] && cp "$json" "$APP_BUNDLE/Contents/Resources/"
+done
+
 # Copy LICENSE
 if [ -f "LICENSE" ]; then
     cp LICENSE "$APP_BUNDLE/Contents/Resources/"

@@ -115,6 +115,10 @@ final class FloatingPanelController: NSWindowController {
         (window as? FloatingPanel)?.hidesOnDeactivate = !sticky
     }
 
+    func setSecureInputActive(_ active: Bool) {
+        clipViewController.updateSecureInputBanner(isActive: active)
+    }
+
     private func targetScreen() -> NSScreen? {
         let mode = PanelScreenMode(rawValue: settings.panelScreenMode) ?? .defaultScreen
         switch mode {

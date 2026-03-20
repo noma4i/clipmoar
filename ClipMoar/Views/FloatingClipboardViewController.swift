@@ -18,6 +18,7 @@ final class FloatingClipboardViewController: NSViewController,
     private let metaLabel = NSTextField(labelWithString: "")
 
     private var accessibilityBannerWindow: NSWindow?
+    private var secureInputBannerWindow: NSWindow?
     private let previewContainer = NSView()
     private let previewTextView = NSTextView()
     private let previewScrollView = NSScrollView()
@@ -189,10 +190,71 @@ final class FloatingClipboardViewController: NSViewController,
         }
 
         let frame = window.frame
-        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: frame.origin.x, y: frame.maxY + 4))
+        let bannerY = frame.maxY + (secureInputBannerWindow != nil ? 36 : 4)
+        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: frame.origin.x, y: bannerY))
         if let banner = accessibilityBannerWindow {
             window.addChildWindow(banner, ordered: .above)
         }
+    }
+
+    func updateSecureInputBanner(isActive: Bool) {
+        if !isActive {
+            secureInputBannerWindow?.orderOut(nil)
+            secureInputBannerWindow = nil
+            return
+        }
+
+        guard let window = view.window else { return }
+
+        if secureInputBannerWindow == nil {
+            secureInputBannerWindow = makeBannerWindow(
+                icon: "lock.fill",
+                text: "Secure Input is active",
+                color: NSColor(calibratedRed: 0.8, green: 0.15, blue: 0.15, alpha: 0.95)
+            )
+        }
+
+        let frame = window.frame
+        secureInputBannerWindow?.setFrameOrigin(NSPoint(x: frame.origin.x, y: frame.maxY + 4))
+        if let banner = secureInputBannerWindow {
+            window.addChildWindow(banner, ordered: .above)
+        }
+    }
+
+    private func makeBannerWindow(icon: String, text: String, color: NSColor) -> NSWindow {
+        let bannerHeight: CGFloat = 28
+        let width = currentConfiguration.layout.listWidth
+
+        let panel = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: width, height: bannerHeight),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hidesOnDeactivate = false
+
+        let bg = NSView(frame: NSRect(x: 0, y: 0, width: width, height: bannerHeight))
+        bg.wantsLayer = true
+        bg.layer?.backgroundColor = color.cgColor
+        bg.layer?.cornerRadius = 6
+
+        let iconView = NSImageView(frame: NSRect(x: 8, y: 6, width: 16, height: 16))
+        iconView.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)
+        iconView.contentTintColor = .white
+        bg.addSubview(iconView)
+
+        let label = NSTextField(labelWithString: text)
+        label.frame = NSRect(x: 30, y: 5, width: width - 40, height: 18)
+        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textColor = .white
+        label.lineBreakMode = .byTruncatingTail
+        bg.addSubview(label)
+
+        panel.contentView = bg
+        return panel
     }
 
     private func setupSearchField() {

@@ -158,7 +158,7 @@
 
     @available(macOS 14.0, *)
     #Preview("Settings - Transforms") {
-        TransformsSettingsView(regexStore: PreviewFixtures.makeRegexStore())
+        TransformsSettingsView()
             .frame(width: 620, height: 360)
     }
 
@@ -214,12 +214,6 @@
             launchAtLoginProvider: { false }
         )
         .frame(width: 760, height: 520)
-    }
-
-    @available(macOS 14.0, *)
-    #Preview("Look And Feel") {
-        LookAndFeelSettingsView(settings: PreviewFixtures.makeSettings(theme: .dark), onEditLook: {})
-            .frame(width: 420, height: 340)
     }
 
     @available(macOS 14.0, *)

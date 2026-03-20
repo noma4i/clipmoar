@@ -1,0 +1,142 @@
+{
+  "trimWhitespace": {
+    "description": "Removes leading and trailing whitespace and newlines.",
+    "exampleInput": "  hello world  \n",
+    "exampleOutput": "hello world"
+  },
+  "flattenMultiline": {
+    "description": "Joins multi-line shell commands into a single line.",
+    "exampleInput": "curl -X POST \\\n  http://api.com",
+    "exampleOutput": "curl -X POST http://api.com"
+  },
+  "stripShellPrompts": {
+    "description": "Removes $ and # prompts from terminal commands.",
+    "exampleInput": "$ git status\n$ git add .",
+    "exampleOutput": "git status\ngit add ."
+  },
+  "removeBoxDrawing": {
+    "description": "Removes box-drawing characters from terminal output.",
+    "exampleInput": "Name \u2502 Value \u2502 Type",
+    "exampleOutput": "Name Value Type"
+  },
+  "repairWrappedURL": {
+    "description": "Repairs URLs broken across multiple lines.",
+    "exampleInput": "https://example\n.com/path",
+    "exampleOutput": "https://example.com/path"
+  },
+  "quotePathsWithSpaces": {
+    "description": "Wraps file paths with spaces in double quotes.",
+    "exampleInput": "/Users/me/My Documents/file.txt",
+    "exampleOutput": "\"/Users/me/My Documents/file.txt\""
+  },
+  "regexReplace": {
+    "description": "Replace text matching a regex pattern. Configure in the Regex tab.",
+    "exampleInput": "color: #FF0000;",
+    "exampleOutput": "color: red; (with regex)"
+  },
+  "normalizeQuotes": {
+    "description": "Replaces typographic quotes (\u201c\u201d\u2018\u2019) with ASCII quotes.",
+    "exampleInput": "\u201cHello\u201d \u2018world\u2019",
+    "exampleOutput": "\"Hello\" 'world'"
+  },
+  "tabsToSpaces": {
+    "description": "Converts tabs to 4 spaces.",
+    "exampleInput": "\tif x:\n\t\treturn y",
+    "exampleOutput": "    if x:\n        return y"
+  },
+  "dedent": {
+    "description": "Removes common leading indentation from all lines.",
+    "exampleInput": "    let x = 1\n    let y = 2",
+    "exampleOutput": "let x = 1\nlet y = 2"
+  },
+  "joinParagraphs": {
+    "description": "Joins soft-wrapped lines into paragraphs.",
+    "exampleInput": "This is a long\nwrapped line.",
+    "exampleOutput": "This is a long wrapped line."
+  },
+  "collapseBlankLines": {
+    "description": "Collapses multiple blank lines into one.",
+    "exampleInput": "line 1\n\n\n\nline 2",
+    "exampleOutput": "line 1\n\nline 2"
+  },
+  "sortLines": {
+    "description": "Sorts lines alphabetically.",
+    "exampleInput": "zebra\napple\nmoon",
+    "exampleOutput": "apple\nmoon\nzebra"
+  },
+  "uniqueLines": {
+    "description": "Removes duplicate lines, keeping first occurrence.",
+    "exampleInput": "apple\nbanana\napple",
+    "exampleOutput": "apple\nbanana"
+  },
+  "commentLines": {
+    "description": "Adds # prefix to each line.",
+    "exampleInput": "line 1\nline 2",
+    "exampleOutput": "# line 1\n# line 2"
+  },
+  "escapeJSON": {
+    "description": "Escapes quotes, newlines and backslashes for JSON strings.",
+    "exampleInput": "{\n  \"user\": \"John\",\n  \"msg\": \"Hello \\\"world\\\"\"\n}",
+    "exampleOutput": "{\\n  \\\"user\\\": \\\"John\\\",\\n  \\\"msg\\\": \\\"Hello \\\\\\\"world\\\\\\\"\\\"\n}"
+  },
+  "unescapeJSON": {
+    "description": "Unescapes JSON string back to readable text.",
+    "exampleInput": "{\\\"user\\\": \\\"John\\\",\\n  \\\"active\\\": true}",
+    "exampleOutput": "{\"user\": \"John\",\n  \"active\": true}"
+  },
+  "escapeShell": {
+    "description": "Wraps text in single quotes for safe shell usage.",
+    "exampleInput": "My File (v2).txt",
+    "exampleOutput": "'My File (v2).txt'"
+  },
+  "urlEncode": {
+    "description": "Percent-encodes text for URL query parameters.",
+    "exampleInput": "hello world&foo=bar",
+    "exampleOutput": "hello%20world%26foo%3Dbar"
+  },
+  "urlDecode": {
+    "description": "Decodes percent-encoded URL text.",
+    "exampleInput": "hello%20world%26foo%3Dbar",
+    "exampleOutput": "hello world&foo=bar"
+  },
+  "base64Encode": {
+    "description": "Encodes text to Base64.",
+    "exampleInput": "hello world",
+    "exampleOutput": "aGVsbG8gd29ybGQ="
+  },
+  "base64Decode": {
+    "description": "Decodes Base64 back to text.",
+    "exampleInput": "aGVsbG8gd29ybGQ=",
+    "exampleOutput": "hello world"
+  },
+  "prettyJSON": {
+    "description": "Formats JSON with indentation for readability.",
+    "exampleInput": "{\"name\":\"ClipMoar\",\"version\":1,\"features\":[\"paste\",\"rules\"]}",
+    "exampleOutput": "{\n  \"features\": [\n    \"paste\",\n    \"rules\"\n  ],\n  \"name\": \"ClipMoar\",\n  \"version\": 1\n}"
+  },
+  "minifyJSON": {
+    "description": "Compresses JSON to a single line.",
+    "exampleInput": "{\n  \"name\": \"ClipMoar\",\n  \"version\": 1,\n  \"active\": true\n}",
+    "exampleOutput": "{\"name\":\"ClipMoar\",\"version\":1,\"active\":true}"
+  },
+  "jsonToYAML": {
+    "description": "Converts JSON to YAML format.",
+    "exampleInput": "{\"app\":\"ClipMoar\",\"debug\":true,\"port\":3000}",
+    "exampleOutput": "app: ClipMoar\ndebug: true\nport: 3000"
+  },
+  "htmlToMarkdown": {
+    "description": "Converts HTML tags to Markdown syntax.",
+    "exampleInput": "<strong>Bold</strong> <a href=\"#\">link</a>",
+    "exampleOutput": "**Bold** [link](#)"
+  },
+  "stripTrackingParams": {
+    "description": "Removes utm_*, fbclid, gclid and other tracking params from URLs.",
+    "exampleInput": "https://site.com/page?utm_source=x&id=42",
+    "exampleOutput": "https://site.com/page?id=42"
+  },
+  "extractURLs": {
+    "description": "Extracts all URLs and emails from text.",
+    "exampleInput": "Visit https://example.com or email a@b.com",
+    "exampleOutput": "https://example.com\nmailto:a@b.com"
+  }
+}

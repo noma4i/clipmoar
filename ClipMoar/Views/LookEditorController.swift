@@ -40,6 +40,7 @@ final class LookEditorModel: ObservableObject {
     @Published var searchPlaceholderColorHex: String
     @Published var metaFontSize: Int
     @Published var largeTypeFontSize: Int
+    @Published var largeTypeEnabled: Bool
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -66,6 +67,7 @@ final class LookEditorModel: ObservableObject {
         searchPlaceholderColorHex = settings.searchPlaceholderColorHex
         metaFontSize = settings.metaFontSize
         largeTypeFontSize = settings.largeTypeFontSize
+        largeTypeEnabled = settings.largeTypeEnabled
     }
 
     func syncToSettings() {
@@ -92,6 +94,7 @@ final class LookEditorModel: ObservableObject {
         settings.searchPlaceholderColorHex = searchPlaceholderColorHex
         settings.metaFontSize = metaFontSize
         settings.largeTypeFontSize = largeTypeFontSize
+        settings.largeTypeEnabled = largeTypeEnabled
     }
 }
 
@@ -565,6 +568,36 @@ struct EditorControlsView: View {
                 .foregroundColor(.secondary)
 
             sliderRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
+
+            Divider()
+
+            Text("Large Type")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            settingRow("Enable:") {
+                Toggle("", isOn: $model.largeTypeEnabled)
+                    .toggleStyle(.checkbox)
+                    .controlSize(.small)
+                    .labelsHidden()
+                    .onChange(of: model.largeTypeEnabled) { _, _ in changed() }
+            }
+            settingRow("Size:") {
+                HStack(spacing: 4) {
+                    TextField("", value: $model.largeTypeFontSize, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 50)
+                        .onChange(of: model.largeTypeFontSize) { _, _ in changed() }
+                    Stepper("", value: $model.largeTypeFontSize, in: 24 ... 120, step: 4)
+                        .labelsHidden()
+                        .onChange(of: model.largeTypeFontSize) { _, _ in changed() }
+                    Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                }
+            }
+            .disabled(!model.largeTypeEnabled)
+            .opacity(model.largeTypeEnabled ? 1 : 0.5)
+
+            Spacer().frame(height: 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

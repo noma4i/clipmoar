@@ -224,7 +224,16 @@ final class ClipboardService {
                 return
             }
 
-            let finalData = compressImageIfNeeded(imageData)
+            var finalData = compressImageIfNeeded(imageData)
+            finalData = processImageIfNeeded(finalData)
+
+            if finalData != imageData {
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setData(finalData, forType: .png)
+                pb.setData(Data(), forType: ClipboardActionService.markerType)
+            }
+
             lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
             logger.log("[ClipMoar] inserted image: %d bytes (original: %d)", finalData.count, imageData.count)
             scheduleMaintenance()
@@ -290,6 +299,15 @@ final class ClipboardService {
         repository.removeOlderThan(hours: settings.imageRetentionHours, contentType: ClipboardItemType.image.rawValue)
     }
 
+    private func processImageIfNeeded(_ data: Data) -> Data {
+        let s = settings
+        guard s.imageConvertToPNG || s.imageConvertToJPEG
+            || s.imageStripMetadata || s.imageAutoEnhance || s.imageGrayscale
+            || s.imageAutoRotate || s.imageTrimWhitespace || s.imageSharpen || s.imageReduceNoise
+        else { return data }
+        return ImageProcessor.process(data, settings: settings)
+    }
+
     private func compressImageIfNeeded(_ data: Data) -> Data {
         guard settings.compressImages else { return data }
         guard let image = NSImage(data: data) else { return data }
@@ -327,6 +345,10 @@ final class ClipboardService {
     }
 
     private func shouldIgnoreSnapshot(from sourceAppBundleId: String?) -> Bool {
+        if let sourceAppBundleId, settings.ignoredAppBundleIds.contains(sourceAppBundleId) {
+            logger.log("[ClipMoar] skip: ignored app %@", sourceAppBundleId)
+            return true
+        }
         guard isRunningUnderTestHarness(), let sourceAppBundleId else { return false }
         return Self.testHarnessIgnoredBundleIds.contains(sourceAppBundleId)
     }

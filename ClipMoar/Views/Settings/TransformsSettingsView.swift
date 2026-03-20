@@ -1,15 +1,30 @@
 import SwiftUI
 
+private struct TransformInfo: Decodable {
+    let description: String
+    let exampleInput: String
+    let exampleOutput: String
+}
+
+private let transformCatalog: [String: TransformInfo] = {
+    if let url = Bundle.main.url(forResource: "TransformCatalog", withExtension: "json"),
+       let data = try? Data(contentsOf: url),
+       let catalog = try? JSONDecoder().decode([String: TransformInfo].self, from: data)
+    {
+        return catalog
+    }
+
+    guard let path = ProcessInfo.processInfo.environment["PWD"] ?? Optional(""),
+          let data = try? Data(contentsOf: URL(fileURLWithPath: path).appendingPathComponent("ClipMoar/Resources/TransformCatalog.json")),
+          let catalog = try? JSONDecoder().decode([String: TransformInfo].self, from: data)
+    else { return [:] }
+    return catalog
+}()
+
 struct TransformsSettingsView: View {
     @State private var selectedType: ClipboardTransformType = .trimWhitespace
     @State private var inputText = ""
     @State private var outputText = ""
-    @State private var selectedRegexId: UUID?
-    @StateObject private var regexStore: RegexStore
-
-    init(regexStore: RegexStore = RegexStore()) {
-        _regexStore = StateObject(wrappedValue: regexStore)
-    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -50,19 +65,19 @@ struct TransformsSettingsView: View {
         .frame(width: 200)
     }
 
+    private var info: TransformInfo? {
+        transformCatalog[selectedType.rawValue]
+    }
+
     private var playground: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(selectedType.displayName)
                 .font(.system(size: 13, weight: .semibold))
 
-            Text(descriptionFor(selectedType))
+            Text(info?.description ?? "")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
                 .frame(height: 30, alignment: .topLeading)
-
-            regexFields
-                .frame(height: 50)
-                .opacity(selectedType == .regexReplace ? 1 : 0)
 
             Text("Input").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
 
@@ -120,6 +135,10 @@ struct TransformsSettingsView: View {
                 .controlSize(.small)
                 .disabled(outputText.isEmpty)
             }
+
+            Divider()
+
+            exampleView
         }
         .frame(width: 320)
     }
@@ -133,49 +152,16 @@ struct TransformsSettingsView: View {
         statusText == "Modified" ? .white : .secondary
     }
 
-    private var selectedRegex: SavedRegex? {
-        guard let id = selectedRegexId else { return nil }
-        return regexStore.patterns.first { $0.id == id }
-    }
-
-    private var regexFields: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text("Regex:")
-                    .font(.system(size: 11))
-                    .frame(width: 60, alignment: .trailing)
-                Picker("", selection: $selectedRegexId) {
-                    Text("Select...").tag(nil as UUID?)
-                    ForEach(regexStore.patterns) { p in
-                        Text(p.name).tag(p.id as UUID?)
-                    }
-                }
-                .labelsHidden()
-                .onChange(of: selectedRegexId) { runTransform() }
-            }
-            if let r = selectedRegex {
-                Text("\(r.pattern) -> \(r.replacement)")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .padding(.leading, 68)
-            }
-        }
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.04)))
-    }
-
     private func runTransform() {
         guard !inputText.isEmpty else {
             outputText = ""
             return
         }
 
-        let regex = selectedRegex
         let transform = ClipboardTransform(
             type: selectedType,
-            pattern: regex?.pattern ?? "",
-            replacement: regex?.replacement ?? ""
+            pattern: "",
+            replacement: ""
         )
 
         let rule = ClipboardRule(
@@ -188,22 +174,35 @@ struct TransformsSettingsView: View {
         outputText = result.text
     }
 
-    private func descriptionFor(_ type: ClipboardTransformType) -> String {
-        switch type {
-        case .trimWhitespace:
-            return "Removes leading and trailing whitespace and newlines."
-        case .flattenMultiline:
-            return "Joins multi-line shell commands into a single line."
-        case .stripShellPrompts:
-            return "Removes $ and # prompts from terminal commands."
-        case .removeBoxDrawing:
-            return "Removes box-drawing characters from terminal output."
-        case .repairWrappedURL:
-            return "Repairs URLs broken across multiple lines."
-        case .quotePathsWithSpaces:
-            return "Wraps file paths with spaces in double quotes."
-        case .regexReplace:
-            return "Replace text matching a regex pattern."
+    private var exampleView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Example")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            exampleBlock(label: "IN", color: .orange, text: info?.exampleInput ?? "")
+            exampleBlock(label: "OUT", color: .green, text: info?.exampleOutput ?? "")
+        }
+    }
+
+    private func exampleBlock(label: String, color: Color, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 4).fill(color))
+                .padding(.leading, 6)
+                .offset(y: 4)
+
+            Text(text)
+                .font(.system(size: 11, design: .monospaced))
+                .lineLimit(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.08)))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.2)))
         }
     }
 }

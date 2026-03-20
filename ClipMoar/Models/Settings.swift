@@ -43,6 +43,17 @@ protocol SettingsStore: AnyObject {
     var imageMaxWidth: Int { get set }
     var imageMaxHeight: Int { get set }
     var imageQuality: Int { get set }
+    var imageRemoveBackground: Bool { get set }
+    var imageConvertToPNG: Bool { get set }
+    var imageConvertToJPEG: Bool { get set }
+    var imageStripMetadata: Bool { get set }
+    var imageAutoEnhance: Bool { get set }
+    var imageGrayscale: Bool { get set }
+    var imageAutoRotate: Bool { get set }
+    var imageTrimWhitespace: Bool { get set }
+    var imageSharpen: Bool { get set }
+    var imageReduceNoise: Bool { get set }
+    var ignoredAppBundleIds: [String] { get set }
 
     func registerDefaults()
 }
@@ -139,6 +150,17 @@ enum Settings {
     static let imageMaxWidth = "imageMaxWidth"
     static let imageMaxHeight = "imageMaxHeight"
     static let imageQuality = "imageQuality"
+    static let imageRemoveBackground = "imageRemoveBackground"
+    static let imageConvertToPNG = "imageConvertToPNG"
+    static let imageConvertToJPEG = "imageConvertToJPEG"
+    static let imageStripMetadata = "imageStripMetadata"
+    static let imageAutoEnhance = "imageAutoEnhance"
+    static let imageGrayscale = "imageGrayscale"
+    static let imageAutoRotate = "imageAutoRotate"
+    static let imageTrimWhitespace = "imageTrimWhitespace"
+    static let imageSharpen = "imageSharpen"
+    static let imageReduceNoise = "imageReduceNoise"
+    static let ignoredAppBundleIds = "ignoredAppBundleIds"
 }
 
 enum PanelTheme: Int, CaseIterable {
@@ -463,6 +485,68 @@ final class UserDefaultsSettingsStore: SettingsStore {
     var imageQuality: Int {
         get { defaults.integer(forKey: Settings.imageQuality) }
         set { defaults.set(newValue, forKey: Settings.imageQuality) }
+    }
+
+    var imageRemoveBackground: Bool {
+        get { defaults.bool(forKey: Settings.imageRemoveBackground) }
+        set { defaults.set(newValue, forKey: Settings.imageRemoveBackground) }
+    }
+
+    var imageConvertToPNG: Bool {
+        get { defaults.bool(forKey: Settings.imageConvertToPNG) }
+        set { defaults.set(newValue, forKey: Settings.imageConvertToPNG) }
+    }
+
+    var imageConvertToJPEG: Bool {
+        get { defaults.bool(forKey: Settings.imageConvertToJPEG) }
+        set { defaults.set(newValue, forKey: Settings.imageConvertToJPEG) }
+    }
+
+    var imageStripMetadata: Bool {
+        get { defaults.bool(forKey: Settings.imageStripMetadata) }
+        set { defaults.set(newValue, forKey: Settings.imageStripMetadata) }
+    }
+
+    var imageAutoEnhance: Bool {
+        get { defaults.bool(forKey: Settings.imageAutoEnhance) }
+        set { defaults.set(newValue, forKey: Settings.imageAutoEnhance) }
+    }
+
+    var imageGrayscale: Bool {
+        get { defaults.bool(forKey: Settings.imageGrayscale) }
+        set { defaults.set(newValue, forKey: Settings.imageGrayscale) }
+    }
+
+    var imageAutoRotate: Bool {
+        get { defaults.bool(forKey: Settings.imageAutoRotate) }
+        set { defaults.set(newValue, forKey: Settings.imageAutoRotate) }
+    }
+
+    var imageTrimWhitespace: Bool {
+        get { defaults.bool(forKey: Settings.imageTrimWhitespace) }
+        set { defaults.set(newValue, forKey: Settings.imageTrimWhitespace) }
+    }
+
+    var imageSharpen: Bool {
+        get { defaults.bool(forKey: Settings.imageSharpen) }
+        set { defaults.set(newValue, forKey: Settings.imageSharpen) }
+    }
+
+    var imageReduceNoise: Bool {
+        get { defaults.bool(forKey: Settings.imageReduceNoise) }
+        set { defaults.set(newValue, forKey: Settings.imageReduceNoise) }
+    }
+
+    var ignoredAppBundleIds: [String] {
+        get {
+            guard let data = defaults.data(forKey: Settings.ignoredAppBundleIds),
+                  let ids = try? JSONDecoder().decode([String].self, from: data) else { return [] }
+            return ids
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults.set(data, forKey: Settings.ignoredAppBundleIds)
+        }
     }
 
     func registerDefaults() {

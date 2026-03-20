@@ -298,10 +298,11 @@ struct RulesSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Input").font(.system(size: 10, weight: .medium)).foregroundColor(.secondary)
                     TextField("Paste text here...", text: $testInput, axis: .vertical)
-                        .lineLimit(3 ... 5)
+                        .lineLimit(3 ... 20)
                         .font(.system(size: 11, design: .monospaced))
                         .textFieldStyle(.plain)
                         .padding(6)
+                        .frame(maxHeight: .infinity, alignment: .topLeading)
                         .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
                         .onChange(of: testInput) { runLookup() }
                 }
@@ -325,11 +326,12 @@ struct RulesSettingsView: View {
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                             .textSelection(.enabled)
                     }
-                    .frame(height: 60)
+                    .frame(maxHeight: .infinity)
                     .padding(6)
                     .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
                 }
             }
+            .frame(maxHeight: .infinity)
 
             HStack {
                 Button("Paste") {
@@ -357,7 +359,9 @@ struct RulesSettingsView: View {
             testOutput = ""
             return
         }
-        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]))
+        var testRule = rule
+        testRule.appBundleId = nil
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [testRule]))
         testOutput = engine.apply(to: testInput).text
     }
 
