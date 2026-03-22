@@ -19,13 +19,18 @@ open_prefs() {
 
 click_tab() {
     local tab_name="$1"
-    # Row indices in sidebar (0-based): General=0, Hotkeys=1, separator=2, Rules=3, separator=4, About=5
     local row
     case "$tab_name" in
-        general|General)   row=1 ;;
-        hotkeys|Hotkeys)   row=2 ;;
-        rules|Rules)       row=3 ;;
-        about|About)       row=5 ;;
+        general|General)       row=1 ;;
+        hotkeys|Hotkeys)       row=2 ;;
+        look|Look)             row=3 ;;
+        rules|Rules)           row=5 ;;
+        transforms|Transforms) row=6 ;;
+        regex|Regex)           row=7 ;;
+        images|Images)         row=8 ;;
+        ignore|Ignore)         row=9 ;;
+        ai|AI)                 row=10 ;;
+        about|About)           row=12 ;;
         *) echo "Unknown tab: $tab_name"; return 1 ;;
     esac
     osascript -e "
@@ -79,7 +84,7 @@ case "$CMD" in
                 set frontmost to true
                 click menu bar item 1 of menu bar 2
                 delay 0.3
-                click menu item "Show Clipboard" of menu 1 of menu bar item 1 of menu bar 2
+                click menu item "Show ClipMoar" of menu 1 of menu bar item 1 of menu bar 2
             end tell
         end tell' 2>/dev/null
         sleep 0.5
@@ -104,7 +109,8 @@ case "$CMD" in
         echo "Usage: ./scripts/ui.sh <command> [tab]"
         echo ""
         echo "Commands:"
-        echo "  prefs [tab]   Open Preferences (tab: general, hotkeys, rules, about)"
+        echo "  prefs [tab]   Open Preferences (tab: general, hotkeys, look, rules,"
+        echo "                transforms, regex, images, ignore, ai, about)"
         echo "  panel         Show floating clipboard panel"
         echo "  shot          Screenshot current state"
         echo "  debug         Dump accessibility tree of preferences window"
