@@ -253,7 +253,7 @@ final class ClipboardService {
             content = .files(urls)
         } else if let text = pasteboard.stringValue() {
             content = .text(text)
-        } else if let data = pasteboard.imageData() {
+        } else if let data = pasteboard.imageData(), data.count > 0 {
             content = .image(data)
         } else {
             content = .unsupported

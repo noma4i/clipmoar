@@ -196,6 +196,8 @@ final class LookEditorController {
             model: model,
             onChanged: { [weak self] in
                 self?.clipViewController?.applyTheme()
+            },
+            onReset: { [weak self] in
                 self?.repositionMockPanel()
             }
         )
@@ -451,6 +453,7 @@ struct MockPanelView: View {
 struct EditorControlsView: View {
     @ObservedObject var model: LookEditorModel
     var onChanged: (() -> Void)?
+    var onReset: (() -> Void)?
 
     private func changed() {
         model.syncToSettings()
@@ -734,6 +737,7 @@ struct EditorControlsView: View {
         model.settings.panelPositionX = 0.5
         model.settings.panelPositionY = 0.65
         changed()
+        onReset?()
     }
 
     private func colorPickerFor(hex: Binding<String>) -> some View {

@@ -135,7 +135,7 @@ extension SettingsStore {
                 cornerRadius: CGFloat(max(panelCornerRadius, 0)),
                 margin: CGFloat(max(panelMargin, 0)),
                 rowHeight: rowHeight,
-                searchFieldHeight: max(searchFontSize + 12, 28)
+                searchFieldHeight: rowHeight
             ),
             largeTypeFontSize: largeTypeFontSize > 0 ? CGFloat(largeTypeFontSize) : nil
         )

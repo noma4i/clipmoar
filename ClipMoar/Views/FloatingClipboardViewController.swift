@@ -2,6 +2,18 @@ import Cocoa
 
 private let defaultPanelHeight: CGFloat = 32 * 9 + 36 + 28
 
+private final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        var result = super.drawingRect(forBounds: rect)
+        let textHeight = cellSize(forBounds: rect).height
+        if textHeight < rect.height {
+            result.origin.y = rect.origin.y + (rect.height - textHeight) / 2
+            result.size.height = textHeight
+        }
+        return result
+    }
+}
+
 final class FloatingClipboardViewController: NSViewController,
     NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate
 {
@@ -260,6 +272,7 @@ final class FloatingClipboardViewController: NSViewController,
     private func setupSearchField() {
         let layout = currentConfiguration.layout
 
+        searchField.cell = VerticallyCenteredTextFieldCell()
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.delegate = self
         searchField.focusRingType = .none
@@ -590,26 +603,14 @@ final class FloatingClipboardViewController: NSViewController,
     private func updateSearchPlaceholder() {
         let font = searchField.font ?? .systemFont(ofSize: currentConfiguration.search.fontSize)
         let color = currentConfiguration.search.placeholderColor
-        let iconSize = font.pointSize
-        let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
 
-        let attachment = NSTextAttachment()
-        attachment.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)?
-            .tinted(with: color)
-        let yOffset = (font.capHeight - iconSize) / 2
-        attachment.bounds = NSRect(x: 0, y: yOffset, width: iconSize, height: iconSize)
-
-        let placeholder = NSMutableAttributedString()
-        placeholder.append(NSAttributedString(attachment: attachment))
-        placeholder.append(NSAttributedString(
-            string: " Type to search...",
+        searchField.placeholderAttributedString = NSAttributedString(
+            string: "Type to search...",
             attributes: [
                 .foregroundColor: color,
                 .font: font,
             ]
-        ))
-        searchField.placeholderAttributedString = placeholder
+        )
     }
 
     private func font(named name: String, size: CGFloat) -> NSFont {
