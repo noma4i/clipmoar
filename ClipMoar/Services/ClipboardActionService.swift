@@ -15,7 +15,7 @@ final class ClipboardActionService: ClipboardActionServicing {
         if item.isFile, let urls = item.fileURLs {
             pasteboard.writeObjects(urls as [NSURL])
         } else if item.isImage, let data = item.imageData {
-            pasteboard.setData(data, forType: .tiff)
+            pasteboard.setData(data, forType: .png)
         } else if let content = item.content {
             pasteboard.setString(content, forType: .string)
         }

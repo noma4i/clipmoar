@@ -46,8 +46,8 @@ final class LargeTypeWindow: NSWindow {
         contentImageView.imageAlignment = .alignCenter
     }
 
-    func showText(_ text: String, fontSize overrideFontSize: CGFloat? = nil) {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+    func showText(_ text: String, fontSize overrideFontSize: CGFloat? = nil, on screen: NSScreen? = nil) {
+        guard let screen = screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
         let screenFrame = screen.frame
         setFrame(screenFrame, display: true)
         setupViews(in: screenFrame)
@@ -90,8 +90,8 @@ final class LargeTypeWindow: NSWindow {
         orderFrontRegardless()
     }
 
-    func showImage(_ data: Data) {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first,
+    func showImage(_ data: Data, on screen: NSScreen? = nil) {
+        guard let screen = screen ?? NSScreen.main ?? NSScreen.screens.first,
               let image = NSImage(data: data) else { return }
         let screenFrame = screen.frame
         setFrame(screenFrame, display: true)
@@ -140,15 +140,15 @@ final class LargeTypeController {
         window?.isVisible ?? false
     }
 
-    func show(item: ClipboardItem) {
+    func show(item: ClipboardItem, on screen: NSScreen? = nil) {
         dismiss()
 
         let win = LargeTypeWindow()
 
         if item.isImage, let data = item.imageData {
-            win.showImage(data)
+            win.showImage(data, on: screen)
         } else if let text = item.content, !text.isEmpty {
-            win.showText(text, fontSize: fontSize)
+            win.showText(text, fontSize: fontSize, on: screen)
         } else {
             return
         }

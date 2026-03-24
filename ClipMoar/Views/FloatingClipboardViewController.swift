@@ -12,6 +12,7 @@ final class FloatingClipboardViewController: NSViewController,
         case image
     }
 
+    private let searchIconView = NSImageView()
     private let searchField = NSTextField()
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
@@ -32,6 +33,7 @@ final class FloatingClipboardViewController: NSViewController,
     private var searchFieldTop: NSLayoutConstraint?
     private var searchFieldHeight: NSLayoutConstraint?
     private var searchFieldWidth: NSLayoutConstraint?
+    private var searchFieldLeading: NSLayoutConstraint?
     private var separatorWidth: NSLayoutConstraint?
     private var scrollViewWidth: NSLayoutConstraint?
     private var previewImageHeight: NSLayoutConstraint?
@@ -258,6 +260,15 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     private func setupSearchField() {
+        let layout = currentConfiguration.layout
+        let textLeading = layout.horizontalPadding + 22 + 10
+
+        searchIconView.translatesAutoresizingMaskIntoConstraints = false
+        searchIconView.imageScaling = .scaleNone
+        searchIconView.imageAlignment = .alignCenter
+        applySearchIcon()
+        view.addSubview(searchIconView)
+
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.delegate = self
         searchField.focusRingType = .none
@@ -272,16 +283,36 @@ final class FloatingClipboardViewController: NSViewController,
         separator.boxType = .separator
         view.addSubview(separator)
 
+        let fieldWidth = layout.listWidth - textLeading - layout.horizontalPadding
+        let leadingConstraint = searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: textLeading)
+        searchFieldLeading = leadingConstraint
+
+        let iconLead = searchIconView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: layout.horizontalPadding)
+
         NSLayoutConstraint.activate([
-            { let constraint = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: 8); searchFieldTop = constraint; return constraint }(),
-            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            { let constraint = searchField.widthAnchor.constraint(equalToConstant: currentConfiguration.layout.listWidth - 16); searchFieldWidth = constraint; return constraint }(),
-            { let constraint = searchField.heightAnchor.constraint(equalToConstant: currentConfiguration.layout.searchFieldHeight); searchFieldHeight = constraint; return constraint }(),
+            { let constraint = searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: layout.verticalPadding); searchFieldTop = constraint; return constraint }(),
+            leadingConstraint,
+            { let constraint = searchField.widthAnchor.constraint(equalToConstant: fieldWidth); searchFieldWidth = constraint; return constraint }(),
+            { let constraint = searchField.heightAnchor.constraint(equalToConstant: layout.searchFieldHeight); searchFieldHeight = constraint; return constraint }(),
+
+            iconLead,
+            searchIconView.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
+            searchIconView.widthAnchor.constraint(equalToConstant: 22),
+            searchIconView.heightAnchor.constraint(equalToConstant: 22),
 
             separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
             separator.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            { let constraint = separator.widthAnchor.constraint(equalToConstant: currentConfiguration.layout.listWidth); separatorWidth = constraint; return constraint }(),
+            { let constraint = separator.widthAnchor.constraint(equalToConstant: layout.listWidth); separatorWidth = constraint; return constraint }(),
         ])
+    }
+
+    private func applySearchIcon() {
+        let color = currentConfiguration.search.placeholderColor
+        let fontSize = currentConfiguration.search.fontSize
+        let config = NSImage.SymbolConfiguration(pointSize: fontSize, weight: .regular)
+        searchIconView.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
+            .withSymbolConfiguration(config)?
+            .tinted(with: color)
     }
 
     private func setupMetaLabel() {
@@ -450,15 +481,18 @@ final class FloatingClipboardViewController: NSViewController,
             )
         }
 
+        let textLeading = layout.horizontalPadding + 22 + 10
         searchFieldTop?.constant = layout.verticalPadding
         searchFieldHeight?.constant = layout.searchFieldHeight
-        searchFieldWidth?.constant = layout.listWidth - 16
+        searchFieldWidth?.constant = layout.listWidth - textLeading - layout.horizontalPadding
+        searchFieldLeading?.constant = textLeading
         separatorWidth?.constant = layout.listWidth
         scrollViewWidth?.constant = layout.listWidth
         previewImageHeight?.constant = currentPanelHeight - 30
 
         searchField.font = font(named: configuration.search.fontName, size: configuration.search.fontSize)
         searchField.textColor = configuration.search.textColor
+        applySearchIcon()
         updateSearchPlaceholder()
 
         tableView.rowHeight = layout.rowHeight
@@ -586,25 +620,13 @@ final class FloatingClipboardViewController: NSViewController,
         let font = searchField.font ?? .systemFont(ofSize: currentConfiguration.search.fontSize)
         let color = currentConfiguration.search.placeholderColor
 
-        let attachment = NSTextAttachment()
-        let iconSize = font.pointSize - 2
-        let iconConfiguration = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
-        attachment.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?
-            .withSymbolConfiguration(iconConfiguration)?
-            .tinted(with: color)
-        let yOffset = (font.capHeight - iconSize) / 2
-        attachment.bounds = NSRect(x: 0, y: yOffset, width: iconSize, height: iconSize)
-
-        let placeholder = NSMutableAttributedString()
-        placeholder.append(NSAttributedString(attachment: attachment))
-        placeholder.append(NSAttributedString(
-            string: " Type to search...",
+        searchField.placeholderAttributedString = NSAttributedString(
+            string: "Type to search...",
             attributes: [
                 .foregroundColor: color,
                 .font: font,
             ]
-        ))
-        searchField.placeholderAttributedString = placeholder
+        )
     }
 
     private func font(named name: String, size: CGFloat) -> NSFont {
@@ -681,7 +703,7 @@ final class FloatingClipboardViewController: NSViewController,
                     if self.largeTypeController.isVisible {
                         self.largeTypeController.dismiss()
                     } else if let item = self.selectedItem {
-                        self.largeTypeController.show(item: item)
+                        self.largeTypeController.show(item: item, on: self.view.window?.screen)
                     }
                 }
                 return nil
@@ -696,7 +718,7 @@ final class FloatingClipboardViewController: NSViewController,
                 self.view.window?.makeFirstResponder(self.tableView)
                 self.tableView.keyDown(with: event)
                 if self.largeTypeController.isVisible, let item = self.selectedItem {
-                    self.largeTypeController.show(item: item)
+                    self.largeTypeController.show(item: item, on: self.view.window?.screen)
                 }
                 return nil
 

@@ -40,6 +40,7 @@ final class AppCoordinator {
         context: NSManagedObjectContext = CoreDataStack.shared.viewContext
     ) {
         self.settings = settings
+        settings.registerDefaults()
         self.context = context
         repository = CoreDataClipboardRepository(context: context)
         clipboardActions = ClipboardActionService()

@@ -154,9 +154,19 @@ struct GeneralSettingsView: View {
                     .onChange(of: positionX) { settings.panelPositionX = positionX }
                     .onChange(of: positionY) { settings.panelPositionY = positionY }
 
-                    Text("Drag to set panel position")
+                    HStack {
+                        Text("Drag to set panel position")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button("Reset") {
+                            positionX = 0.5
+                            positionY = 0.65
+                            settings.panelPositionX = 0.5
+                            settings.panelPositionY = 0.65
+                        }
                         .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                    }
 
                     HStack {
                         Text("Show on:")
@@ -178,6 +188,8 @@ struct GeneralSettingsView: View {
         .onAppear {
             refreshStats()
             launchAtLogin = launchAtLoginProvider()
+            positionX = settings.panelPositionX
+            positionY = settings.panelPositionY
         }
     }
 

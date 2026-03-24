@@ -593,5 +593,9 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.imageMaxHeight: 0,
             Settings.imageQuality: 80,
         ])
+
+        if largeTypeFontSize <= 0 {
+            largeTypeFontSize = 48
+        }
     }
 }

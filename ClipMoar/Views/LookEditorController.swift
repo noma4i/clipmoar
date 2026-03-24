@@ -194,7 +194,10 @@ final class LookEditorController {
 
         let editorView = EditorControlsView(
             model: model,
-            onChanged: { [weak self] in self?.clipViewController?.applyTheme() }
+            onChanged: { [weak self] in
+                self?.clipViewController?.applyTheme()
+                self?.repositionMockPanel()
+            }
         )
         let editorHosting = NSHostingController(rootView: editorView)
         editor.contentViewController = editorHosting
@@ -266,6 +269,17 @@ final class LookEditorController {
             self?.dismiss()
             return nil
         }
+    }
+
+    private func repositionMockPanel() {
+        guard let mock = mockPanel, let screen = mock.screen ?? NSScreen.main else { return }
+        let config = settings.panelConfiguration()
+        let visibleFrame = screen.visibleFrame
+        let mockW = config.layout.listWidth
+        let mockH = config.layout.panelHeight
+        let x = visibleFrame.origin.x + (visibleFrame.width - mockW) * settings.panelPositionX
+        let y = visibleFrame.origin.y + (visibleFrame.height - mockH) * settings.panelPositionY
+        mock.setFrame(NSRect(x: x, y: y, width: mockW, height: mockH), display: true)
     }
 
     func dismiss() {
@@ -717,6 +731,8 @@ struct EditorControlsView: View {
         model.searchTextColorHex = "E6E6E6"
         model.searchPlaceholderColorHex = "666666"
         model.metaFontSize = 10
+        model.settings.panelPositionX = 0.5
+        model.settings.panelPositionY = 0.65
         changed()
     }
 
