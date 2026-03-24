@@ -4,8 +4,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = AppCoordinator()
 
     func applicationDidFinishLaunching(_: Notification) {
-        let settings = UserDefaultsSettingsStore()
-        settings.registerDefaults()
         guard !Self.isRunningUnderTestHarness else { return }
         setupMainMenu()
         coordinator.start()

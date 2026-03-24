@@ -39,8 +39,16 @@ struct ImageSettingsView: View {
         let match = ImageResolution.presets.first { $0.width == w && $0.height == h }
             ?? ImageResolution.presets[0]
         _selectedResolution = State(initialValue: match)
-        _convertToPNG = State(initialValue: settings.imageConvertToPNG)
-        _convertToJPEG = State(initialValue: settings.imageConvertToJPEG)
+        let png = settings.imageConvertToPNG
+        let jpeg = settings.imageConvertToJPEG
+        if png, jpeg {
+            _convertToPNG = State(initialValue: true)
+            _convertToJPEG = State(initialValue: false)
+            settings.imageConvertToJPEG = false
+        } else {
+            _convertToPNG = State(initialValue: png)
+            _convertToJPEG = State(initialValue: jpeg)
+        }
         _stripMetadata = State(initialValue: settings.imageStripMetadata)
         _autoEnhance = State(initialValue: settings.imageAutoEnhance)
         _grayscale = State(initialValue: settings.imageGrayscale)
@@ -114,10 +122,12 @@ struct ImageSettingsView: View {
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Format").font(.headline).padding(.top, 4)
-                    toggle($convertToPNG, key: \.imageConvertToPNG,
-                           label: "To PNG", hint: "Lossless, transparency")
-                    toggle($convertToJPEG, key: \.imageConvertToJPEG,
-                           label: "To JPEG", hint: "Smaller size")
+                    exclusiveToggle($convertToPNG, key: \.imageConvertToPNG,
+                                    opposite: $convertToJPEG, oppositeKey: \.imageConvertToJPEG,
+                                    label: "To PNG", hint: "Lossless, transparency")
+                    exclusiveToggle($convertToJPEG, key: \.imageConvertToJPEG,
+                                    opposite: $convertToPNG, oppositeKey: \.imageConvertToPNG,
+                                    label: "To JPEG", hint: "Smaller size")
                     toggle($stripMetadata, key: \.imageStripMetadata,
                            label: "Strip EXIF", hint: "Remove metadata")
                 }
@@ -151,6 +161,26 @@ struct ImageSettingsView: View {
         VStack(alignment: .leading, spacing: 2) {
             Toggle(label, isOn: binding)
                 .onChange(of: binding.wrappedValue) { settings[keyPath: key] = binding.wrappedValue }
+            Text(hint)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+        }
+    }
+
+    private func exclusiveToggle(_ binding: Binding<Bool>, key: ReferenceWritableKeyPath<SettingsStore, Bool>,
+                                 opposite: Binding<Bool>, oppositeKey: ReferenceWritableKeyPath<SettingsStore, Bool>,
+                                 label: String, hint: String) -> some View
+    {
+        VStack(alignment: .leading, spacing: 2) {
+            Toggle(label, isOn: binding)
+                .onChange(of: binding.wrappedValue) {
+                    settings[keyPath: key] = binding.wrappedValue
+                    if binding.wrappedValue {
+                        opposite.wrappedValue = false
+                        settings[keyPath: oppositeKey] = false
+                    }
+                }
             Text(hint)
                 .font(.caption)
                 .foregroundColor(.secondary)
