@@ -287,7 +287,8 @@ final class FloatingClipboardViewController: NSViewController,
         separator.boxType = .separator
         view.addSubview(separator)
 
-        let leading = searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: layout.horizontalPadding)
+        let textLeading = layout.horizontalPadding + 22 + 10
+        let leading = searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: textLeading)
         searchFieldLeading = leading
 
         NSLayoutConstraint.activate([
@@ -470,7 +471,7 @@ final class FloatingClipboardViewController: NSViewController,
 
         searchFieldTop?.constant = layout.verticalPadding
         searchFieldHeight?.constant = layout.rowHeight
-        searchFieldLeading?.constant = layout.horizontalPadding
+        searchFieldLeading?.constant = layout.horizontalPadding + 22 + 10
         separatorWidth?.constant = layout.listWidth
         scrollViewWidth?.constant = layout.listWidth
         previewImageHeight?.constant = currentPanelHeight - 30
@@ -500,6 +501,10 @@ final class FloatingClipboardViewController: NSViewController,
     private func renderState(reloadTable: Bool) {
         if reloadTable {
             tableView.reloadData()
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.alignSearchFieldToTableText()
         }
 
         let selectedRow = stateController.state.selectedRow
@@ -588,6 +593,15 @@ final class FloatingClipboardViewController: NSViewController,
         let height = currentPanelHeight
         let originY = frame.origin.y + frame.height - height
         window.setFrame(NSRect(x: frame.origin.x, y: originY, width: width, height: height), display: true)
+    }
+
+    private func alignSearchFieldToTableText() {
+        guard tableView.numberOfRows > 0,
+              let cell = tableView.view(atColumn: 0, row: 0, makeIfNecessary: true) as? ClipTableCellView,
+              let tf = cell.textField
+        else { return }
+        let textX = tf.convert(tf.bounds.origin, to: view).x
+        searchFieldLeading?.constant = textX
     }
 
     private func performSearch() {
