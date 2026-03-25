@@ -21,7 +21,7 @@ final class PanelConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.theme, .light)
         XCTAssertEqual(configuration.layout.visibleRows, 5)
         XCTAssertEqual(configuration.layout.rowHeight, 38)
-        XCTAssertEqual(configuration.layout.searchFieldHeight, 32)
+        XCTAssertEqual(configuration.layout.searchFieldHeight, 38)
         XCTAssertEqual(configuration.layout.availableTextWidth, 380)
 
         let previewColor = configuration.preview.backgroundColor.usingColorSpace(.sRGB)
