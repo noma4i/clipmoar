@@ -14,11 +14,11 @@ struct AboutSettingsView: View {
                     .frame(maxWidth: 280)
             }
 
-            Text("Version 0.1.0")
+            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0")")
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
 
-            Text("Clipboard manager for macOS")
+            Text("Highly opinionated clipboard manager for macOS")
                 .font(.system(size: 14))
 
             Text("MIT License - 2026 Alexander Tsirel")
