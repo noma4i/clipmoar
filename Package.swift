@@ -10,8 +10,6 @@ let package = Package(
             path: "ClipMoar",
             exclude: [
                 "Resources",
-                
-                
             ]
         ),
         .testTarget(
