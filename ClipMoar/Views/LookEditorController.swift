@@ -552,8 +552,18 @@ struct EditorControlsView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
 
-            sliderRow("Corner:", value: $model.cornerRadius, range: 0 ... 20, suffix: "px")
-            sliderRow("Margin:", value: $model.margin, range: 0 ... 16, suffix: "px")
+            settingRow("Corner:") {
+                TextField("", value: $model.cornerRadius, format: .number)
+                    .frame(width: 50)
+                    .onChange(of: model.cornerRadius) { changed() }
+                Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+            }
+            settingRow("Margin:") {
+                TextField("", value: $model.margin, format: .number)
+                    .frame(width: 50)
+                    .onChange(of: model.margin) { changed() }
+                Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+            }
 
             Divider()
 
