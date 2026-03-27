@@ -163,7 +163,9 @@ final class ClipboardRuleEngine {
             return Data(text.utf8).base64EncodedString()
 
         case .base64Decode:
-            guard let data = Data(base64Encoded: text), let decoded = String(data: data, encoding: .utf8) else { return text }
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let data = Data(base64Encoded: trimmed, options: .ignoreUnknownCharacters),
+                  let decoded = String(data: data, encoding: .utf8) else { return text }
             return decoded
 
         case .prettyJSON:

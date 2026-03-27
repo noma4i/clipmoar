@@ -104,6 +104,8 @@ final class ClipboardRuleEngineTests: XCTestCase {
 
     func testBase64Decode() {
         XCTAssertEqual(apply(.base64Decode, to: "aGVsbG8="), "hello")
+        XCTAssertEqual(apply(.base64Decode, to: "  aGVsbG8=\n"), "hello")
+        XCTAssertEqual(apply(.base64Decode, to: "aGVs\nbG8="), "hello")
     }
 
     func testPrettyJSON() {
