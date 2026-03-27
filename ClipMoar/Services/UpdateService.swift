@@ -15,6 +15,10 @@ final class UpdateService: NSObject {
     private static let minCheckInterval: TimeInterval = 24 * 3600
     private static let maxCheckInterval: TimeInterval = 48 * 3600
 
+    var isHomebrewInstall: Bool {
+        bundlePath.contains("/Homebrew/") || bundlePath.contains("/Caskroom/")
+    }
+
     init(
         settings: SettingsStore,
         session: URLSession = .shared,
@@ -31,6 +35,10 @@ final class UpdateService: NSObject {
     }
 
     func checkForUpdates() {
+        if isHomebrewInstall {
+            state = .homebrewManaged
+            return
+        }
         state = .checking
         var request = URLRequest(url: Self.releaseURL)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -44,6 +52,10 @@ final class UpdateService: NSObject {
     }
 
     func downloadAndInstall() {
+        if isHomebrewInstall {
+            state = .homebrewManaged
+            return
+        }
         guard case let .available(_, _, downloadURL) = state else { return }
         state = .downloading(progress: 0)
 
@@ -75,6 +87,10 @@ final class UpdateService: NSObject {
     }
 
     func scheduleAutomaticCheck() {
+        if isHomebrewInstall {
+            state = .homebrewManaged
+            return
+        }
         guard settings.autoCheckUpdates else { return }
         if let lastCheck = settings.lastUpdateCheck {
             let randomInterval = TimeInterval.random(in: Self.minCheckInterval ... Self.maxCheckInterval)

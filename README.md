@@ -22,12 +22,24 @@ Highly opinionated clipboard manager for macOS. Built with Swift, AppKit and Swi
 - Configurable visibility: dock and menu bar
 - Native macOS experience - pure Swift, no Electron
 
+## Install
+
+### Homebrew
+
+```bash
+brew tap noma4i/clipmoar https://github.com/noma4i/clipmoar
+brew install --cask clipmoar
+```
+
+### Download
+
+Grab the latest `.app.zip` from [Releases](https://github.com/noma4i/clipmoar/releases).
+
 ## Requirements
 
 - macOS 14.0+
 - Swift 5.9+
 - Xcode 26+
-
 
 ## Build
 

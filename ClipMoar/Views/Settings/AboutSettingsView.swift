@@ -192,6 +192,32 @@ struct AboutSettingsView: View {
                         .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
                 )
             }
+
+        case .homebrewManaged:
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "mug.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 14))
+                    Text("Installed via Homebrew")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                HStack(spacing: 4) {
+                    Text("brew upgrade --cask clipmoar")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString("brew upgrade --cask clipmoar", forType: .string)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+                }
+            }
         }
     }
 

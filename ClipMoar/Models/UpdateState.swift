@@ -8,6 +8,7 @@ enum UpdateState: Equatable {
     case downloading(progress: Double)
     case installing
     case error(String)
+    case homebrewManaged
 }
 
 struct GitHubRelease: Decodable {

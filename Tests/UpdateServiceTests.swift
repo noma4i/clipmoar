@@ -199,6 +199,42 @@ final class UpdateServiceTests: XCTestCase {
 
         XCTAssertEqual(service.state, .idle)
     }
+
+    func testDetectsHomebrewInstall() {
+        let settings = TestUpdateSettings()
+        let caskroomPath = "/opt/homebrew/Caskroom/clipmoar/1.1.0/ClipMoar.app"
+        let service = UpdateService(settings: settings, currentVersion: "1.0.0", bundlePath: caskroomPath)
+
+        XCTAssertTrue(service.isHomebrewInstall)
+        service.checkForUpdates()
+        XCTAssertEqual(service.state, .homebrewManaged)
+    }
+
+    func testDetectsHomebrewInstallIntelPath() {
+        let settings = TestUpdateSettings()
+        let intelPath = "/usr/local/Homebrew/Caskroom/clipmoar/1.1.0/ClipMoar.app"
+        let service = UpdateService(settings: settings, currentVersion: "1.0.0", bundlePath: intelPath)
+
+        XCTAssertTrue(service.isHomebrewInstall)
+    }
+
+    func testNonHomebrewInstall() {
+        let settings = TestUpdateSettings()
+        let normalPath = "/Applications/ClipMoar.app"
+        let service = UpdateService(settings: settings, currentVersion: "1.0.0", bundlePath: normalPath)
+
+        XCTAssertFalse(service.isHomebrewInstall)
+    }
+
+    func testAutoCheckSetsHomebrewManaged() {
+        let settings = TestUpdateSettings()
+        settings.autoCheckUpdates = true
+        let caskroomPath = "/opt/homebrew/Caskroom/clipmoar/1.1.0/ClipMoar.app"
+        let service = UpdateService(settings: settings, currentVersion: "1.0.0", bundlePath: caskroomPath)
+        service.scheduleAutomaticCheck()
+
+        XCTAssertEqual(service.state, .homebrewManaged)
+    }
 }
 
 private final class TestUpdateSettings: SettingsStore {

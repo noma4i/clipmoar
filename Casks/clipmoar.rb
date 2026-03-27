@@ -1,0 +1,18 @@
+cask "clipmoar" do
+  version "1.1.0"
+  sha256 "PLACEHOLDER"
+
+  url "https://github.com/noma4i/clipmoar/releases/download/v#{version}/ClipMoar.app.zip"
+  name "ClipMoar"
+  desc "Highly opinionated clipboard manager for macOS"
+  homepage "https://github.com/noma4i/clipmoar"
+
+  depends_on macos: ">= :sonoma"
+
+  app "ClipMoar.app"
+
+  zap trash: [
+    "~/Library/Preferences/com.noma4i.ClipMoar.plist",
+    "~/Library/Application Support/ClipMoar",
+  ]
+end
