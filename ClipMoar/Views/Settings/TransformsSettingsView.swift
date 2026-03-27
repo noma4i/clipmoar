@@ -25,6 +25,7 @@ struct TransformsSettingsView: View {
     @State private var selectedType: ClipboardTransformType = .trimWhitespace
     @State private var inputText = ""
     @State private var outputText = ""
+    @State private var debounceTask: Task<Void, Never>?
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -92,7 +93,7 @@ struct TransformsSettingsView: View {
             Text("Input").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
 
             numberedEditor(text: $inputText, editable: true)
-                .onChange(of: inputText) { runTransform() }
+                .onChange(of: inputText) { debouncedTransform() }
 
             HStack {
                 Text("Output").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
@@ -182,6 +183,15 @@ struct TransformsSettingsView: View {
 
     private var statusColor: Color {
         statusText == "Modified" ? .white : .secondary
+    }
+
+    private func debouncedTransform() {
+        debounceTask?.cancel()
+        debounceTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            runTransform()
+        }
     }
 
     private func runTransform() {

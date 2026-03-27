@@ -15,19 +15,17 @@ struct StatsSettingsView: View {
     @State private var refreshTimer: Timer?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                headerSection
-                Divider()
-                countersGrid
-                Divider()
-                chartSection
-                Divider()
-                resetSection
-            }
-            .padding(20)
+        VStack(alignment: .leading, spacing: 16) {
+            headerSection
+            Divider()
+            countersGrid
+            Divider()
+            chartSection
+            Divider()
+            resetSection
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             refresh()
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
@@ -58,33 +56,27 @@ struct StatsSettingsView: View {
     }
 
     private var countersGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-        ], spacing: 12) {
-            counterCard(title: "Launches", value: launches, icon: "power", color: .green)
-            counterCard(title: "Panel Opens", value: panelOpens, icon: "rectangle.on.rectangle", color: .blue)
-            counterCard(title: "Pastes", value: pastes, icon: "doc.on.doc", color: .purple)
-            counterCard(title: "Copies", value: copies, icon: "arrow.down.doc", color: .orange)
-            counterCard(title: "Searches", value: searches, icon: "magnifyingglass", color: .pink)
+        HStack(spacing: 8) {
+            counterCard(title: "Launches", value: launches, color: .green, tooltip: "App started")
+            counterCard(title: "Opens", value: panelOpens, color: .blue, tooltip: "Panel opened via hotkey")
+            counterCard(title: "Pastes", value: pastes, color: .purple, tooltip: "Items pasted from panel")
+            counterCard(title: "Copies", value: copies, color: .orange, tooltip: "Clipboard items captured")
+            counterCard(title: "Searches", value: searches, color: .pink, tooltip: "Search queries in panel")
         }
     }
 
-    private func counterCard(title: String, value: Int, icon: String, color: Color) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundColor(color)
+    private func counterCard(title: String, value: Int, color: Color, tooltip: String) -> some View {
+        VStack(spacing: 3) {
             Text("\(value)")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
             Text(title)
-                .font(.system(size: 10))
+                .font(.system(size: 9))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.08)))
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.08)))
+        .help(tooltip)
     }
 
     private var chartSection: some View {
