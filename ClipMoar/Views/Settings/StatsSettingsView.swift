@@ -66,17 +66,7 @@ struct StatsSettingsView: View {
     }
 
     private func counterCard(title: String, value: Int, color: Color, tooltip: String) -> some View {
-        VStack(spacing: 3) {
-            Text("\(value)")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-            Text(title)
-                .font(.system(size: 9))
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.08)))
-        .help(tooltip)
+        CounterCardView(title: title, value: value, color: color, tooltip: tooltip)
     }
 
     private var chartSection: some View {
@@ -149,5 +139,43 @@ struct StatsSettingsView: View {
         firstDate = statsService.firstEventDate()
         dailyPastes = statsService.dailyCounts(for: .paste)
         dailyCopies = statsService.dailyCounts(for: .copy)
+    }
+}
+
+private struct CounterCardView: View {
+    let title: String
+    let value: Int
+    let color: Color
+    let tooltip: String
+
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text("\(value)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+            Text(title)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(isHovered ? 0.15 : 0.08)))
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .overlay(alignment: .bottom) {
+            if isHovered {
+                Text(tooltip)
+                    .font(.system(size: 10))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color(.darkGray)))
+                    .offset(y: 24)
+                    .zIndex(1)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
     }
 }
