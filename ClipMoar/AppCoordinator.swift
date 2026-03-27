@@ -154,21 +154,22 @@ final class AppCoordinator {
         menu.addItem(hintItem)
         menu.addItem(NSMenuItem.separator())
 
-        let tabs: [(String, String, String)] = [
-            ("Stats", "stats", ""),
-            ("General", "general", ","),
-            ("Hotkeys", "hotkeys", ""),
-            ("Rules", "rules", ""),
-            ("Transforms", "transforms", ""),
-            ("Regex", "regex", ""),
-            ("Images", "images", ""),
-            ("Ignore Apps", "ignore", ""),
-            ("AI", "ai", ""),
-            ("About", "about", ""),
+        let tabs: [(String, String, String, String)] = [
+            ("Stats", "stats", "", "chart.bar.fill"),
+            ("General", "general", ",", "gearshape"),
+            ("Hotkeys", "hotkeys", "", "keyboard"),
+            ("Rules", "rules", "", "wand.and.stars"),
+            ("Transforms", "transforms", "", "wand.and.rays"),
+            ("Regex", "regex", "", "number.circle"),
+            ("Images", "images", "", "photo"),
+            ("Ignore Apps", "ignore", "", "nosign"),
+            ("AI", "ai", "", "brain"),
+            ("About", "about", "", "info.circle"),
         ]
-        for (title, tag, key) in tabs {
+        for (title, tag, key, icon) in tabs {
             let item = NSMenuItem(title: title, action: #selector(openPreferencesTab(_:)), keyEquivalent: key)
             item.representedObject = tag
+            item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
             item.target = self
             menu.addItem(item)
         }

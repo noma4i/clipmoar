@@ -71,6 +71,14 @@ struct StatsSettingsView: View {
         CounterCardView(title: title, value: value, color: color, tooltip: tooltip)
     }
 
+    private var chartDateRange: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let start = calendar.date(byAdding: .day, value: -13, to: today) ?? today
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        return start ... endOfToday
+    }
+
     private var chartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Last 14 days")
@@ -109,6 +117,7 @@ struct StatsSettingsView: View {
                 "Copies": Color.orange,
                 "Searches": Color.pink,
             ])
+            .chartXScale(domain: chartDateRange)
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: 2)) { _ in
                     AxisGridLine()
