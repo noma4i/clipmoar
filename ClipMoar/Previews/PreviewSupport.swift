@@ -57,6 +57,8 @@
         var imageSharpen = false
         var imageReduceNoise = false
         var ignoredAppBundleIds: [String] = []
+        var autoCheckUpdates: Bool = true
+        var lastUpdateCheck: Date?
 
         init(theme: PanelTheme = .dark) {
             applyTheme(theme)

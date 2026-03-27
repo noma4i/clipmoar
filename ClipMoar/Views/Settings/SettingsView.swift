@@ -6,18 +6,21 @@ struct SettingsView: View {
     let hotkeyRecorder: HotkeyRecorder
     var onVisibilityChange: (() -> Void)?
     var onEditLook: (() -> Void)?
+    var updateService: UpdateService?
 
     init(
         settings: SettingsStore,
         hotkeyRecorder: HotkeyRecorder,
         onVisibilityChange: (() -> Void)? = nil,
         onEditLook: (() -> Void)? = nil,
+        updateService: UpdateService? = nil,
         initialTab: String = "general"
     ) {
         self.settings = settings
         self.hotkeyRecorder = hotkeyRecorder
         self.onVisibilityChange = onVisibilityChange
         self.onEditLook = onEditLook
+        self.updateService = updateService
         _selectedTab = State(initialValue: initialTab)
     }
 
@@ -76,7 +79,7 @@ struct SettingsView: View {
                 case "ai":
                     AISettingsView()
                 case "about":
-                    AboutSettingsView()
+                    AboutSettingsView(updateService: updateService)
                 default:
                     GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 }

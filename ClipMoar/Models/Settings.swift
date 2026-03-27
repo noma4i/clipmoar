@@ -54,6 +54,8 @@ protocol SettingsStore: AnyObject {
     var imageSharpen: Bool { get set }
     var imageReduceNoise: Bool { get set }
     var ignoredAppBundleIds: [String] { get set }
+    var autoCheckUpdates: Bool { get set }
+    var lastUpdateCheck: Date? { get set }
 
     func registerDefaults()
 }
@@ -161,6 +163,8 @@ enum Settings {
     static let imageSharpen = "imageSharpen"
     static let imageReduceNoise = "imageReduceNoise"
     static let ignoredAppBundleIds = "ignoredAppBundleIds"
+    static let autoCheckUpdates = "autoCheckUpdates"
+    static let lastUpdateCheck = "lastUpdateCheck"
 }
 
 enum PanelTheme: Int, CaseIterable {
@@ -549,6 +553,16 @@ final class UserDefaultsSettingsStore: SettingsStore {
         }
     }
 
+    var autoCheckUpdates: Bool {
+        get { defaults.bool(forKey: Settings.autoCheckUpdates) }
+        set { defaults.set(newValue, forKey: Settings.autoCheckUpdates) }
+    }
+
+    var lastUpdateCheck: Date? {
+        get { defaults.object(forKey: Settings.lastUpdateCheck) as? Date }
+        set { defaults.set(newValue, forKey: Settings.lastUpdateCheck) }
+    }
+
     func registerDefaults() {
         defaults.register(defaults: [
             Settings.showInDock: true,
@@ -592,6 +606,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.imageMaxWidth: 0,
             Settings.imageMaxHeight: 0,
             Settings.imageQuality: 80,
+            Settings.autoCheckUpdates: true,
         ])
 
         if largeTypeFontSize <= 0 {

@@ -553,16 +553,26 @@ struct EditorControlsView: View {
                 .foregroundColor(.secondary)
 
             settingRow("Corner:") {
-                TextField("", value: $model.cornerRadius, format: .number)
-                    .frame(width: 50)
-                    .onChange(of: model.cornerRadius) { changed() }
-                Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    TextField("", value: $model.cornerRadius, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 50)
+                        .onChange(of: model.cornerRadius) { changed() }
+                    Stepper("", value: $model.cornerRadius, in: 0 ... 30, step: 1)
+                        .labelsHidden()
+                    Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                }
             }
             settingRow("Margin:") {
-                TextField("", value: $model.margin, format: .number)
-                    .frame(width: 50)
-                    .onChange(of: model.margin) { changed() }
-                Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    TextField("", value: $model.margin, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 50)
+                        .onChange(of: model.margin) { changed() }
+                    Stepper("", value: $model.margin, in: 0 ... 30, step: 1)
+                        .labelsHidden()
+                    Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                }
             }
 
             Divider()

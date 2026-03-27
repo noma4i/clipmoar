@@ -228,6 +228,8 @@ final class MockSettings: SettingsStore {
     var imageSharpen: Bool = false
     var imageReduceNoise: Bool = false
     var ignoredAppBundleIds: [String] = []
+    var autoCheckUpdates: Bool = true
+    var lastUpdateCheck: Date?
     func registerDefaults() {}
 }
 

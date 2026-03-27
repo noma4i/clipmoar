@@ -646,7 +646,7 @@ final class FloatingClipboardViewController: NSViewController,
 
     private func setupKeyHandling() {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self, self.view.window?.isVisible == true else { return event }
+            guard let self = self, event.window == self.view.window else { return event }
 
             if self.previewOnly {
                 switch event.keyCode {

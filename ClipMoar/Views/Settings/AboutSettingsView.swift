@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct AboutSettingsView: View {
+    var updateService: UpdateService?
     @State private var showLicense = false
+    @State private var showPermissionsAlert = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -60,11 +62,136 @@ struct AboutSettingsView: View {
                 )
             }
 
+            if let updateService {
+                Divider()
+                    .padding(.horizontal, 40)
+                updateSection(updateService)
+            }
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showLicense) {
             licenseSheet
+        }
+        .alert("Accessibility Permissions", isPresented: $showPermissionsAlert) {
+            Button("Open System Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("After updating, macOS resets Accessibility permissions.\nRe-add ClipMoar in System Settings > Privacy & Security > Accessibility.")
+        }
+    }
+
+    @ViewBuilder
+    private func updateSection(_ service: UpdateService) -> some View {
+        switch service.state {
+        case .idle:
+            Button("Check for Updates") {
+                service.checkForUpdates()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+            )
+
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Checking for updates...")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+
+        case .upToDate:
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.system(size: 14))
+                Text("You're up to date")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+
+        case let .available(version, notes, _):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 14))
+                    Text("Version \(version) available")
+                        .font(.system(size: 13, weight: .medium))
+                }
+
+                if !notes.isEmpty {
+                    ScrollView {
+                        Text(notes)
+                            .font(.system(size: 11))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                    }
+                    .frame(maxWidth: 400, maxHeight: 120)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(6)
+                }
+
+                Button("Update Now") {
+                    showPermissionsAlert = true
+                    service.downloadAndInstall()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+        case let .downloading(progress):
+            VStack(spacing: 4) {
+                ProgressView(value: progress)
+                    .frame(width: 200)
+                Text("Downloading... \(Int(progress * 100))%")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+
+        case .installing:
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Installing...")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+
+        case let .error(message):
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 12))
+                    Text(message)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+                Button("Retry") {
+                    service.checkForUpdates()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+                )
+            }
         }
     }
 

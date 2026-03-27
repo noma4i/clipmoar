@@ -8,6 +8,7 @@ final class AppCoordinator {
     private let clipboardActions: ClipboardActionServicing
     private let clipboardService: ClipboardService
     private let hotkeyService: HotkeyServiceProtocol
+    private let updateService: UpdateService
     private let secureInputDetector = SecureInputDetector()
 
     private var statusItem: NSStatusItem?
@@ -32,7 +33,8 @@ final class AppCoordinator {
         settings: settings,
         onVisibilityChange: { [weak self] in self?.applyVisibilitySettings() },
         hotkeyRecorder: hotkeyRecorder,
-        onEditLook: { [weak self] in self?.enterLookEditor() }
+        onEditLook: { [weak self] in self?.enterLookEditor() },
+        updateService: updateService
     )
 
     init(
@@ -46,6 +48,7 @@ final class AppCoordinator {
         clipboardActions = ClipboardActionService()
         clipboardService = ClipboardService(repository: repository, settings: settings)
         hotkeyService = HotkeyService(settings: settings)
+        updateService = UpdateService(settings: settings)
     }
 
     func start() {
@@ -56,6 +59,7 @@ final class AppCoordinator {
         applyVisibilitySettings()
         clipboardService.startMonitoring()
         floatingPanelController.onOpenPreferences = { [weak self] in self?.showPreferences() }
+        updateService.scheduleAutomaticCheck()
     }
 
     func stop() {
