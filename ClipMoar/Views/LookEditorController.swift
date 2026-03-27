@@ -534,12 +534,12 @@ struct EditorControlsView: View {
                 .foregroundColor(.secondary)
 
             settingRow("Font:") { fontPicker(selection: $model.fontName) }
-            sliderRow("Size:", value: $model.fontSize, range: 10 ... 24, suffix: "px")
+            stepperRow("Size:", value: $model.fontSize, range: 10 ... 24, suffix: "px")
             sliderRow("Weight:", value: $model.fontWeight, range: 0 ... 2, labels: ["Reg", "Med", "Bold"])
-            sliderRow("Icon:", value: $model.iconSize, range: 12 ... 36, suffix: "px")
-            sliderRow("Rows:", value: $model.visibleRows, range: 5 ... 20, suffix: "")
-            sliderRow("Pad H:", value: $model.paddingH, range: 4 ... 24, suffix: "px")
-            sliderRow("Pad V:", value: $model.paddingV, range: 0 ... 12, suffix: "px")
+            stepperRow("Icon:", value: $model.iconSize, range: 12 ... 36, suffix: "px")
+            stepperRow("Rows:", value: $model.visibleRows, range: 5 ... 20)
+            stepperRow("Pad H:", value: $model.paddingH, range: 4 ... 24, suffix: "px")
+            stepperRow("Pad V:", value: $model.paddingV, range: 0 ... 12, suffix: "px")
             settingRow("Text:") { colorPickerFor(hex: $model.textColorHex) }
             settingRow("Accent:") { colorPickerFor(hex: $model.accentHex) }
         }
@@ -582,8 +582,8 @@ struct EditorControlsView: View {
                 .foregroundColor(.secondary)
 
             settingRow("Font:") { fontPicker(selection: $model.previewFontName) }
-            sliderRow("Size:", value: $model.previewFontSize, range: 8 ... 18, suffix: "px")
-            sliderRow("Padding:", value: $model.previewPadding, range: 4 ... 20, suffix: "px")
+            stepperRow("Size:", value: $model.previewFontSize, range: 8 ... 18, suffix: "px")
+            stepperRow("Padding:", value: $model.previewPadding, range: 4 ... 20, suffix: "px")
             settingRow("Text:") { colorPickerFor(hex: $model.previewTextColorHex) }
             settingRow("BG:") { colorPickerFor(hex: $model.previewBgColorHex) }
 
@@ -594,7 +594,7 @@ struct EditorControlsView: View {
                 .foregroundColor(.secondary)
 
             settingRow("Font:") { fontPicker(selection: $model.searchFontName) }
-            sliderRow("Size:", value: $model.searchFontSize, range: 10 ... 24, suffix: "px")
+            stepperRow("Size:", value: $model.searchFontSize, range: 10 ... 24, suffix: "px")
             settingRow("Text:") { colorPickerFor(hex: $model.searchTextColorHex) }
             settingRow("Holder:") { colorPickerFor(hex: $model.searchPlaceholderColorHex) }
 
@@ -604,7 +604,7 @@ struct EditorControlsView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
 
-            sliderRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
+            stepperRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
 
             Divider()
 
@@ -778,6 +778,22 @@ struct EditorControlsView: View {
                 .font(.system(size: 11))
                 .frame(width: 70, alignment: .trailing)
             content()
+        }
+    }
+
+    private func stepperRow(_ label: String, value: Binding<Int>, range: ClosedRange<Int>, suffix: String = "px") -> some View {
+        settingRow(label) {
+            HStack(spacing: 4) {
+                TextField("", value: value, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 50)
+                    .onChange(of: value.wrappedValue) { _, _ in changed() }
+                Stepper("", value: value, in: range, step: 1)
+                    .labelsHidden()
+                if !suffix.isEmpty {
+                    Text(suffix).font(.system(size: 10)).foregroundColor(.secondary)
+                }
+            }
         }
     }
 
