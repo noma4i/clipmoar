@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0] - 2026-03-28
+
+### Added
+- Homebrew Cask support (`brew tap noma4i/clipmoar ...`)
+- Auto-update disabled for Homebrew installs with "Installed via Homebrew" in About
+- GitHub Actions workflow to sync Cask formula on release
+
+### Changed
+- Image paste writes both TIFF and PNG representations for broader app compatibility
+- Transforms grouped by category in Rules picker
+
+### Fixed
+- Image paste via Enter not working (CGEvent delivery, proper PNG/TIFF format)
+- Messenger image copy (Telegram etc.) saved as file path instead of image
+
 ## [1.1.0] - 2026-03-28
 
 ### Added
