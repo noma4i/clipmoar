@@ -18,7 +18,6 @@ final class PreferencesWindowController: NSWindowController {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 720, height: 480)
-        window.maxSize = NSSize(width: 1200, height: 700)
         window.setAccessibilityIdentifier("preferences_window")
         window.contentViewController = hostingController
         window.standardWindowButton(.zoomButton)?.isHidden = true
