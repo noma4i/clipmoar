@@ -229,11 +229,15 @@ struct RulesSettingsView: View {
             }
 
             Menu {
-                ForEach(ClipboardTransformType.allCases, id: \.self) { type in
-                    Button {
-                        model.addTransform(type: type)
-                    } label: {
-                        Label(type.displayName, systemImage: type.icon)
+                ForEach(ClipboardTransformType.grouped, id: \.0) { group, types in
+                    Section(group.rawValue) {
+                        ForEach(types, id: \.self) { type in
+                            Button {
+                                model.addTransform(type: type)
+                            } label: {
+                                Label(type.displayName, systemImage: type.icon)
+                            }
+                        }
                     }
                 }
             } label: {
@@ -256,8 +260,12 @@ struct RulesSettingsView: View {
                 get: { transform.type },
                 set: { newType in model.updateRule { $0.transforms[index].type = newType } }
             )) {
-                ForEach(ClipboardTransformType.allCases, id: \.self) { type in
-                    Text(type.displayName).tag(type)
+                ForEach(ClipboardTransformType.grouped, id: \.0) { group, types in
+                    Section(group.rawValue) {
+                        ForEach(types, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
                 }
             }
             .labelsHidden()

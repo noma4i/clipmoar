@@ -127,7 +127,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
 
     static var grouped: [(Group, [ClipboardTransformType])] {
         Group.allCases.map { group in
-            (group, allCases.filter { $0.group == group })
+            (group, allCases.filter { $0.group == group }.sorted { $0.displayName < $1.displayName })
         }
     }
 }
