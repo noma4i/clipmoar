@@ -115,7 +115,7 @@ struct StatsSettingsView: View {
                         .foregroundColor(.orange)
                 }
             }
-            .frame(height: 180)
+            .frame(maxHeight: .infinity)
         }
     }
 
