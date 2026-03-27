@@ -81,13 +81,7 @@ struct TransformsSettingsView: View {
 
             Text("Input").font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
 
-            TextField("Paste text here...", text: $inputText, axis: .vertical)
-                .lineLimit(4 ... 8)
-                .font(.system(size: 11, design: .monospaced))
-                .textFieldStyle(.plain)
-                .padding(6)
-                .frame(height: 80, alignment: .topLeading)
-                .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
+            numberedEditor(text: $inputText, editable: true)
                 .onChange(of: inputText) { runTransform() }
 
             HStack {
@@ -102,15 +96,7 @@ struct TransformsSettingsView: View {
             }
             .frame(height: 16)
 
-            ScrollView {
-                Text(outputText)
-                    .font(.system(size: 11, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .textSelection(.enabled)
-            }
-            .frame(height: 80)
-            .padding(6)
-            .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
+            numberedEditor(text: .constant(outputText), editable: false)
 
             HStack {
                 Button("Paste") {
@@ -141,6 +127,42 @@ struct TransformsSettingsView: View {
             exampleView
         }
         .frame(width: 320)
+    }
+
+    private func numberedEditor(text: Binding<String>, editable: Bool) -> some View {
+        let lines = text.wrappedValue.isEmpty ? [""] : text.wrappedValue.components(separatedBy: "\n")
+        let gutterWidth: CGFloat = max(20, CGFloat(String(lines.count).count) * 8 + 8)
+
+        return ScrollView {
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .trailing, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { idx, _ in
+                        Text("\(idx + 1)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondary.opacity(0.5))
+                            .frame(height: 15)
+                    }
+                }
+                .frame(width: gutterWidth)
+                .padding(.trailing, 4)
+
+                if editable {
+                    TextField("Paste text here...", text: text, axis: .vertical)
+                        .lineLimit(4 ... 8)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textFieldStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                } else {
+                    Text(text.wrappedValue)
+                        .font(.system(size: 11, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .textSelection(.enabled)
+                }
+            }
+        }
+        .frame(height: 80)
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
     }
 
     private var statusText: String {
