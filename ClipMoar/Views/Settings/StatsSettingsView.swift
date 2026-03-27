@@ -4,7 +4,6 @@ import SwiftUI
 struct StatsSettingsView: View {
     let statsService: StatsService
 
-    @State private var launches = 0
     @State private var panelOpens = 0
     @State private var pastes = 0
     @State private var searches = 0
@@ -27,8 +26,6 @@ struct StatsSettingsView: View {
             countersGrid
             Divider()
             chartSection
-            Divider()
-            resetSection
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -63,7 +60,6 @@ struct StatsSettingsView: View {
 
     private var countersGrid: some View {
         HStack(spacing: 8) {
-            counterCard(title: "Launches", value: launches, color: .green, tooltip: "App started")
             counterCard(title: "Opens", value: panelOpens, color: .blue, tooltip: "Panel opened via hotkey")
             counterCard(title: "Pastes", value: pastes, color: .purple, tooltip: "Items pasted from panel")
             counterCard(title: "Copies", value: copies, color: .orange, tooltip: "Clipboard items captured")
@@ -103,12 +99,11 @@ struct StatsSettingsView: View {
 
                 if let selectedDate {
                     RuleMark(x: .value("Date", selectedDate, unit: .day))
-                        .foregroundStyle(Color.secondary.opacity(0.3))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        .foregroundStyle(Color.secondary.opacity(0.2))
+                        .lineStyle(StrokeStyle(lineWidth: 1))
                 }
             }
             .chartForegroundStyleScale([
-                "Launches": Color.green,
                 "Opens": Color.blue,
                 "Pastes": Color.purple,
                 "Copies": Color.orange,
@@ -121,7 +116,7 @@ struct StatsSettingsView: View {
                 }
             }
             .chartYAxis {
-                AxisMarks { _ in
+                AxisMarks(position: .leading) { _ in
                     AxisGridLine()
                     AxisValueLabel()
                 }
@@ -163,26 +158,13 @@ struct StatsSettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.2)))
     }
 
-    private var resetSection: some View {
-        HStack {
-            Spacer()
-            Button("Reset Stats") {
-                statsService.resetAll()
-                refresh()
-            }
-            .controlSize(.small)
-        }
-    }
-
     private func refresh() {
-        launches = statsService.totalCount(for: .launch)
         panelOpens = statsService.totalCount(for: .panelOpen)
         pastes = statsService.totalCount(for: .paste)
         searches = statsService.totalCount(for: .search)
         copies = statsService.totalCount(for: .copy)
         firstDate = statsService.firstEventDate()
         dailySeries = [
-            DailySeries(id: "Launches", color: .green, data: statsService.dailyCounts(for: .launch)),
             DailySeries(id: "Opens", color: .blue, data: statsService.dailyCounts(for: .panelOpen)),
             DailySeries(id: "Pastes", color: .purple, data: statsService.dailyCounts(for: .paste)),
             DailySeries(id: "Copies", color: .orange, data: statsService.dailyCounts(for: .copy)),

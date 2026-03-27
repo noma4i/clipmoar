@@ -102,5 +102,10 @@ struct SettingsView: View {
                 onEditLook?()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .settingsSelectTab)) { notification in
+            if let tab = notification.object as? String {
+                selectedTab = tab
+            }
+        }
     }
 }

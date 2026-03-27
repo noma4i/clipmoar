@@ -96,6 +96,13 @@ final class AppCoordinator {
         statsService.record(.panelOpen)
     }
 
+    @objc func openPreferencesTab(_ sender: NSMenuItem) {
+        if let tab = sender.representedObject as? String {
+            preferencesWindowController.selectTab(tab)
+        }
+        showPreferences()
+    }
+
     @objc func showPreferences() {
         if let window = preferencesWindowController.window,
            let screen = NSScreen.main ?? NSScreen.screens.first
@@ -147,7 +154,24 @@ final class AppCoordinator {
         menu.addItem(hintItem)
         menu.addItem(NSMenuItem.separator())
 
-        menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: ","))
+        let tabs: [(String, String, String)] = [
+            ("Stats", "stats", ""),
+            ("General", "general", ","),
+            ("Hotkeys", "hotkeys", ""),
+            ("Rules", "rules", ""),
+            ("Transforms", "transforms", ""),
+            ("Regex", "regex", ""),
+            ("Images", "images", ""),
+            ("Ignore Apps", "ignore", ""),
+            ("AI", "ai", ""),
+            ("About", "about", ""),
+        ]
+        for (title, tag, key) in tabs {
+            let item = NSMenuItem(title: title, action: #selector(openPreferencesTab(_:)), keyEquivalent: key)
+            item.representedObject = tag
+            item.target = self
+            menu.addItem(item)
+        }
         menu.addItem(NSMenuItem.separator())
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"

@@ -59,7 +59,15 @@ final class PreferencesWindowController: NSWindowController {
         }
     }
 
+    func selectTab(_ tab: String) {
+        NotificationCenter.default.post(name: .settingsSelectTab, object: tab)
+    }
+
     required init?(coder _: NSCoder) {
         nil
     }
+}
+
+extension Notification.Name {
+    static let settingsSelectTab = Notification.Name("settingsSelectTab")
 }
