@@ -178,6 +178,26 @@ final class ClipboardService {
         case let .files(urls):
             let sourceAppBundleId = snapshot.sourceAppBundleId
             logger.log("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
+
+            if urls.count == 1, let imageData = imageDataFromFileURL(urls[0]) {
+                guard settings.storeImages else {
+                    logger.log("[ClipMoar] skip: image file but storeImages=false")
+                    return
+                }
+                let fingerprint = ContentFingerprint.hash(data: imageData)
+                guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
+                    logger.log("[ClipMoar] skip: duplicate image file")
+                    return
+                }
+                var finalData = compressImageIfNeeded(imageData)
+                finalData = processImageIfNeeded(finalData)
+                lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+                logger.log("[ClipMoar] inserted image from file: %@ (%d bytes)", urls[0].lastPathComponent, finalData.count)
+                onStatEvent?(.copy)
+                scheduleMaintenance()
+                return
+            }
+
             let paths = urls.map { $0.path }.joined(separator: "\n")
             let fingerprint = ContentFingerprint.hash(text: "file:" + paths)
             guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
@@ -301,6 +321,17 @@ final class ClipboardService {
         repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.text.rawValue)
         repository.removeOlderThan(hours: settings.textRetentionHours, contentType: ClipboardItemType.file.rawValue)
         repository.removeOlderThan(hours: settings.imageRetentionHours, contentType: ClipboardItemType.image.rawValue)
+    }
+
+    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "tiff", "tif", "bmp", "webp", "heic", "heif"]
+
+    private func imageDataFromFileURL(_ url: URL) -> Data? {
+        guard Self.imageExtensions.contains(url.pathExtension.lowercased()),
+              FileManager.default.isReadableFile(atPath: url.path),
+              let data = try? Data(contentsOf: url),
+              NSImage(data: data) != nil
+        else { return nil }
+        return data
     }
 
     private func processImageIfNeeded(_ data: Data) -> Data {
