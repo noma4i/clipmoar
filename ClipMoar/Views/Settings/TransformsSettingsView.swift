@@ -36,31 +36,41 @@ struct TransformsSettingsView: View {
     }
 
     private var transformList: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(ClipboardTransformType.allCases, id: \.self) { type in
-                Button {
-                    selectedType = type
-                    runTransform()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: type.icon)
-                            .frame(width: 16)
-                            .foregroundColor(selectedType == type ? .accentColor : .secondary)
-                        Text(type.displayName)
-                            .font(.system(size: 12))
-                            .foregroundColor(selectedType == type ? .primary : .secondary)
-                        Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(ClipboardTransformType.grouped, id: \.0) { group, types in
+                    Text(group.rawValue.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.top, group == .cleanup ? 0 : 8)
+                        .padding(.bottom, 2)
+
+                    ForEach(types, id: \.self) { type in
+                        Button {
+                            selectedType = type
+                            runTransform()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: type.icon)
+                                    .frame(width: 16)
+                                    .foregroundColor(selectedType == type ? .accentColor : .secondary)
+                                Text(type.displayName)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(selectedType == type ? .primary : .secondary)
+                                Spacer()
+                            }
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(selectedType == type ? Color.accentColor.opacity(0.12) : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(selectedType == type ? Color.accentColor.opacity(0.12) : Color.clear)
-                    )
                 }
-                .buttonStyle(.plain)
             }
-            Spacer()
         }
         .frame(width: 200)
     }

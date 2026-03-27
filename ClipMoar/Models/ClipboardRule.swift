@@ -98,6 +98,38 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .collapseMultilineBash: return "text.line.first.and.arrowtriangle.forward"
         }
     }
+
+    enum Group: String, CaseIterable {
+        case cleanup = "Cleanup"
+        case shell = "Shell"
+        case text = "Text"
+        case encoding = "Encoding"
+        case json = "JSON / Markup"
+        case url = "URL"
+    }
+
+    var group: Group {
+        switch self {
+        case .trimWhitespace, .normalizeQuotes, .tabsToSpaces, .dedent, .collapseBlankLines:
+            return .cleanup
+        case .flattenMultiline, .stripShellPrompts, .removeBoxDrawing, .escapeShell, .collapseMultilineBash:
+            return .shell
+        case .joinParagraphs, .sortLines, .uniqueLines, .commentLines, .regexReplace:
+            return .text
+        case .escapeJSON, .unescapeJSON, .base64Encode, .base64Decode, .urlEncode, .urlDecode:
+            return .encoding
+        case .prettyJSON, .minifyJSON, .jsonToYAML, .htmlToMarkdown:
+            return .json
+        case .repairWrappedURL, .quotePathsWithSpaces, .stripTrackingParams, .extractURLs:
+            return .url
+        }
+    }
+
+    static var grouped: [(Group, [ClipboardTransformType])] {
+        Group.allCases.map { group in
+            (group, allCases.filter { $0.group == group })
+        }
+    }
 }
 
 struct ClipboardRule: Codable, Identifiable, Equatable {
