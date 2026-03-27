@@ -138,5 +138,10 @@
     "description": "Extracts all URLs and emails from text.",
     "exampleInput": "Visit https://example.com or email a@b.com",
     "exampleOutput": "https://example.com\nmailto:a@b.com"
+  },
+  "collapseMultilineBash": {
+    "description": "Detects a known shell command and collapses multi-line text into a single line.",
+    "exampleInput": "docker run -it\n  --name mycontainer\n  ubuntu:latest",
+    "exampleOutput": "docker run -it --name mycontainer ubuntu:latest"
   }
 }

@@ -29,6 +29,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
     case htmlToMarkdown
     case stripTrackingParams
     case extractURLs
+    case collapseMultilineBash
 
     var displayName: String {
         switch self {
@@ -60,6 +61,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .htmlToMarkdown: return "HTML to Markdown"
         case .stripTrackingParams: return "Strip tracking"
         case .extractURLs: return "Extract URLs"
+        case .collapseMultilineBash: return "Collapse multiline bash"
         }
     }
 
@@ -93,6 +95,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .htmlToMarkdown: return "chevron.left.forwardslash.chevron.right"
         case .stripTrackingParams: return "eye.slash"
         case .extractURLs: return "link.badge.plus"
+        case .collapseMultilineBash: return "text.line.first.and.arrowtriangle.forward"
         }
     }
 }

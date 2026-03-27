@@ -142,6 +142,18 @@ final class AppCoordinator {
 
         menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
+
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let versionItem = NSMenuItem(title: "ClipMoar v\(version)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ]
+        versionItem.attributedTitle = NSAttributedString(string: "ClipMoar v\(version)", attributes: attrs)
+        menu.addItem(versionItem)
+        menu.addItem(NSMenuItem.separator())
+
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) {

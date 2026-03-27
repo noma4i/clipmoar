@@ -157,6 +157,39 @@ final class ClipboardRuleEngineTests: XCTestCase {
         XCTAssertEqual(result.text, "  hello  ")
     }
 
+    func testCollapseMultilineBashWithoutBackslash() {
+        let input = "docker run -it\n  --name mycontainer\n  ubuntu:latest"
+        let expected = "docker run -it --name mycontainer ubuntu:latest"
+        XCTAssertEqual(apply(.collapseMultilineBash, to: input), expected)
+    }
+
+    func testCollapseMultilineBashWithBackslash() {
+        let input = "curl -X POST \\\n  -H \"Content-Type: json\" \\\n  http://api.com"
+        let expected = "curl -X POST -H \"Content-Type: json\" http://api.com"
+        XCTAssertEqual(apply(.collapseMultilineBash, to: input), expected)
+    }
+
+    func testCollapseMultilineBashWithSudo() {
+        let input = "sudo docker run -it\n  --name test\n  alpine"
+        let expected = "sudo docker run -it --name test alpine"
+        XCTAssertEqual(apply(.collapseMultilineBash, to: input), expected)
+    }
+
+    func testCollapseMultilineBashUnknownCommand() {
+        let input = "foobarqux something\nanother line"
+        XCTAssertEqual(apply(.collapseMultilineBash, to: input), input)
+    }
+
+    func testCollapseMultilineBashSingleLine() {
+        let input = "git status"
+        XCTAssertEqual(apply(.collapseMultilineBash, to: input), input)
+    }
+
+    func testCollapseMultilineBashPlainText() {
+        let input = "Hello world\nThis is just text"
+        XCTAssertEqual(apply(.collapseMultilineBash, to: input), input)
+    }
+
     func testAppBoundRuleAppliesForMatchingApp() {
         let transform = ClipboardTransform(type: .trimWhitespace)
         var rule = ClipboardRule(name: "iTerm only", transforms: [transform])
