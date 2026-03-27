@@ -132,6 +132,33 @@ final class FloatingClipboardViewController: NSViewController,
         renderState(reloadTable: false)
     }
 
+    func highlightZone(_ zone: HighlightZone?) {
+        clearHighlights()
+        guard let zone else { return }
+        switch zone {
+        case .list: addHighlightBorder(to: scrollView)
+        case .panel: addHighlightBorder(to: view)
+        case .preview: addHighlightBorder(to: previewContainer)
+        case .search: addHighlightBorder(to: searchField)
+        case .meta:
+            addHighlightBorder(to: metaPill)
+            if let pill = rulePillView { addHighlightBorder(to: pill) }
+        }
+    }
+
+    private func addHighlightBorder(to target: NSView) {
+        target.wantsLayer = true
+        target.layer?.borderWidth = 1.5
+        target.layer?.borderColor = NSColor.red.cgColor
+    }
+
+    private func clearHighlights() {
+        for target in [scrollView, view, previewContainer, searchField, metaPill, rulePillView].compactMap({ $0 as NSView? }) {
+            target.layer?.borderWidth = 0
+            target.layer?.borderColor = nil
+        }
+    }
+
     func focusOnList() {
         view.window?.makeFirstResponder(tableView)
         if tableView.numberOfRows > 0, tableView.selectedRow < 0 {

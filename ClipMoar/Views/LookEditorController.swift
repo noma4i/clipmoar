@@ -14,6 +14,10 @@ private extension Color {
     }
 }
 
+enum HighlightZone: Equatable {
+    case list, panel, preview, search, meta
+}
+
 final class LookEditorModel: ObservableObject {
     // Mirror of persisted panel settings used by the live editor UI.
     let settings: SettingsStore
@@ -41,6 +45,7 @@ final class LookEditorModel: ObservableObject {
     @Published var metaFontSize: Int
     @Published var largeTypeFontSize: Int
     @Published var largeTypeEnabled: Bool
+    @Published var highlightedZone: HighlightZone?
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -199,6 +204,9 @@ final class LookEditorController {
             },
             onReset: { [weak self] in
                 self?.repositionMockPanel()
+            },
+            onHighlightChanged: { [weak self] zone in
+                self?.clipViewController?.highlightZone(zone)
             }
         )
         let editorHosting = NSHostingController(rootView: editorView)
@@ -454,10 +462,16 @@ struct EditorControlsView: View {
     @ObservedObject var model: LookEditorModel
     var onChanged: (() -> Void)?
     var onReset: (() -> Void)?
+    var onHighlightChanged: ((HighlightZone?) -> Void)?
 
     private func changed() {
         model.syncToSettings()
         onChanged?()
+    }
+
+    private func hoverZone(_ zone: HighlightZone, hovering: Bool) {
+        model.highlightedZone = hovering ? zone : nil
+        onHighlightChanged?(model.highlightedZone)
     }
 
     var body: some View {
@@ -544,67 +558,85 @@ struct EditorControlsView: View {
             settingRow("Accent:") { colorPickerFor(hex: $model.accentHex) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { hoverZone(.list, hovering: $0) }
     }
 
     private var panelSettings: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Panel")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Panel")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
 
-            settingRow("Corner:") {
-                HStack(spacing: 4) {
-                    TextField("", value: $model.cornerRadius, format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 50)
-                        .onChange(of: model.cornerRadius) { changed() }
-                    Stepper("", value: $model.cornerRadius, in: 0 ... 30, step: 1)
-                        .labelsHidden()
-                    Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                settingRow("Corner:") {
+                    HStack(spacing: 4) {
+                        TextField("", value: $model.cornerRadius, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 50)
+                            .onChange(of: model.cornerRadius) { changed() }
+                        Stepper("", value: $model.cornerRadius, in: 0 ... 30, step: 1)
+                            .labelsHidden()
+                        Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                    }
+                }
+                settingRow("Margin:") {
+                    HStack(spacing: 4) {
+                        TextField("", value: $model.margin, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 50)
+                            .onChange(of: model.margin) { changed() }
+                        Stepper("", value: $model.margin, in: 0 ... 30, step: 1)
+                            .labelsHidden()
+                        Text("px").font(.system(size: 10)).foregroundColor(.secondary)
+                    }
                 }
             }
-            settingRow("Margin:") {
-                HStack(spacing: 4) {
-                    TextField("", value: $model.margin, format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 50)
-                        .onChange(of: model.margin) { changed() }
-                    Stepper("", value: $model.margin, in: 0 ... 30, step: 1)
-                        .labelsHidden()
-                    Text("px").font(.system(size: 10)).foregroundColor(.secondary)
-                }
+            .contentShape(Rectangle())
+            .onHover { hoverZone(.panel, hovering: $0) }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Preview")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+
+                settingRow("Font:") { fontPicker(selection: $model.previewFontName) }
+                stepperRow("Size:", value: $model.previewFontSize, range: 8 ... 18, suffix: "px")
+                stepperRow("Padding:", value: $model.previewPadding, range: 4 ... 20, suffix: "px")
+                settingRow("Text:") { colorPickerFor(hex: $model.previewTextColorHex) }
+                settingRow("BG:") { colorPickerFor(hex: $model.previewBgColorHex) }
             }
+            .contentShape(Rectangle())
+            .onHover { hoverZone(.preview, hovering: $0) }
 
             Divider()
 
-            Text("Preview")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Search")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
 
-            settingRow("Font:") { fontPicker(selection: $model.previewFontName) }
-            stepperRow("Size:", value: $model.previewFontSize, range: 8 ... 18, suffix: "px")
-            stepperRow("Padding:", value: $model.previewPadding, range: 4 ... 20, suffix: "px")
-            settingRow("Text:") { colorPickerFor(hex: $model.previewTextColorHex) }
-            settingRow("BG:") { colorPickerFor(hex: $model.previewBgColorHex) }
-
-            Divider()
-
-            Text("Search")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.secondary)
-
-            settingRow("Font:") { fontPicker(selection: $model.searchFontName) }
-            stepperRow("Size:", value: $model.searchFontSize, range: 10 ... 24, suffix: "px")
-            settingRow("Text:") { colorPickerFor(hex: $model.searchTextColorHex) }
-            settingRow("Holder:") { colorPickerFor(hex: $model.searchPlaceholderColorHex) }
+                settingRow("Font:") { fontPicker(selection: $model.searchFontName) }
+                stepperRow("Size:", value: $model.searchFontSize, range: 10 ... 24, suffix: "px")
+                settingRow("Text:") { colorPickerFor(hex: $model.searchTextColorHex) }
+                settingRow("Holder:") { colorPickerFor(hex: $model.searchPlaceholderColorHex) }
+            }
+            .contentShape(Rectangle())
+            .onHover { hoverZone(.search, hovering: $0) }
 
             Divider()
 
-            Text("Meta")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Meta")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
 
-            stepperRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
+                stepperRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
+            }
+            .contentShape(Rectangle())
+            .onHover { hoverZone(.meta, hovering: $0) }
 
             Divider()
 
