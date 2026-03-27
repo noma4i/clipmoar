@@ -21,16 +21,17 @@ click_tab() {
     local tab_name="$1"
     local row
     case "$tab_name" in
-        general|General)       row=1 ;;
-        hotkeys|Hotkeys)       row=2 ;;
-        look|Look)             row=3 ;;
-        rules|Rules)           row=5 ;;
-        transforms|Transforms) row=6 ;;
-        regex|Regex)           row=7 ;;
-        images|Images)         row=8 ;;
-        ignore|Ignore)         row=9 ;;
-        ai|AI)                 row=10 ;;
-        about|About)           row=12 ;;
+        stats|Stats)           row=1 ;;
+        general|General)       row=2 ;;
+        hotkeys|Hotkeys)       row=3 ;;
+        look|Look)             row=4 ;;
+        rules|Rules)           row=6 ;;
+        transforms|Transforms) row=7 ;;
+        regex|Regex)           row=8 ;;
+        images|Images)         row=9 ;;
+        ignore|Ignore)         row=10 ;;
+        ai|AI)                 row=11 ;;
+        about|About)           row=13 ;;
         *) echo "Unknown tab: $tab_name"; return 1 ;;
     esac
     osascript -e "

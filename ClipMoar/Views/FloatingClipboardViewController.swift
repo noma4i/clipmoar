@@ -58,6 +58,11 @@ final class FloatingClipboardViewController: NSViewController,
     private var currentConfiguration: PanelConfiguration
 
     var onOpenPreferences: (() -> Void)?
+    var onStatEvent: ((StatEventKind) -> Void)? {
+        get { stateController.onStatEvent }
+        set { stateController.onStatEvent = newValue }
+    }
+
     var previewOnly = false
 
     private var currentPanelHeight: CGFloat {

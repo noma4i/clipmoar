@@ -113,6 +113,7 @@ final class ClipboardService {
     private let maintenanceInterval: Int
     private var lastInsertedUUID: UUID?
     private var pendingMaintenancePasses = 0
+    var onStatEvent: ((StatEventKind) -> Void)?
 
     init(
         repository: ClipboardRepository = CoreDataClipboardRepository(),
@@ -186,6 +187,7 @@ final class ClipboardService {
 
             lastInsertedUUID = repository.insertFile(paths, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
             logger.log("[ClipMoar] inserted file: %@", paths)
+            onStatEvent?(.copy)
             scheduleMaintenance()
         case let .text(string):
             guard settings.storeText, !string.isEmpty else {
@@ -210,6 +212,7 @@ final class ClipboardService {
             let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
             lastInsertedUUID = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
             logger.log("[ClipMoar] inserted text (rule: %@): %@", appliedRule ?? "none", String(result.text.prefix(80)))
+            onStatEvent?(.copy)
             scheduleMaintenance()
         case let .image(imageData):
             guard settings.storeImages else {
@@ -236,6 +239,7 @@ final class ClipboardService {
 
             lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
             logger.log("[ClipMoar] inserted image: %d bytes (original: %d)", finalData.count, imageData.count)
+            onStatEvent?(.copy)
             scheduleMaintenance()
         case .unsupported:
             logger.log("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, 0, 0)

@@ -32,6 +32,7 @@ struct FloatingPanelViewState {
 final class FloatingPanelStateController {
     private let repository: ClipboardRepository
     private let actionService: ClipboardActionServicing
+    var onStatEvent: ((StatEventKind) -> Void)?
 
     private(set) var state = FloatingPanelViewState()
 
@@ -68,6 +69,7 @@ final class FloatingPanelStateController {
     func updateFilter(_ filter: String, configuration: PanelConfiguration) {
         state.filter = filter
         state.items = repository.fetchItems(filter: filter)
+        if !filter.isEmpty { onStatEvent?(.search) }
         if state.items.isEmpty {
             clearSelection()
             return
@@ -104,6 +106,7 @@ final class FloatingPanelStateController {
     func paste(at index: Int, previousApp: NSRunningApplication? = nil) {
         guard let item = item(at: index) else { return }
         actionService.pasteFromPasteboard(item: item, previousApp: previousApp)
+        onStatEvent?(.paste)
     }
 
     @discardableResult

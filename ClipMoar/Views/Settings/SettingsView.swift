@@ -7,6 +7,7 @@ struct SettingsView: View {
     var onVisibilityChange: (() -> Void)?
     var onEditLook: (() -> Void)?
     var updateService: UpdateService?
+    var statsService: StatsService?
 
     init(
         settings: SettingsStore,
@@ -14,19 +15,23 @@ struct SettingsView: View {
         onVisibilityChange: (() -> Void)? = nil,
         onEditLook: (() -> Void)? = nil,
         updateService: UpdateService? = nil,
-        initialTab: String = "general"
+        statsService: StatsService? = nil,
+        initialTab: String = "stats"
     ) {
         self.settings = settings
         self.hotkeyRecorder = hotkeyRecorder
         self.onVisibilityChange = onVisibilityChange
         self.onEditLook = onEditLook
         self.updateService = updateService
+        self.statsService = statsService
         _selectedTab = State(initialValue: initialTab)
     }
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedTab) {
+                Label("Stats", systemImage: "chart.bar.fill")
+                    .tag("stats")
                 Label("General", systemImage: "gearshape")
                     .tag("general")
                 Label("Hotkeys", systemImage: "keyboard")
@@ -60,6 +65,10 @@ struct SettingsView: View {
         } detail: {
             Group {
                 switch selectedTab {
+                case "stats":
+                    if let statsService {
+                        StatsSettingsView(statsService: statsService)
+                    }
                 case "general":
                     GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 case "hotkeys":

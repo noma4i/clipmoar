@@ -59,13 +59,34 @@ final class CoreDataStack {
         appliedRule.isOptional = true
 
         entity.properties = [uuid, content, contentType, imageData, createdAt, isPinned, sourceAppBundleId, fingerprint, appliedRule]
-        model.entities = [entity]
+
+        let statEntity = NSEntityDescription()
+        statEntity.name = "StatEvent"
+        statEntity.managedObjectClassName = "StatEvent"
+
+        let statKind = NSAttributeDescription()
+        statKind.name = "kind"
+        statKind.attributeType = .stringAttributeType
+        statKind.isOptional = true
+        statKind.defaultValue = ""
+
+        let statDate = NSAttributeDescription()
+        statDate.name = "date"
+        statDate.attributeType = .dateAttributeType
+        statDate.isOptional = true
+
+        statEntity.properties = [statKind, statDate]
+
+        model.entities = [entity, statEntity]
 
         return model
     }()
 
     lazy var persistentContainer: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "ClipMoar", managedObjectModel: managedObjectModel)
+        let description = container.persistentStoreDescriptions.first
+        description?.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        description?.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
         container.loadPersistentStores { _, error in
             if let error = error {
                 NSLog("CoreData failed to load: \(error)")

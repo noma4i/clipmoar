@@ -46,6 +46,11 @@ final class FloatingPanelController: NSWindowController {
         set { clipViewController.onOpenPreferences = newValue }
     }
 
+    var onStatEvent: ((StatEventKind) -> Void)? {
+        get { clipViewController.onStatEvent }
+        set { clipViewController.onStatEvent = newValue }
+    }
+
     init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
         let panel = FloatingPanel()
         self.settings = settings
