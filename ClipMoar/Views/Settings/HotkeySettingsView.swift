@@ -110,6 +110,7 @@ struct HotkeySettingsView: View {
             Spacer()
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var shortcutsTable: some View {

@@ -82,6 +82,7 @@ struct IgnoreAppsSettingsView: View {
             Spacer()
         }
         .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var availableApps: [(bundleId: String, name: String, icon: NSImage?)] {

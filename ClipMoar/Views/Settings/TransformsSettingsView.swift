@@ -34,7 +34,6 @@ struct TransformsSettingsView: View {
             playground
         }
         .padding(24)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var transformList: some View {

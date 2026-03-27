@@ -185,6 +185,7 @@ struct GeneralSettingsView: View {
             Spacer()
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             refreshStats()
             launchAtLogin = launchAtLoginProvider()

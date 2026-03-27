@@ -70,7 +70,7 @@ struct AboutSettingsView: View {
 
             Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .sheet(isPresented: $showLicense) {
             licenseSheet
         }

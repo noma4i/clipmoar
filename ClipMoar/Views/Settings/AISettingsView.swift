@@ -19,7 +19,7 @@ struct AISettingsView: View {
             Spacer()
         }
         .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func loadImage() -> NSImage? {

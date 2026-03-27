@@ -9,8 +9,8 @@ final class PreferencesWindowController: NSWindowController {
         let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder, onVisibilityChange: onVisibilityChange, onEditLook: onEditLook, updateService: updateService, statsService: statsService)
         let hostingController = NSHostingController(rootView: settingsView)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 860, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
@@ -33,13 +33,15 @@ final class PreferencesWindowController: NSWindowController {
         }
     }
 
+    private static let fixedSize = NSSize(width: 860, height: 700)
+
     override func showWindow(_ sender: Any?) {
         if let screen = targetScreen(), let window = window {
             let screenFrame = screen.visibleFrame
-            let windowSize = window.frame.size
-            let x = screenFrame.midX - windowSize.width / 2
-            let y = screenFrame.midY - windowSize.height / 2
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+            let size = Self.fixedSize
+            let x = screenFrame.midX - size.width / 2
+            let y = screenFrame.midY - size.height / 2
+            window.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
         }
         super.showWindow(sender)
     }

@@ -162,8 +162,11 @@ private struct CounterCardView: View {
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(isHovered ? 0.15 : 0.08)))
         .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
-        .overlay(alignment: .bottom) {
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .overlay(alignment: .top) {
             if isHovered {
                 Text(tooltip)
                     .font(.system(size: 10))
@@ -171,7 +174,8 @@ private struct CounterCardView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(RoundedRectangle(cornerRadius: 4).fill(Color(.darkGray)))
-                    .offset(y: 24)
+                    .fixedSize()
+                    .offset(y: 58)
                     .zIndex(1)
                     .transition(.opacity)
             }

@@ -65,6 +65,7 @@ struct ImageSettingsView: View {
             processingSection
         }
         .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var rescaleSection: some View {

@@ -88,6 +88,7 @@ struct RulesSettingsView: View {
             Spacer()
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var rulesList: some View {
