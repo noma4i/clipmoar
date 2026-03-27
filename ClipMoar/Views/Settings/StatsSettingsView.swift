@@ -10,9 +10,15 @@ struct StatsSettingsView: View {
     @State private var searches = 0
     @State private var copies = 0
     @State private var firstDate: Date?
-    @State private var dailyPastes: [(date: Date, count: Int)] = []
-    @State private var dailyCopies: [(date: Date, count: Int)] = []
+    @State private var dailySeries: [DailySeries] = []
     @State private var refreshTimer: Timer?
+    @State private var selectedDate: Date?
+
+    struct DailySeries: Identifiable {
+        let id: String
+        let color: Color
+        let data: [(date: Date, count: Int)]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -75,24 +81,39 @@ struct StatsSettingsView: View {
                 .font(.system(size: 13, weight: .semibold))
 
             Chart {
-                ForEach(dailyPastes, id: \.date) { entry in
-                    BarMark(
-                        x: .value("Date", entry.date, unit: .day),
-                        y: .value("Count", entry.count)
-                    )
-                    .foregroundStyle(Color.purple.gradient)
-                    .cornerRadius(3)
+                ForEach(dailySeries) { series in
+                    ForEach(series.data, id: \.date) { entry in
+                        AreaMark(
+                            x: .value("Date", entry.date, unit: .day),
+                            y: .value("Count", entry.count)
+                        )
+                        .foregroundStyle(by: .value("Type", series.id))
+                        .interpolationMethod(.catmullRom)
+                        .opacity(0.15)
+
+                        LineMark(
+                            x: .value("Date", entry.date, unit: .day),
+                            y: .value("Count", entry.count)
+                        )
+                        .foregroundStyle(by: .value("Type", series.id))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
+                        .interpolationMethod(.catmullRom)
+                    }
                 }
-                ForEach(dailyCopies, id: \.date) { entry in
-                    LineMark(
-                        x: .value("Date", entry.date, unit: .day),
-                        y: .value("Count", entry.count)
-                    )
-                    .foregroundStyle(Color.orange)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                    .interpolationMethod(.catmullRom)
+
+                if let selectedDate {
+                    RuleMark(x: .value("Date", selectedDate, unit: .day))
+                        .foregroundStyle(Color.secondary.opacity(0.3))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                 }
             }
+            .chartForegroundStyleScale([
+                "Launches": Color.green,
+                "Opens": Color.blue,
+                "Pastes": Color.purple,
+                "Copies": Color.orange,
+                "Searches": Color.pink,
+            ])
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: 2)) { _ in
                     AxisGridLine()
@@ -105,18 +126,41 @@ struct StatsSettingsView: View {
                     AxisValueLabel()
                 }
             }
-            .chartLegend(position: .bottom) {
-                HStack(spacing: 16) {
-                    Label("Pastes", systemImage: "square.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(.purple)
-                    Label("Copies", systemImage: "line.diagonal")
-                        .font(.system(size: 10))
-                        .foregroundColor(.orange)
+            .chartXSelection(value: $selectedDate)
+            .chartLegend(position: .bottom)
+            .frame(maxHeight: .infinity)
+            .overlay(alignment: .topLeading) {
+                if let selectedDate {
+                    chartTooltip(for: selectedDate)
+                        .padding(.leading, 8)
+                        .padding(.top, 4)
                 }
             }
-            .frame(maxHeight: .infinity)
         }
+    }
+
+    private func chartTooltip(for date: Date) -> some View {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        let items = dailySeries.compactMap { series -> (String, Int, Color)? in
+            guard let entry = series.data.first(where: { calendar.isDate($0.date, inSameDayAs: day) }),
+                  entry.count > 0 else { return nil }
+            return (series.id, entry.count, series.color)
+        }
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(day, format: .dateTime.month(.abbreviated).day())
+                .font(.system(size: 10, weight: .semibold))
+            ForEach(items, id: \.0) { name, count, color in
+                HStack(spacing: 4) {
+                    Circle().fill(color).frame(width: 6, height: 6)
+                    Text("\(name): \(count)")
+                        .font(.system(size: 10))
+                }
+            }
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 4).fill(Color(.windowBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.2)))
     }
 
     private var resetSection: some View {
@@ -137,8 +181,13 @@ struct StatsSettingsView: View {
         searches = statsService.totalCount(for: .search)
         copies = statsService.totalCount(for: .copy)
         firstDate = statsService.firstEventDate()
-        dailyPastes = statsService.dailyCounts(for: .paste)
-        dailyCopies = statsService.dailyCounts(for: .copy)
+        dailySeries = [
+            DailySeries(id: "Launches", color: .green, data: statsService.dailyCounts(for: .launch)),
+            DailySeries(id: "Opens", color: .blue, data: statsService.dailyCounts(for: .panelOpen)),
+            DailySeries(id: "Pastes", color: .purple, data: statsService.dailyCounts(for: .paste)),
+            DailySeries(id: "Copies", color: .orange, data: statsService.dailyCounts(for: .copy)),
+            DailySeries(id: "Searches", color: .pink, data: statsService.dailyCounts(for: .search)),
+        ]
     }
 }
 
