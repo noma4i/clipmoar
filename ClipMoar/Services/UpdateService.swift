@@ -140,7 +140,7 @@ final class UpdateService: NSObject {
         }
     }
 
-    private func installUpdate(from tempFile: URL) {
+    private func installUpdate(from downloadedFile: URL) {
         state = .installing
         let fm = FileManager.default
         let tempDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -148,12 +148,9 @@ final class UpdateService: NSObject {
         do {
             try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
-            let stablePath = tempDir.appendingPathComponent("download.zip")
-            try fm.copyItem(at: tempFile, to: stablePath)
-
             let unzip = Process()
             unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-            unzip.arguments = ["-o", "-q", stablePath.path, "-d", tempDir.path]
+            unzip.arguments = ["-o", "-q", downloadedFile.path, "-d", tempDir.path]
             try unzip.run()
             unzip.waitUntilExit()
             guard unzip.terminationStatus == 0 else {
@@ -186,6 +183,9 @@ final class UpdateService: NSObject {
             let destination = appDir.appendingPathComponent(currentApp.lastPathComponent)
             try fm.copyItem(at: newApp, to: destination)
             try? fm.removeItem(at: tempDir)
+            try? fm.removeItem(at: downloadedFile)
+
+            state = .installed
 
             let open = Process()
             open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
@@ -222,7 +222,14 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
     func urlSession(_: URLSession, downloadTask _: URLSessionDownloadTask,
                     didFinishDownloadingTo location: URL)
     {
-        onComplete(location, nil)
+        let stablePath = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".zip")
+        do {
+            try FileManager.default.copyItem(at: location, to: stablePath)
+            onComplete(stablePath, nil)
+        } catch {
+            onComplete(nil, error)
+        }
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {

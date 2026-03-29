@@ -133,18 +133,15 @@ struct AboutSettingsView: View {
 
                 if !notes.isEmpty {
                     ScrollView {
-                        Text(notes)
-                            .font(.system(size: 11))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(8)
+                        releaseNotesView(notes)
+                            .padding(10)
                     }
-                    .frame(maxWidth: 400, maxHeight: 120)
+                    .frame(maxWidth: 400, maxHeight: 150)
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(6)
                 }
 
                 Button("Update Now") {
-                    showPermissionsAlert = true
                     service.downloadAndInstall()
                 }
                 .buttonStyle(.borderedProminent)
@@ -167,6 +164,19 @@ struct AboutSettingsView: View {
                 Text("Installing...")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+            }
+
+        case .installed:
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.system(size: 14))
+                Text("Update installed, restarting...")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            .onAppear {
+                showPermissionsAlert = true
             }
 
         case let .error(message):
@@ -241,6 +251,33 @@ struct AboutSettingsView: View {
             .padding(.bottom, 12)
         }
         .frame(width: 480, height: 340)
+    }
+
+    @ViewBuilder
+    private func releaseNotesView(_ notes: String) -> some View {
+        let lines = notes.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("###") {
+                    Text(trimmed.replacingOccurrences(of: "### ", with: ""))
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.top, 2)
+                } else if trimmed.hasPrefix("- ") {
+                    HStack(alignment: .top, spacing: 4) {
+                        Text("\u{2022}")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Text(String(trimmed.dropFirst(2)))
+                            .font(.system(size: 11))
+                    }
+                } else {
+                    Text(trimmed)
+                        .font(.system(size: 11))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func loadHeaderImage() -> NSImage? {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2] - 2026-03-29
+
+### Fixed
+- Auto-update download failing with "file couldn't be opened" (temp file deleted before copy)
+- Accessibility permissions alert showing before download instead of after install
+- Release notes displayed as raw markdown in About tab
+
 ## [1.2.1] - 2026-03-29
 
 ### Fixed

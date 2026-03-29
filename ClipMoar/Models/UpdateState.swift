@@ -7,6 +7,7 @@ enum UpdateState: Equatable {
     case available(version: String, notes: String, downloadURL: URL)
     case downloading(progress: Double)
     case installing
+    case installed
     case error(String)
     case homebrewManaged
 }
