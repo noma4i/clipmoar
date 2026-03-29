@@ -196,6 +196,8 @@
             }
             items.removeAll { !$0.isPinned && $0.contentType == contentType }
         }
+
+        func releaseMemory() {}
     }
 
     enum PanelPreviewScenario {

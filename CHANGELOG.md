@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.1] - 2026-03-29
+
+### Fixed
+- High memory usage when capturing screenshots (read PNG instead of TIFF from pasteboard)
+- Memory accumulation during image processing (ImageIO instead of NSImage/lockFocus)
+- CIContext caching decoded images between calls
+- NSEvent monitor leak when opening Edit Look repeatedly
+- CoreData faulted-in image data not released after insert
+- Unnecessary pasteboard data reads in isEmpty() check
+- Thumbnail and app icon decoded on every table scroll (added NSCache)
+
+### Changed
+- Image dimensions read via ImageIO (no full decode) in display title and preview info
+- CoreData fetchItems uses fetchBatchSize for lazy loading
+
 ## [1.2.0] - 2026-03-28
 
 ### Added

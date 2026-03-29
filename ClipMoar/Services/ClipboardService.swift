@@ -1,5 +1,6 @@
 import Cocoa
 import CryptoKit
+import ImageIO
 
 protocol ClipboardLogger {
     func log(_ message: StaticString, _ args: CVarArg...)
@@ -39,7 +40,7 @@ final class NSPasteboardGateway: PasteboardReadable {
     }
 
     func imageData() -> Data? {
-        NSPasteboard.general.data(forType: .tiff) ?? NSPasteboard.general.data(forType: .png)
+        NSPasteboard.general.data(forType: .png)
     }
 
     func fileURLs() -> [URL]? {
@@ -50,8 +51,8 @@ final class NSPasteboardGateway: PasteboardReadable {
     }
 
     func isEmpty() -> Bool {
-        guard let items = NSPasteboard.general.pasteboardItems, !items.isEmpty else { return true }
-        return stringValue() == nil && imageData() == nil && fileURLs() == nil
+        guard let types = NSPasteboard.general.types, !types.isEmpty else { return true }
+        return !types.contains(.string) && !types.contains(.png) && !types.contains(.fileURL)
     }
 
     func hasMarkerType() -> Bool {
@@ -151,6 +152,12 @@ final class ClipboardService {
     func checkForChanges() {
         let newCount = pasteboard.changeCount
         guard newCount != lastChangeCount else { return }
+        autoreleasepool {
+            processChange(newCount: newCount)
+        }
+    }
+
+    private func processChange(newCount: Int) {
         let gap = newCount - lastChangeCount
         let snapshot = readSnapshot(changeCount: newCount)
         lastChangeCount = snapshot.changeCount
@@ -192,6 +199,7 @@ final class ClipboardService {
                 var finalData = compressImageIfNeeded(imageData)
                 finalData = processImageIfNeeded(finalData)
                 lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+                repository.releaseMemory()
                 logger.log("[ClipMoar] inserted image from file: %@ (%d bytes)", urls[0].lastPathComponent, finalData.count)
                 onStatEvent?(.copy)
                 scheduleMaintenance()
@@ -258,6 +266,7 @@ final class ClipboardService {
             }
 
             lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
+            repository.releaseMemory()
             logger.log("[ClipMoar] inserted image: %d bytes (original: %d)", finalData.count, imageData.count)
             onStatEvent?(.copy)
             scheduleMaintenance()
@@ -345,38 +354,36 @@ final class ClipboardService {
 
     private func compressImageIfNeeded(_ data: Data) -> Data {
         guard settings.compressImages else { return data }
-        guard let image = NSImage(data: data) else { return data }
-
-        var size = image.representations.first.map {
-            NSSize(width: $0.pixelsWide, height: $0.pixelsHigh)
-        } ?? image.size
-
-        let maxW = CGFloat(settings.imageMaxWidth)
-        let maxH = CGFloat(settings.imageMaxHeight)
-
-        if maxW > 0, size.width > maxW {
-            let scale = maxW / size.width
-            size = NSSize(width: maxW, height: size.height * scale)
-        }
-        if maxH > 0, size.height > maxH {
-            let scale = maxH / size.height
-            size = NSSize(width: size.width * scale, height: maxH)
-        }
-
-        let resized = NSImage(size: size)
-        resized.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: size),
-                   from: NSRect(origin: .zero, size: image.size),
-                   operation: .copy, fraction: 1.0)
-        resized.unlockFocus()
-
-        guard let tiff = resized.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let jpeg = bitmap.representation(using: .jpeg,
-                                               properties: [.compressionFactor: CGFloat(settings.imageQuality) / 100.0])
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let origW = props[kCGImagePropertyPixelWidth] as? CGFloat,
+              let origH = props[kCGImagePropertyPixelHeight] as? CGFloat
         else { return data }
 
-        return jpeg
+        var width = origW, height = origH
+        let maxW = CGFloat(settings.imageMaxWidth)
+        let maxH = CGFloat(settings.imageMaxHeight)
+        if maxW > 0, width > maxW { let s = maxW / width; height *= s; width = maxW }
+        if maxH > 0, height > maxH { let s = maxH / height; width *= s; height = maxH }
+
+        let thumbOptions: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height),
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+        else { return data }
+
+        let mutableData = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(
+            mutableData, "public.jpeg" as CFString, 1, nil
+        ) else { return data }
+        let quality = CGFloat(settings.imageQuality) / 100.0
+        CGImageDestinationAddImage(dest, cgImage, [
+            kCGImageDestinationLossyCompressionQuality: quality,
+        ] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return data }
+        return mutableData as Data
     }
 
     private func shouldIgnoreSnapshot(from sourceAppBundleId: String?) -> Bool {

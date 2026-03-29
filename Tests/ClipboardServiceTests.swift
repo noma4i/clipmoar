@@ -169,6 +169,7 @@ final class MockRepository: ClipboardRepository {
     }
 
     func clearAll(contentType _: String?) {}
+    func releaseMemory() {}
 
     func hasDuplicate(_ fingerprint: String) -> Bool {
         fingerprints.contains(fingerprint)

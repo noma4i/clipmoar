@@ -48,6 +48,7 @@ final class FloatingClipboardViewController: NSViewController,
     private var scrollViewWidth: NSLayoutConstraint?
     private var previewImageHeight: NSLayoutConstraint?
     private var previewLayoutMode: PreviewLayoutMode = .collapsed
+    private var keyMonitor: Any?
 
     var previousApp: NSRunningApplication?
     private let stateController: FloatingPanelStateController
@@ -88,6 +89,10 @@ final class FloatingClipboardViewController: NSViewController,
 
     required init?(coder _: NSCoder) {
         nil
+    }
+
+    deinit {
+        if let m = keyMonitor { NSEvent.removeMonitor(m) }
     }
 
     override func loadView() {
@@ -677,7 +682,8 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     private func setupKeyHandling() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, event.window == self.view.window else { return event }
 
             if self.previewOnly {

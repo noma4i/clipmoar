@@ -186,10 +186,8 @@ final class FloatingPanelStateController {
         guard item.isImage, let data = item.imageData else { return "" }
 
         var parts: [String] = []
-        if let image = NSImage(data: data) {
-            let width = Int(image.representations.first?.pixelsWide ?? Int(image.size.width))
-            let height = Int(image.representations.first?.pixelsHigh ?? Int(image.size.height))
-            parts.append("\(width)x\(height)")
+        if let dims = ClipboardItem.imageDimensions(from: data) {
+            parts.append("\(dims.width)x\(dims.height)")
         }
 
         let kilobytes = Double(data.count) / 1024.0

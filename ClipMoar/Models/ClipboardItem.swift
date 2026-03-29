@@ -1,5 +1,6 @@
 import Cocoa
 import CoreData
+import ImageIO
 
 @objc(ClipboardItem)
 public class ClipboardItem: NSManagedObject, @unchecked Sendable {
@@ -37,16 +38,17 @@ public class ClipboardItem: NSManagedObject, @unchecked Sendable {
         }
     }
 
+    static func imageDimensions(from data: Data) -> (width: Int, height: Int)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? Int,
+              let h = props[kCGImagePropertyPixelHeight] as? Int
+        else { return nil }
+        return (w, h)
+    }
+
     private var imageDisplayTitle: String {
-        guard let data = imageData else { return "Image" }
-        let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
-        if let image = NSImage(data: data) {
-            let rep = image.representations.first
-            let w = rep?.pixelsWide ?? Int(image.size.width)
-            let h = rep?.pixelsHigh ?? Int(image.size.height)
-            return "Image \(w)x\(h) - \(sizeStr)"
-        }
-        return "Image - \(sizeStr)"
+        "Image"
     }
 
     var itemType: ClipboardItemType {

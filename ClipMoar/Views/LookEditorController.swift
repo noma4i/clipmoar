@@ -260,9 +260,9 @@ final class LookEditorController {
 
             if x != frame.origin.x || y != frame.origin.y {
                 self.isSnapping = true
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     mock.setFrameOrigin(NSPoint(x: x, y: y))
-                    self.isSnapping = false
+                    self?.isSnapping = false
                 }
             }
 

@@ -2,6 +2,8 @@ import Cocoa
 import CoreImage
 
 enum ImageProcessor {
+    private static let ciContext = CIContext(options: [.cacheIntermediates: false])
+
     static func process(_ data: Data, settings: SettingsStore) -> Data {
         guard let source = CIImage(data: data) else { return data }
         var image = source
@@ -58,7 +60,7 @@ enum ImageProcessor {
     }
 
     private static func renderToData(_ image: CIImage, settings: SettingsStore, stripMetadata: Bool) -> Data {
-        let context = CIContext()
+        let context = Self.ciContext
         let extent = image.extent
 
         guard let cgImage = context.createCGImage(image, from: extent) else {
@@ -84,7 +86,7 @@ enum ImageProcessor {
     }
 
     private static func trimWhitespace(_ image: CIImage) -> CIImage {
-        let context = CIContext()
+        let context = Self.ciContext
         let extent = image.extent
         guard let cgImage = context.createCGImage(image, from: extent) else { return image }
 

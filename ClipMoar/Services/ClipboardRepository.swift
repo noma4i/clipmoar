@@ -12,6 +12,7 @@ protocol ClipboardRepository: AnyObject {
     func removeOlderThan(hours: Int, contentType: String?)
     func storageStats() -> StorageStats
     func clearAll(contentType: String?)
+    func releaseMemory()
 }
 
 struct StorageStats {
@@ -41,6 +42,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
 
     func fetchItems(filter: String = "") -> [ClipboardItem] {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.fetchBatchSize = 50
         request.sortDescriptors = [
             NSSortDescriptor(key: "isPinned", ascending: false),
             NSSortDescriptor(key: "createdAt", ascending: false),
@@ -111,6 +113,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         item.fingerprint = fingerprint
         configure(item)
         CoreDataStack.shared.saveIfNeeded()
+        context.refresh(item, mergeChanges: false)
         return id
     }
 
@@ -139,6 +142,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         }
 
         CoreDataStack.shared.saveIfNeeded()
+        context.refreshAllObjects()
     }
 
     func removeOlderThan(hours: Int, contentType: String?) {
@@ -158,6 +162,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
     func storageStats() -> StorageStats {
         var stats = StorageStats()
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.fetchBatchSize = 50
 
         guard let items = try? context.fetch(request) else { return stats }
 
@@ -174,6 +179,7 @@ final class CoreDataClipboardRepository: ClipboardRepository {
                 stats.textBytes += Int64(item.content?.utf8.count ?? 0)
             }
         }
+        context.refreshAllObjects()
         return stats
     }
 
@@ -186,6 +192,10 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         }
 
         executeBatchDelete(request)
+    }
+
+    func releaseMemory() {
+        context.refreshAllObjects()
     }
 
     private func executeBatchDelete(_ request: NSFetchRequest<NSFetchRequestResult>) {
