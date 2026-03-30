@@ -280,10 +280,6 @@ private final class TestUpdateSettings: SettingsStore {
     var panelBorderColorHex = ""
     var panelBorderWidth = 0
     var panelShadowEnabled = false
-    var panelShadowColorHex = "000000"
-    var panelShadowRadius = 8
-    var panelShadowOffsetX = 0
-    var panelShadowOffsetY = -3
     var largeTypeFontSize = 48
     var compressImages = false
     var imageMaxWidth = 0

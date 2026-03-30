@@ -507,7 +507,14 @@ final class FloatingClipboardViewController: NSViewController,
         view.window?.backgroundColor = needsTransparency ? .clear : configuration.backgroundColor
         view.window?.hasShadow = borderConfig.shadowEnabled
         if borderConfig.shadowEnabled {
+            let shadow = NSShadow()
+            shadow.shadowBlurRadius = 24
+            shadow.shadowOffset = NSSize(width: 0, height: -6)
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+            view.shadow = shadow
             view.window?.invalidateShadow()
+        } else {
+            view.shadow = nil
         }
 
         searchFieldTop?.constant = layout.verticalPadding

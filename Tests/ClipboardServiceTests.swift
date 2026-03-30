@@ -219,10 +219,6 @@ final class MockSettings: SettingsStore {
     var panelBorderColorHex: String = ""
     var panelBorderWidth: Int = 0
     var panelShadowEnabled: Bool = false
-    var panelShadowColorHex: String = "000000"
-    var panelShadowRadius: Int = 8
-    var panelShadowOffsetX: Int = 0
-    var panelShadowOffsetY: Int = -3
     var largeTypeFontSize: Int = 48
     var compressImages: Bool = false
     var imageMaxWidth: Int = 0

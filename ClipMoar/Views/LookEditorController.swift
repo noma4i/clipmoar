@@ -49,10 +49,6 @@ final class LookEditorModel: ObservableObject {
     @Published var panelBorderColorHex: String
     @Published var panelBorderWidth: Int
     @Published var panelShadowEnabled: Bool
-    @Published var panelShadowColorHex: String
-    @Published var panelShadowRadius: Int
-    @Published var panelShadowOffsetX: Int
-    @Published var panelShadowOffsetY: Int
     @Published var largeTypeFontSize: Int
     @Published var largeTypeEnabled: Bool
     @Published var highlightedZone: HighlightZone?
@@ -90,10 +86,6 @@ final class LookEditorModel: ObservableObject {
         panelBorderColorHex = settings.panelBorderColorHex
         panelBorderWidth = settings.panelBorderWidth
         panelShadowEnabled = settings.panelShadowEnabled
-        panelShadowColorHex = settings.panelShadowColorHex
-        panelShadowRadius = settings.panelShadowRadius
-        panelShadowOffsetX = settings.panelShadowOffsetX
-        panelShadowOffsetY = settings.panelShadowOffsetY
         largeTypeFontSize = settings.largeTypeFontSize
         largeTypeEnabled = settings.largeTypeEnabled
     }
@@ -127,10 +119,6 @@ final class LookEditorModel: ObservableObject {
         settings.panelBorderColorHex = panelBorderColorHex
         settings.panelBorderWidth = panelBorderWidth
         settings.panelShadowEnabled = panelShadowEnabled
-        settings.panelShadowColorHex = panelShadowColorHex
-        settings.panelShadowRadius = panelShadowRadius
-        settings.panelShadowOffsetX = panelShadowOffsetX
-        settings.panelShadowOffsetY = panelShadowOffsetY
         settings.largeTypeFontSize = largeTypeFontSize
         settings.largeTypeEnabled = largeTypeEnabled
     }
@@ -837,10 +825,6 @@ struct EditorControlsView: View {
         model.panelBorderColorHex = ""
         model.panelBorderWidth = 0
         model.panelShadowEnabled = false
-        model.panelShadowColorHex = "000000"
-        model.panelShadowRadius = 8
-        model.panelShadowOffsetX = 0
-        model.panelShadowOffsetY = -3
         model.settings.panelPositionX = 0.5
         model.settings.panelPositionY = 0.65
         changed()

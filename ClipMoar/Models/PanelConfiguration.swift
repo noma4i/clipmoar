@@ -35,9 +35,6 @@ struct PanelBorderConfiguration {
     let borderColor: NSColor?
     let borderWidth: CGFloat
     let shadowEnabled: Bool
-    let shadowColor: NSColor
-    let shadowRadius: CGFloat
-    let shadowOffset: CGSize
 }
 
 /// Layout values keep all panel sizing math in one place.
@@ -156,10 +153,7 @@ extension SettingsStore {
             border: PanelBorderConfiguration(
                 borderColor: panelBorderColorHex.isEmpty ? nil : NSColor(hex: panelBorderColorHex),
                 borderWidth: CGFloat(max(panelBorderWidth, 0)),
-                shadowEnabled: panelShadowEnabled,
-                shadowColor: NSColor(hex: panelShadowColorHex.isEmpty ? "000000" : panelShadowColorHex),
-                shadowRadius: CGFloat(max(panelShadowRadius, 0)),
-                shadowOffset: CGSize(width: CGFloat(panelShadowOffsetX), height: CGFloat(panelShadowOffsetY))
+                shadowEnabled: panelShadowEnabled
             ),
             largeTypeFontSize: largeTypeFontSize > 0 ? CGFloat(largeTypeFontSize) : nil
         )

@@ -44,10 +44,6 @@ protocol SettingsStore: AnyObject {
     var panelBorderColorHex: String { get set }
     var panelBorderWidth: Int { get set }
     var panelShadowEnabled: Bool { get set }
-    var panelShadowColorHex: String { get set }
-    var panelShadowRadius: Int { get set }
-    var panelShadowOffsetX: Int { get set }
-    var panelShadowOffsetY: Int { get set }
     var largeTypeFontSize: Int { get set }
     var compressImages: Bool { get set }
     var imageMaxWidth: Int { get set }
@@ -163,10 +159,6 @@ enum Settings {
     static let panelBorderColorHex = "panelBorderColorHex"
     static let panelBorderWidth = "panelBorderWidth"
     static let panelShadowEnabled = "panelShadowEnabled"
-    static let panelShadowColorHex = "panelShadowColorHex"
-    static let panelShadowRadius = "panelShadowRadius"
-    static let panelShadowOffsetX = "panelShadowOffsetX"
-    static let panelShadowOffsetY = "panelShadowOffsetY"
     static let largeTypeFontSize = "largeTypeFontSize"
     static let compressImages = "compressImages"
     static let imageMaxWidth = "imageMaxWidth"
@@ -516,26 +508,6 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.panelShadowEnabled) }
     }
 
-    var panelShadowColorHex: String {
-        get { defaults.string(forKey: Settings.panelShadowColorHex) ?? "" }
-        set { defaults.set(newValue, forKey: Settings.panelShadowColorHex) }
-    }
-
-    var panelShadowRadius: Int {
-        get { defaults.integer(forKey: Settings.panelShadowRadius) }
-        set { defaults.set(newValue, forKey: Settings.panelShadowRadius) }
-    }
-
-    var panelShadowOffsetX: Int {
-        get { defaults.integer(forKey: Settings.panelShadowOffsetX) }
-        set { defaults.set(newValue, forKey: Settings.panelShadowOffsetX) }
-    }
-
-    var panelShadowOffsetY: Int {
-        get { defaults.integer(forKey: Settings.panelShadowOffsetY) }
-        set { defaults.set(newValue, forKey: Settings.panelShadowOffsetY) }
-    }
-
     var largeTypeFontSize: Int {
         get { defaults.integer(forKey: Settings.largeTypeFontSize) }
         set { defaults.set(newValue, forKey: Settings.largeTypeFontSize) }
@@ -677,10 +649,6 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.panelBorderColorHex: "",
             Settings.panelBorderWidth: 0,
             Settings.panelShadowEnabled: false,
-            Settings.panelShadowColorHex: "000000",
-            Settings.panelShadowRadius: 8,
-            Settings.panelShadowOffsetX: 0,
-            Settings.panelShadowOffsetY: -3,
             Settings.largeTypeFontSize: 48,
             Settings.compressImages: false,
             Settings.imageMaxWidth: 0,

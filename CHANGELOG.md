@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.1] - 2026-03-30
+
+### Fixed
+- Removed unintended window transparency from NSVisualEffectView
+- Cleaned up unused shadow customization settings
+
 ## [1.3.0] - 2026-03-30
 
 ### Added
