@@ -601,7 +601,7 @@ struct EditorControlsView: View {
                         Text("px").font(.system(size: 10)).foregroundColor(.secondary)
                     }
                 }
-                settingRow("Margin:") {
+                settingRow("Padding:") {
                     HStack(spacing: 4) {
                         TextField("", value: $model.margin, format: .number)
                             .textFieldStyle(.roundedBorder)

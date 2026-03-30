@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.2] - 2026-03-30
+
+### Fixed
+- Corner radius now works on all 4 corners when preview is open
+- Panel padding works as inner content inset instead of moving the window
+- Shadow no longer renders as border artifact
+
+### Changed
+- Renamed "Margin" to "Padding" in Look editor (inner content inset)
+
 ## [1.3.1] - 2026-03-30
 
 ### Fixed

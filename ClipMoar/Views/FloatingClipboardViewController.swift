@@ -46,6 +46,11 @@ final class FloatingClipboardViewController: NSViewController,
     private var searchFieldLeading: NSLayoutConstraint?
     private var separatorWidth: NSLayoutConstraint?
     private var scrollViewWidth: NSLayoutConstraint?
+    private var scrollViewLeading: NSLayoutConstraint?
+    private var scrollViewBottom: NSLayoutConstraint?
+    private var previewTop: NSLayoutConstraint?
+    private var previewTrailing: NSLayoutConstraint?
+    private var previewBottom: NSLayoutConstraint?
     private var previewImageHeight: NSLayoutConstraint?
     private var previewLayoutMode: PreviewLayoutMode = .collapsed
     private var keyMonitor: Any?
@@ -106,7 +111,7 @@ final class FloatingClipboardViewController: NSViewController,
         rootView.appearance = NSAppearance(named: .darkAqua)
         rootView.wantsLayer = true
         rootView.layer?.backgroundColor = currentConfiguration.backgroundColor.cgColor
-        rootView.autoresizingMask = [.width]
+        rootView.autoresizingMask = []
         view = rootView
     }
 
@@ -367,12 +372,13 @@ final class FloatingClipboardViewController: NSViewController,
 
         previewWidthConstraint = previewContainer.widthAnchor.constraint(equalToConstant: 0)
 
-        NSLayoutConstraint.activate([
-            previewContainer.topAnchor.constraint(equalTo: view.topAnchor),
-            previewContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            previewContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            previewWidthConstraint,
-        ])
+        let pTop = previewContainer.topAnchor.constraint(equalTo: view.topAnchor)
+        let pTrailing = previewContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        let pBottom = previewContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        previewTop = pTop
+        previewTrailing = pTrailing
+        previewBottom = pBottom
+        NSLayoutConstraint.activate([pTop, pTrailing, pBottom, previewWidthConstraint])
 
         previewScrollView.translatesAutoresizingMaskIntoConstraints = false
         previewScrollView.hasVerticalScroller = true
@@ -473,11 +479,15 @@ final class FloatingClipboardViewController: NSViewController,
         tableView.selectionHighlightStyle = .regular
         tableView.appearance = NSAppearance(named: .darkAqua)
 
+        let leadingC = scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor)
+        scrollViewLeading = leadingC
+        let bottomC = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        scrollViewBottom = bottomC
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 4),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            leadingC,
             { let constraint = scrollView.widthAnchor.constraint(equalToConstant: currentConfiguration.layout.listWidth); scrollViewWidth = constraint; return constraint }(),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            bottomC,
         ])
     }
 
@@ -519,12 +529,18 @@ final class FloatingClipboardViewController: NSViewController,
             view.window?.invalidateShadow()
         }
 
-        searchFieldTop?.constant = layout.verticalPadding
+        let padding = layout.margin
+        searchFieldTop?.constant = layout.verticalPadding + padding
         searchFieldHeight?.constant = layout.rowHeight
-        searchFieldLeading?.constant = layout.horizontalPadding + 22 + 10
-        separatorWidth?.constant = layout.listWidth
-        scrollViewWidth?.constant = layout.listWidth
-        previewImageHeight?.constant = currentPanelHeight - 30
+        searchFieldLeading?.constant = layout.horizontalPadding + 22 + 10 + padding
+        separatorWidth?.constant = layout.listWidth - padding * 2
+        scrollViewWidth?.constant = layout.listWidth - padding * 2
+        scrollViewLeading?.constant = padding
+        scrollViewBottom?.constant = -padding
+        previewTop?.constant = padding
+        previewTrailing?.constant = -padding
+        previewBottom?.constant = -padding
+        previewImageHeight?.constant = currentPanelHeight - 30 - padding * 2
 
         searchField.font = font(named: configuration.search.fontName, size: configuration.search.fontSize)
         searchField.textColor = configuration.search.textColor
@@ -645,21 +661,14 @@ final class FloatingClipboardViewController: NSViewController,
         guard let window = view.window else { return }
         let frame = window.frame
         let layout = currentConfiguration.layout
-        let width = layout.listWidth
+        let contentWidth = layout.listWidth
             + (stateController.state.preview.isVisible ? layout.previewWidth : 0)
-        let height = currentPanelHeight
+        let contentHeight = currentPanelHeight
+        let width = contentWidth
+        let height = contentHeight
         let originY = frame.origin.y + frame.height - height
         window.setFrame(NSRect(x: frame.origin.x, y: originY, width: width, height: height), display: true)
-
-        let inset = layout.margin
-        if inset > 0 {
-            view.frame = NSRect(
-                x: inset,
-                y: inset,
-                width: window.frame.width - inset * 2,
-                height: window.frame.height - inset * 2
-            )
-        }
+        view.frame = NSRect(x: 0, y: 0, width: width, height: height)
 
         if currentConfiguration.border.shadowEnabled {
             view.window?.invalidateShadow()
