@@ -213,6 +213,16 @@ final class MockSettings: SettingsStore {
     var searchTextColorHex: String = "E6E6E6"
     var searchPlaceholderColorHex: String = "666666"
     var metaFontSize: Int = 10
+    var metaFontName: String = ""
+    var metaTextColorHex: String = ""
+    var metaBgColorHex: String = ""
+    var panelBorderColorHex: String = ""
+    var panelBorderWidth: Int = 0
+    var panelShadowEnabled: Bool = false
+    var panelShadowColorHex: String = "000000"
+    var panelShadowRadius: Int = 8
+    var panelShadowOffsetX: Int = 0
+    var panelShadowOffsetY: Int = -3
     var largeTypeFontSize: Int = 48
     var compressImages: Bool = false
     var imageMaxWidth: Int = 0

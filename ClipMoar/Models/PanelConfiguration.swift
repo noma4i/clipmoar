@@ -26,6 +26,18 @@ struct PanelPreviewConfiguration {
     let textColor: NSColor
     let backgroundColor: NSColor
     let metaFontSize: CGFloat
+    let metaFontName: String
+    let metaTextColor: NSColor
+    let metaBgColor: NSColor
+}
+
+struct PanelBorderConfiguration {
+    let borderColor: NSColor?
+    let borderWidth: CGFloat
+    let shadowEnabled: Bool
+    let shadowColor: NSColor
+    let shadowRadius: CGFloat
+    let shadowOffset: CGSize
 }
 
 /// Layout values keep all panel sizing math in one place.
@@ -57,6 +69,7 @@ struct PanelConfiguration {
     let search: PanelSearchConfiguration
     let preview: PanelPreviewConfiguration
     let layout: PanelLayoutConfiguration
+    let border: PanelBorderConfiguration
     let largeTypeFontSize: CGFloat?
 }
 
@@ -124,7 +137,10 @@ extension SettingsStore {
                 padding: CGFloat(max(previewPadding, 0)),
                 textColor: previewTextColor,
                 backgroundColor: previewBackground,
-                metaFontSize: CGFloat(max(metaFontSize, 8))
+                metaFontSize: CGFloat(max(metaFontSize, 8)),
+                metaFontName: metaFontName,
+                metaTextColor: NSColor(hex: metaTextColorHex.isEmpty ? "B3B3B3" : metaTextColorHex),
+                metaBgColor: NSColor(hex: metaBgColorHex.isEmpty ? "000000" : metaBgColorHex)
             ),
             layout: PanelLayoutConfiguration(
                 listWidth: 460,
@@ -136,6 +152,14 @@ extension SettingsStore {
                 margin: CGFloat(max(panelMargin, 0)),
                 rowHeight: rowHeight,
                 searchFieldHeight: rowHeight
+            ),
+            border: PanelBorderConfiguration(
+                borderColor: panelBorderColorHex.isEmpty ? nil : NSColor(hex: panelBorderColorHex),
+                borderWidth: CGFloat(max(panelBorderWidth, 0)),
+                shadowEnabled: panelShadowEnabled,
+                shadowColor: NSColor(hex: panelShadowColorHex.isEmpty ? "000000" : panelShadowColorHex),
+                shadowRadius: CGFloat(max(panelShadowRadius, 0)),
+                shadowOffset: CGSize(width: CGFloat(panelShadowOffsetX), height: CGFloat(panelShadowOffsetY))
             ),
             largeTypeFontSize: largeTypeFontSize > 0 ? CGFloat(largeTypeFontSize) : nil
         )

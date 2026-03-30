@@ -82,7 +82,7 @@ struct AboutSettingsView: View {
             }
             Button("OK", role: .cancel) {}
         } message: {
-            Text("After updating, macOS resets Accessibility permissions.\nRe-add ClipMoar in System Settings > Privacy & Security > Accessibility.")
+            Text("After updating, macOS resets Accessibility permissions.\n\nTo restore:\n1. Open System Settings > Privacy & Security > Accessibility\n2. Remove ClipMoar from the list (select and press minus)\n3. Add ClipMoar back (press plus, find in Applications)\n\nJust toggling the checkbox is not enough.")
         }
     }
 

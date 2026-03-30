@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.0] - 2026-03-30
+
+### Added
+- Panel shadow toggle in Look editor
+- Panel border color and width settings in Look editor
+- Meta text font, color, and background color settings in Look editor
+- Detailed accessibility permission instructions (remove and re-add steps)
+
+### Changed
+- Accessibility banner text now explains remove & re-add process
+
 ## [1.2.2] - 2026-03-29
 
 ### Fixed

@@ -38,6 +38,16 @@ protocol SettingsStore: AnyObject {
     var searchTextColorHex: String { get set }
     var searchPlaceholderColorHex: String { get set }
     var metaFontSize: Int { get set }
+    var metaFontName: String { get set }
+    var metaTextColorHex: String { get set }
+    var metaBgColorHex: String { get set }
+    var panelBorderColorHex: String { get set }
+    var panelBorderWidth: Int { get set }
+    var panelShadowEnabled: Bool { get set }
+    var panelShadowColorHex: String { get set }
+    var panelShadowRadius: Int { get set }
+    var panelShadowOffsetX: Int { get set }
+    var panelShadowOffsetY: Int { get set }
     var largeTypeFontSize: Int { get set }
     var compressImages: Bool { get set }
     var imageMaxWidth: Int { get set }
@@ -147,6 +157,16 @@ enum Settings {
     static let searchTextColorHex = "searchTextColorHex"
     static let searchPlaceholderColorHex = "searchPlaceholderColorHex"
     static let metaFontSize = "metaFontSize"
+    static let metaFontName = "metaFontName"
+    static let metaTextColorHex = "metaTextColorHex"
+    static let metaBgColorHex = "metaBgColorHex"
+    static let panelBorderColorHex = "panelBorderColorHex"
+    static let panelBorderWidth = "panelBorderWidth"
+    static let panelShadowEnabled = "panelShadowEnabled"
+    static let panelShadowColorHex = "panelShadowColorHex"
+    static let panelShadowRadius = "panelShadowRadius"
+    static let panelShadowOffsetX = "panelShadowOffsetX"
+    static let panelShadowOffsetY = "panelShadowOffsetY"
     static let largeTypeFontSize = "largeTypeFontSize"
     static let compressImages = "compressImages"
     static let imageMaxWidth = "imageMaxWidth"
@@ -466,6 +486,56 @@ final class UserDefaultsSettingsStore: SettingsStore {
         set { defaults.set(newValue, forKey: Settings.metaFontSize) }
     }
 
+    var metaFontName: String {
+        get { defaults.string(forKey: Settings.metaFontName) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.metaFontName) }
+    }
+
+    var metaTextColorHex: String {
+        get { defaults.string(forKey: Settings.metaTextColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.metaTextColorHex) }
+    }
+
+    var metaBgColorHex: String {
+        get { defaults.string(forKey: Settings.metaBgColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.metaBgColorHex) }
+    }
+
+    var panelBorderColorHex: String {
+        get { defaults.string(forKey: Settings.panelBorderColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.panelBorderColorHex) }
+    }
+
+    var panelBorderWidth: Int {
+        get { defaults.integer(forKey: Settings.panelBorderWidth) }
+        set { defaults.set(newValue, forKey: Settings.panelBorderWidth) }
+    }
+
+    var panelShadowEnabled: Bool {
+        get { defaults.bool(forKey: Settings.panelShadowEnabled) }
+        set { defaults.set(newValue, forKey: Settings.panelShadowEnabled) }
+    }
+
+    var panelShadowColorHex: String {
+        get { defaults.string(forKey: Settings.panelShadowColorHex) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.panelShadowColorHex) }
+    }
+
+    var panelShadowRadius: Int {
+        get { defaults.integer(forKey: Settings.panelShadowRadius) }
+        set { defaults.set(newValue, forKey: Settings.panelShadowRadius) }
+    }
+
+    var panelShadowOffsetX: Int {
+        get { defaults.integer(forKey: Settings.panelShadowOffsetX) }
+        set { defaults.set(newValue, forKey: Settings.panelShadowOffsetX) }
+    }
+
+    var panelShadowOffsetY: Int {
+        get { defaults.integer(forKey: Settings.panelShadowOffsetY) }
+        set { defaults.set(newValue, forKey: Settings.panelShadowOffsetY) }
+    }
+
     var largeTypeFontSize: Int {
         get { defaults.integer(forKey: Settings.largeTypeFontSize) }
         set { defaults.set(newValue, forKey: Settings.largeTypeFontSize) }
@@ -601,6 +671,16 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.searchTextColorHex: "E6E6E6",
             Settings.searchPlaceholderColorHex: "666666",
             Settings.metaFontSize: 10,
+            Settings.metaFontName: "",
+            Settings.metaTextColorHex: "B3B3B3",
+            Settings.metaBgColorHex: "000000",
+            Settings.panelBorderColorHex: "",
+            Settings.panelBorderWidth: 0,
+            Settings.panelShadowEnabled: false,
+            Settings.panelShadowColorHex: "000000",
+            Settings.panelShadowRadius: 8,
+            Settings.panelShadowOffsetX: 0,
+            Settings.panelShadowOffsetY: -3,
             Settings.largeTypeFontSize: 48,
             Settings.compressImages: false,
             Settings.imageMaxWidth: 0,

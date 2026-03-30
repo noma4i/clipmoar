@@ -162,6 +162,11 @@ final class FloatingClipboardViewController: NSViewController,
             target.layer?.borderWidth = 0
             target.layer?.borderColor = nil
         }
+        let borderConfig = currentConfiguration.border
+        if borderConfig.borderWidth > 0, let borderColor = borderConfig.borderColor {
+            view.layer?.borderWidth = borderConfig.borderWidth
+            view.layer?.borderColor = borderColor.cgColor
+        }
     }
 
     func focusOnList() {
@@ -220,7 +225,7 @@ final class FloatingClipboardViewController: NSViewController,
             iconView.contentTintColor = .white
             backgroundView.addSubview(iconView)
 
-            let label = NSTextField(labelWithString: "Accessibility required for paste. Click to fix.")
+            let label = NSTextField(labelWithString: "Accessibility needed. Remove & re-add ClipMoar in Settings. Click to open.")
             label.frame = NSRect(x: 30, y: 5, width: currentConfiguration.layout.listWidth - 40, height: 18)
             label.font = .systemFont(ofSize: 11, weight: .medium)
             label.textColor = .white
@@ -238,9 +243,9 @@ final class FloatingClipboardViewController: NSViewController,
             accessibilityBannerWindow = panel
         }
 
-        let frame = window.frame
-        let bannerY = frame.maxY + (secureInputBannerWindow != nil ? 36 : 4)
-        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: frame.origin.x, y: bannerY))
+        let viewFrameInScreen = window.convertToScreen(view.frame)
+        let bannerY = viewFrameInScreen.maxY + (secureInputBannerWindow != nil ? 36 : 4)
+        accessibilityBannerWindow?.setFrameOrigin(NSPoint(x: viewFrameInScreen.origin.x, y: bannerY))
         if let banner = accessibilityBannerWindow {
             window.addChildWindow(banner, ordered: .above)
         }
@@ -263,8 +268,8 @@ final class FloatingClipboardViewController: NSViewController,
             )
         }
 
-        let frame = window.frame
-        secureInputBannerWindow?.setFrameOrigin(NSPoint(x: frame.origin.x, y: frame.maxY + 4))
+        let viewFrameInScreen = window.convertToScreen(view.frame)
+        secureInputBannerWindow?.setFrameOrigin(NSPoint(x: viewFrameInScreen.origin.x, y: viewFrameInScreen.maxY + 4))
         if let banner = secureInputBannerWindow {
             window.addChildWindow(banner, ordered: .above)
         }
@@ -485,25 +490,24 @@ final class FloatingClipboardViewController: NSViewController,
 
         let layout = configuration.layout
 
+        let borderConfig = configuration.border
         view.layer?.cornerRadius = layout.cornerRadius
-        view.layer?.masksToBounds = layout.cornerRadius > 0 || layout.margin > 0
-        if layout.cornerRadius > 0 || layout.margin > 0 {
-            view.window?.isOpaque = false
-            view.window?.backgroundColor = .clear
+        if borderConfig.borderWidth > 0, let borderColor = borderConfig.borderColor {
+            view.layer?.borderWidth = borderConfig.borderWidth
+            view.layer?.borderColor = borderColor.cgColor
         } else {
-            view.window?.isOpaque = true
-            view.window?.backgroundColor = configuration.backgroundColor
+            view.layer?.borderWidth = 0
+            view.layer?.borderColor = nil
         }
 
-        if let window = view.window {
-            let frame = window.frame
-            let inset = layout.margin
-            view.frame = NSRect(
-                x: inset,
-                y: inset,
-                width: frame.width - inset * 2,
-                height: frame.height - inset * 2
-            )
+        view.layer?.masksToBounds = layout.cornerRadius > 0 || layout.margin > 0
+
+        let needsTransparency = layout.cornerRadius > 0 || layout.margin > 0
+        view.window?.isOpaque = !needsTransparency
+        view.window?.backgroundColor = needsTransparency ? .clear : configuration.backgroundColor
+        view.window?.hasShadow = borderConfig.shadowEnabled
+        if borderConfig.shadowEnabled {
+            view.window?.invalidateShadow()
         }
 
         searchFieldTop?.constant = layout.verticalPadding
@@ -522,14 +526,20 @@ final class FloatingClipboardViewController: NSViewController,
         previewTextView.textContainerInset = NSSize(width: configuration.preview.padding, height: configuration.preview.padding)
         previewTextView.textColor = configuration.preview.textColor
 
-        metaLabel.font = .systemFont(ofSize: configuration.preview.metaFontSize)
-        metaLabel.textColor = configuration.theme == .dark
-            ? NSColor(calibratedWhite: 0.7, alpha: 1.0)
-            : NSColor(calibratedWhite: 0.35, alpha: 1.0)
-        previewMetaLabel.font = .systemFont(ofSize: configuration.preview.metaFontSize)
-        previewMetaLabel.textColor = configuration.theme == .dark
-            ? NSColor(calibratedWhite: 0.8, alpha: 1.0)
-            : NSColor(calibratedWhite: 0.25, alpha: 1.0)
+        let metaFont: NSFont
+        if !configuration.preview.metaFontName.isEmpty,
+           let custom = NSFont(name: configuration.preview.metaFontName, size: configuration.preview.metaFontSize)
+        {
+            metaFont = custom
+        } else {
+            metaFont = .systemFont(ofSize: configuration.preview.metaFontSize)
+        }
+        metaLabel.font = metaFont
+        metaLabel.textColor = configuration.preview.metaTextColor
+        previewMetaLabel.font = metaFont
+        previewMetaLabel.textColor = configuration.preview.metaTextColor
+        metaPill.layer?.backgroundColor = configuration.preview.metaBgColor.cgColor
+        rulePillView?.layer?.backgroundColor = configuration.preview.metaBgColor.cgColor
 
         largeTypeController.fontSize = configuration.largeTypeFontSize
         resizeWindow()
@@ -625,11 +635,26 @@ final class FloatingClipboardViewController: NSViewController,
     private func resizeWindow() {
         guard let window = view.window else { return }
         let frame = window.frame
-        let width = currentConfiguration.layout.listWidth
-            + (stateController.state.preview.isVisible ? currentConfiguration.layout.previewWidth : 0)
+        let layout = currentConfiguration.layout
+        let width = layout.listWidth
+            + (stateController.state.preview.isVisible ? layout.previewWidth : 0)
         let height = currentPanelHeight
         let originY = frame.origin.y + frame.height - height
         window.setFrame(NSRect(x: frame.origin.x, y: originY, width: width, height: height), display: true)
+
+        let inset = layout.margin
+        if inset > 0 {
+            view.frame = NSRect(
+                x: inset,
+                y: inset,
+                width: window.frame.width - inset * 2,
+                height: window.frame.height - inset * 2
+            )
+        }
+
+        if currentConfiguration.border.shadowEnabled {
+            view.window?.invalidateShadow()
+        }
     }
 
     private func alignSearchFieldToTableText() {

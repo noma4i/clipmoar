@@ -14,15 +14,15 @@ final class FloatingPanel: KeyablePanel {
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 344),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
         isMovableByWindowBackground = true
         level = .floating
-        isOpaque = true
-        backgroundColor = .black
+        isOpaque = false
+        backgroundColor = .clear
         hasShadow = false
         hidesOnDeactivate = true
         becomesKeyOnlyIfNeeded = false
@@ -85,16 +85,13 @@ final class FloatingPanelController: NSWindowController {
 
         clipViewController.previousApp = NSWorkspace.shared.frontmostApplication
 
-        let configuration = settings.panelConfiguration()
-        let panelWidth = configuration.layout.listWidth
-
         clipViewController.refresh()
 
-        let panelHeight = configuration.layout.panelHeight
+        let panelFrame = panel.frame
         let screenFrame = screen.visibleFrame
 
-        let x = screenFrame.origin.x + (screenFrame.width - panelWidth) * settings.panelPositionX
-        let y = screenFrame.origin.y + (screenFrame.height - panelHeight) * settings.panelPositionY
+        let x = screenFrame.origin.x + (screenFrame.width - panelFrame.width) * settings.panelPositionX
+        let y = screenFrame.origin.y + (screenFrame.height - panelFrame.height) * settings.panelPositionY
 
         panel.setFrameOrigin(NSPoint(x: x, y: y))
         clipViewController.updateAccessibilityBanner()

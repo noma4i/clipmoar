@@ -274,6 +274,16 @@ private final class TestUpdateSettings: SettingsStore {
     var searchTextColorHex = "E6E6E6"
     var searchPlaceholderColorHex = "666666"
     var metaFontSize = 10
+    var metaFontName = ""
+    var metaTextColorHex = ""
+    var metaBgColorHex = ""
+    var panelBorderColorHex = ""
+    var panelBorderWidth = 0
+    var panelShadowEnabled = false
+    var panelShadowColorHex = "000000"
+    var panelShadowRadius = 8
+    var panelShadowOffsetX = 0
+    var panelShadowOffsetY = -3
     var largeTypeFontSize = 48
     var compressImages = false
     var imageMaxWidth = 0

@@ -43,6 +43,16 @@ final class LookEditorModel: ObservableObject {
     @Published var searchTextColorHex: String
     @Published var searchPlaceholderColorHex: String
     @Published var metaFontSize: Int
+    @Published var metaFontName: String
+    @Published var metaTextColorHex: String
+    @Published var metaBgColorHex: String
+    @Published var panelBorderColorHex: String
+    @Published var panelBorderWidth: Int
+    @Published var panelShadowEnabled: Bool
+    @Published var panelShadowColorHex: String
+    @Published var panelShadowRadius: Int
+    @Published var panelShadowOffsetX: Int
+    @Published var panelShadowOffsetY: Int
     @Published var largeTypeFontSize: Int
     @Published var largeTypeEnabled: Bool
     @Published var highlightedZone: HighlightZone?
@@ -71,6 +81,19 @@ final class LookEditorModel: ObservableObject {
         searchTextColorHex = settings.searchTextColorHex
         searchPlaceholderColorHex = settings.searchPlaceholderColorHex
         metaFontSize = settings.metaFontSize
+        metaFontName = settings.metaFontName
+        let isDark = settings.panelTheme == PanelTheme.dark.rawValue
+        metaTextColorHex = settings.metaTextColorHex.isEmpty
+            ? (isDark ? "B3B3B3" : "595959") : settings.metaTextColorHex
+        metaBgColorHex = settings.metaBgColorHex.isEmpty
+            ? "000000" : settings.metaBgColorHex
+        panelBorderColorHex = settings.panelBorderColorHex
+        panelBorderWidth = settings.panelBorderWidth
+        panelShadowEnabled = settings.panelShadowEnabled
+        panelShadowColorHex = settings.panelShadowColorHex
+        panelShadowRadius = settings.panelShadowRadius
+        panelShadowOffsetX = settings.panelShadowOffsetX
+        panelShadowOffsetY = settings.panelShadowOffsetY
         largeTypeFontSize = settings.largeTypeFontSize
         largeTypeEnabled = settings.largeTypeEnabled
     }
@@ -98,6 +121,16 @@ final class LookEditorModel: ObservableObject {
         settings.searchTextColorHex = searchTextColorHex
         settings.searchPlaceholderColorHex = searchPlaceholderColorHex
         settings.metaFontSize = metaFontSize
+        settings.metaFontName = metaFontName
+        settings.metaTextColorHex = metaTextColorHex
+        settings.metaBgColorHex = metaBgColorHex
+        settings.panelBorderColorHex = panelBorderColorHex
+        settings.panelBorderWidth = panelBorderWidth
+        settings.panelShadowEnabled = panelShadowEnabled
+        settings.panelShadowColorHex = panelShadowColorHex
+        settings.panelShadowRadius = panelShadowRadius
+        settings.panelShadowOffsetX = panelShadowOffsetX
+        settings.panelShadowOffsetY = panelShadowOffsetY
         settings.largeTypeFontSize = largeTypeFontSize
         settings.largeTypeEnabled = largeTypeEnabled
     }
@@ -591,6 +624,15 @@ struct EditorControlsView: View {
                         Text("px").font(.system(size: 10)).foregroundColor(.secondary)
                     }
                 }
+                settingRow("Border:") { colorPickerFor(hex: $model.panelBorderColorHex) }
+                sliderRow("B.Width:", value: $model.panelBorderWidth, range: 0 ... 5, suffix: "px")
+                settingRow("Shadow:") {
+                    Toggle("", isOn: $model.panelShadowEnabled)
+                        .toggleStyle(.checkbox)
+                        .controlSize(.small)
+                        .labelsHidden()
+                        .onChange(of: model.panelShadowEnabled) { _, _ in changed() }
+                }
             }
             .contentShape(Rectangle())
             .onHover { hoverZone(.panel, hovering: $0) }
@@ -633,7 +675,10 @@ struct EditorControlsView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
 
+                settingRow("Font:") { fontPicker(selection: $model.metaFontName) }
                 stepperRow("Size:", value: $model.metaFontSize, range: 8 ... 16, suffix: "px")
+                settingRow("Text:") { colorPickerFor(hex: $model.metaTextColorHex) }
+                settingRow("BG:") { colorPickerFor(hex: $model.metaBgColorHex) }
             }
             .contentShape(Rectangle())
             .onHover { hoverZone(.meta, hovering: $0) }
@@ -786,6 +831,16 @@ struct EditorControlsView: View {
         model.searchTextColorHex = "E6E6E6"
         model.searchPlaceholderColorHex = "666666"
         model.metaFontSize = 10
+        model.metaFontName = ""
+        model.metaTextColorHex = "B3B3B3"
+        model.metaBgColorHex = "000000"
+        model.panelBorderColorHex = ""
+        model.panelBorderWidth = 0
+        model.panelShadowEnabled = false
+        model.panelShadowColorHex = "000000"
+        model.panelShadowRadius = 8
+        model.panelShadowOffsetX = 0
+        model.panelShadowOffsetY = -3
         model.settings.panelPositionX = 0.5
         model.settings.panelPositionY = 0.65
         changed()
