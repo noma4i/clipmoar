@@ -492,6 +492,9 @@ final class FloatingClipboardViewController: NSViewController,
 
         let borderConfig = configuration.border
         view.layer?.cornerRadius = layout.cornerRadius
+        previewContainer.layer?.cornerRadius = layout.cornerRadius
+        previewContainer.layer?.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        previewContainer.layer?.masksToBounds = layout.cornerRadius > 0
         if borderConfig.borderWidth > 0, let borderColor = borderConfig.borderColor {
             view.layer?.borderWidth = borderConfig.borderWidth
             view.layer?.borderColor = borderColor.cgColor
@@ -502,19 +505,18 @@ final class FloatingClipboardViewController: NSViewController,
 
         view.layer?.masksToBounds = layout.cornerRadius > 0 || layout.margin > 0
 
-        let needsTransparency = layout.cornerRadius > 0 || layout.margin > 0
-        view.window?.isOpaque = !needsTransparency
-        view.window?.backgroundColor = needsTransparency ? .clear : configuration.backgroundColor
+        let needsClear = layout.cornerRadius > 0 || layout.margin > 0 || borderConfig.shadowEnabled
+        if needsClear {
+            view.window?.isOpaque = false
+            view.window?.backgroundColor = .clear
+        } else {
+            view.window?.isOpaque = true
+            view.window?.backgroundColor = configuration.backgroundColor
+        }
+        view.shadow = nil
         view.window?.hasShadow = borderConfig.shadowEnabled
         if borderConfig.shadowEnabled {
-            let shadow = NSShadow()
-            shadow.shadowBlurRadius = 24
-            shadow.shadowOffset = NSSize(width: 0, height: -6)
-            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
-            view.shadow = shadow
             view.window?.invalidateShadow()
-        } else {
-            view.shadow = nil
         }
 
         searchFieldTop?.constant = layout.verticalPadding

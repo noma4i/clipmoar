@@ -14,15 +14,15 @@ final class FloatingPanel: KeyablePanel {
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 344),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
 
         isMovableByWindowBackground = true
         level = .floating
-        isOpaque = false
-        backgroundColor = .clear
+        isOpaque = true
+        backgroundColor = .black
         hasShadow = false
         hidesOnDeactivate = true
         becomesKeyOnlyIfNeeded = false
