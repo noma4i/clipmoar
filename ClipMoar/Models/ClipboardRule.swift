@@ -30,6 +30,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
     case stripTrackingParams
     case extractURLs
     case collapseMultilineBash
+    case smartJoinLines
 
     var displayName: String {
         switch self {
@@ -62,6 +63,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .stripTrackingParams: return "Strip tracking"
         case .extractURLs: return "Extract URLs"
         case .collapseMultilineBash: return "Collapse multiline bash"
+        case .smartJoinLines: return "Smart join lines"
         }
     }
 
@@ -96,6 +98,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .stripTrackingParams: return "eye.slash"
         case .extractURLs: return "link.badge.plus"
         case .collapseMultilineBash: return "text.line.first.and.arrowtriangle.forward"
+        case .smartJoinLines: return "text.append"
         }
     }
 
@@ -114,7 +117,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
             return .cleanup
         case .flattenMultiline, .stripShellPrompts, .removeBoxDrawing, .escapeShell, .collapseMultilineBash:
             return .shell
-        case .joinParagraphs, .sortLines, .uniqueLines, .commentLines, .regexReplace:
+        case .joinParagraphs, .smartJoinLines, .sortLines, .uniqueLines, .commentLines, .regexReplace:
             return .text
         case .escapeJSON, .unescapeJSON, .base64Encode, .base64Decode, .urlEncode, .urlDecode:
             return .encoding
@@ -137,14 +140,26 @@ struct ClipboardRule: Codable, Identifiable, Equatable {
     var name: String
     var isEnabled: Bool
     var appBundleId: String?
+    var presetId: String
     var transforms: [ClipboardTransform]
 
-    init(name: String, isEnabled: Bool = true, appBundleId: String? = nil, transforms: [ClipboardTransform] = []) {
+    init(name: String, isEnabled: Bool = true, appBundleId: String? = nil, presetId: String = "", transforms: [ClipboardTransform] = []) {
         id = UUID()
         self.name = name
         self.isEnabled = isEnabled
         self.appBundleId = appBundleId
+        self.presetId = presetId
         self.transforms = transforms
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        appBundleId = try container.decodeIfPresent(String.self, forKey: .appBundleId)
+        presetId = try container.decodeIfPresent(String.self, forKey: .presetId) ?? ""
+        transforms = try container.decode([ClipboardTransform].self, forKey: .transforms)
     }
 
     var appName: String {

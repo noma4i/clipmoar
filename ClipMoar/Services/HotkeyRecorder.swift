@@ -12,6 +12,10 @@ final class HotkeyRecorder {
     private let onSuspend: () -> Void
     private let onResume: () -> Void
     private let onHotkeyChange: () -> Void
+    private let getKeyCode: (SettingsStore) -> Int
+    private let setKeyCode: (SettingsStore, Int) -> Void
+    private let getModifiers: (SettingsStore) -> UInt32
+    private let setModifiers: (SettingsStore, UInt32) -> Void
 
     private(set) var isRecording = false
     private var savedKeyCode: Int = 0
@@ -26,18 +30,29 @@ final class HotkeyRecorder {
         "Cmd+H", "Cmd+M", "Cmd+Tab", "Cmd+Space",
     ]
 
-    init(settings: SettingsStore, onSuspend: @escaping () -> Void,
-         onResume: @escaping () -> Void, onHotkeyChange: @escaping () -> Void)
-    {
+    init(
+        settings: SettingsStore,
+        onSuspend: @escaping () -> Void,
+        onResume: @escaping () -> Void,
+        onHotkeyChange: @escaping () -> Void,
+        keyCode: @escaping (SettingsStore) -> Int = { $0.hotkeyKeyCode },
+        setKeyCode: @escaping (SettingsStore, Int) -> Void = { $0.hotkeyKeyCode = $1 },
+        modifiers: @escaping (SettingsStore) -> UInt32 = { $0.hotkeyModifiers },
+        setModifiers: @escaping (SettingsStore, UInt32) -> Void = { $0.hotkeyModifiers = $1 }
+    ) {
         self.settings = settings
         self.onSuspend = onSuspend
         self.onResume = onResume
         self.onHotkeyChange = onHotkeyChange
+        getKeyCode = keyCode
+        self.setKeyCode = setKeyCode
+        getModifiers = modifiers
+        self.setModifiers = setModifiers
     }
 
     func startRecording() {
-        savedKeyCode = settings.hotkeyKeyCode
-        savedModifiers = settings.hotkeyModifiers
+        savedKeyCode = getKeyCode(settings)
+        savedModifiers = getModifiers(settings)
         isRecording = true
         onSuspend()
 
@@ -50,23 +65,25 @@ final class HotkeyRecorder {
 
     func cancel() {
         guard isRecording else { return }
-        settings.hotkeyKeyCode = savedKeyCode
-        settings.hotkeyModifiers = savedModifiers
+        setKeyCode(settings, savedKeyCode)
+        setModifiers(settings, savedModifiers)
         stopMonitor()
         onResume()
         onResult?(.cancelled)
     }
 
     func clearHotkey() {
-        settings.hotkeyKeyCode = 0
-        settings.hotkeyModifiers = 0
+        setKeyCode(settings, 0)
+        setModifiers(settings, 0)
         onHotkeyChange()
     }
 
     var currentShortcutString: String {
-        guard settings.hotkeyKeyCode != 0 || settings.hotkeyModifiers != 0 else { return "Not assigned" }
-        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(settings.hotkeyModifiers))
-        return KeyboardShortcutFormatter.string(for: settings.hotkeyKeyCode, modifiers: modifiers)
+        let kc = getKeyCode(settings)
+        let mods = getModifiers(settings)
+        guard kc != 0 || mods != 0 else { return "Not assigned" }
+        let modifiers = NSEvent.ModifierFlags(rawValue: UInt(mods))
+        return KeyboardShortcutFormatter.string(for: kc, modifiers: modifiers)
     }
 
     func isReserved(_ shortcut: String) -> Bool {
@@ -92,8 +109,8 @@ final class HotkeyRecorder {
             return
         }
 
-        settings.hotkeyKeyCode = Int(event.keyCode)
-        settings.hotkeyModifiers = UInt32(modifiers.rawValue)
+        setKeyCode(settings, Int(event.keyCode))
+        setModifiers(settings, UInt32(modifiers.rawValue))
         stopMonitor()
         onHotkeyChange()
         onResult?(.recorded(keyCode: Int(event.keyCode), modifiers: UInt32(modifiers.rawValue)))

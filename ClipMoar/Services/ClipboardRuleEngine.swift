@@ -40,9 +40,11 @@ final class UserDefaultsRuleStore: ClipboardRuleStore {
 
 final class ClipboardRuleEngine {
     private let store: ClipboardRuleStore
+    var presetStore: PresetStore?
 
-    init(store: ClipboardRuleStore = UserDefaultsRuleStore()) {
+    init(store: ClipboardRuleStore = UserDefaultsRuleStore(), presetStore: PresetStore? = nil) {
         self.store = store
+        self.presetStore = presetStore
     }
 
     var rules: [ClipboardRule] {
@@ -57,6 +59,7 @@ final class ClipboardRuleEngine {
 
     func apply(to text: String, sourceAppBundleId: String? = nil) -> ApplyResult {
         store.load()
+        presetStore?.load()
         var result = text
         var appliedRules: [String] = []
 
@@ -65,6 +68,13 @@ final class ClipboardRuleEngine {
                 continue
             }
             let before = result
+            if let presetUUID = UUID(uuidString: rule.presetId),
+               let preset = presetStore?.presets.first(where: { $0.id == presetUUID })
+            {
+                for type in preset.transformTypes {
+                    result = applyTransform(ClipboardTransform(type: type), to: result)
+                }
+            }
             for transform in rule.transforms where transform.isEnabled {
                 result = applyTransform(transform, to: result)
             }
@@ -188,6 +198,9 @@ final class ClipboardRuleEngine {
 
         case .collapseMultilineBash:
             return collapseMultilineBash(text)
+
+        case .smartJoinLines:
+            return smartJoinLines(text)
         }
     }
 }

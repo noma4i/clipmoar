@@ -115,6 +115,7 @@ final class ClipboardService {
     private var lastInsertedUUID: UUID?
     private var pendingMaintenancePasses = 0
     var onStatEvent: ((StatEventKind) -> Void)?
+    private(set) var lastSourceAppBundleId: String?
 
     init(
         repository: ClipboardRepository = CoreDataClipboardRepository(),
@@ -223,22 +224,25 @@ final class ClipboardService {
                 return
             }
             let sourceAppBundleId = snapshot.sourceAppBundleId
+            lastSourceAppBundleId = sourceAppBundleId
             logger.log("[ClipMoar] new copy from: %@ storeText=%d storeImages=%d", sourceAppBundleId ?? "unknown", settings.storeText ? 1 : 0, settings.storeImages ? 1 : 0)
             let result = ruleEngine.apply(to: string, sourceAppBundleId: sourceAppBundleId)
+            let hasTransformHotkey = settings.transformHotkeyKeyCode != 0
 
-            if result.text != string {
+            if result.text != string, !hasTransformHotkey {
                 logger.log("[ClipMoar] text transformed, writing back to clipboard")
                 writeTransformedText(result.text)
             }
 
-            let fingerprint = ContentFingerprint.hash(text: result.text)
+            let storedText = hasTransformHotkey ? string : result.text
+            let fingerprint = ContentFingerprint.hash(text: storedText)
             guard !handleDuplicate(fingerprint: fingerprint, gap: gap) else {
                 logger.log("[ClipMoar] skip: duplicate text (transform still applied)")
                 return
             }
 
             let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
-            lastInsertedUUID = repository.insertText(result.text, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
+            lastInsertedUUID = repository.insertText(storedText, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
             logger.log("[ClipMoar] inserted text (rule: %@): %@", appliedRule ?? "none", String(result.text.prefix(80)))
             onStatEvent?(.copy)
             scheduleMaintenance()

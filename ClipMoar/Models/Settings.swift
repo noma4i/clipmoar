@@ -7,6 +7,8 @@ protocol SettingsStore: AnyObject {
     var maxHistorySize: Int { get set }
     var hotkeyKeyCode: Int { get set }
     var hotkeyModifiers: UInt32 { get set }
+    var transformHotkeyKeyCode: Int { get set }
+    var transformHotkeyModifiers: UInt32 { get set }
     var storeText: Bool { get set }
     var storeImages: Bool { get set }
     var textRetentionHours: Int { get set }
@@ -122,6 +124,8 @@ enum Settings {
     static let maxHistorySize = "maxHistorySize"
     static let hotkeyKeyCode = "hotkeyKeyCode"
     static let hotkeyModifiers = "hotkeyModifiers"
+    static let transformHotkeyKeyCode = "transformHotkeyKeyCode"
+    static let transformHotkeyModifiers = "transformHotkeyModifiers"
     static let storeText = "storeText"
     static let storeImages = "storeImages"
     static let textRetentionHours = "textRetentionHours"
@@ -321,6 +325,16 @@ final class UserDefaultsSettingsStore: SettingsStore {
     var hotkeyModifiers: UInt32 {
         get { UInt32(defaults.integer(forKey: Settings.hotkeyModifiers)) }
         set { defaults.set(Int(newValue), forKey: Settings.hotkeyModifiers) }
+    }
+
+    var transformHotkeyKeyCode: Int {
+        get { defaults.integer(forKey: Settings.transformHotkeyKeyCode) }
+        set { defaults.set(newValue, forKey: Settings.transformHotkeyKeyCode) }
+    }
+
+    var transformHotkeyModifiers: UInt32 {
+        get { UInt32(defaults.integer(forKey: Settings.transformHotkeyModifiers)) }
+        set { defaults.set(Int(newValue), forKey: Settings.transformHotkeyModifiers) }
     }
 
     var storeText: Bool {

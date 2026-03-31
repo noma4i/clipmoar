@@ -148,4 +148,96 @@ final class HotkeyServiceTests: XCTestCase {
         let lastCall = backend.registerHotkeyCalls.last
         XCTAssertEqual(lastCall?.keyCode, 20)
     }
+
+    // MARK: - Multiple hotkeys
+
+    func testTwoServicesFireIndependently() {
+        let backend1 = MockCarbonBackend()
+        let backend2 = MockCarbonBackend()
+        let settings = MockSettings()
+
+        let svc1 = HotkeyService(settings: settings, backend: backend1)
+        let svc2 = HotkeyService(
+            settings: settings,
+            backend: backend2,
+            keyCode: { $0.transformHotkeyKeyCode },
+            modifiers: { $0.transformHotkeyModifiers }
+        )
+
+        var triggered1 = false
+        var triggered2 = false
+        svc1.register { triggered1 = true }
+        svc2.register { triggered2 = true }
+
+        svc1.fireTrigger()
+        XCTAssertTrue(triggered1)
+        XCTAssertFalse(triggered2, "Second service must not fire when first triggers")
+
+        triggered1 = false
+        svc2.fireTrigger()
+        XCTAssertFalse(triggered1, "First service must not fire when second triggers")
+        XCTAssertTrue(triggered2)
+    }
+
+    func testTwoServicesReadDifferentSettings() {
+        let backend1 = MockCarbonBackend()
+        let backend2 = MockCarbonBackend()
+        let settings = MockSettings()
+        settings.hotkeyKeyCode = 10
+        settings.hotkeyModifiers = 256
+        settings.transformHotkeyKeyCode = 20
+        settings.transformHotkeyModifiers = 512
+
+        let svc1 = HotkeyService(settings: settings, backend: backend1)
+        let svc2 = HotkeyService(
+            settings: settings,
+            backend: backend2,
+            keyCode: { $0.transformHotkeyKeyCode },
+            modifiers: { $0.transformHotkeyModifiers }
+        )
+
+        svc1.register {}
+        svc2.register {}
+
+        XCTAssertEqual(backend1.registerHotkeyCalls.last?.keyCode, 10)
+        XCTAssertEqual(backend2.registerHotkeyCalls.last?.keyCode, 20)
+    }
+
+    func testUnregisterOneDoesNotAffectOther() {
+        let backend1 = MockCarbonBackend()
+        let backend2 = MockCarbonBackend()
+        let settings = MockSettings()
+
+        let svc1 = HotkeyService(settings: settings, backend: backend1)
+        let svc2 = HotkeyService(settings: settings, backend: backend2)
+
+        var triggered2 = false
+        svc1.register {}
+        svc2.register { triggered2 = true }
+
+        svc1.unregister()
+        svc2.fireTrigger()
+
+        XCTAssertTrue(triggered2, "Second service must survive first unregister")
+        XCTAssertTrue(backend2.isHotkeyRegistered)
+    }
+
+    func testSuspendOneDoesNotAffectOther() {
+        let backend1 = MockCarbonBackend()
+        let backend2 = MockCarbonBackend()
+        let settings = MockSettings()
+
+        let svc1 = HotkeyService(settings: settings, backend: backend1)
+        let svc2 = HotkeyService(settings: settings, backend: backend2)
+
+        var triggered2 = false
+        svc1.register {}
+        svc2.register { triggered2 = true }
+
+        svc1.suspend()
+
+        XCTAssertTrue(backend2.isHotkeyRegistered, "Second backend must stay registered")
+        svc2.fireTrigger()
+        XCTAssertTrue(triggered2)
+    }
 }

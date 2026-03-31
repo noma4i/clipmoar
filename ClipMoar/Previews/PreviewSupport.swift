@@ -10,6 +10,8 @@
         var maxHistorySize = 500
         var hotkeyKeyCode = 9
         var hotkeyModifiers: UInt32 = .init(NSEvent.ModifierFlags.command.rawValue)
+        var transformHotkeyKeyCode = 0
+        var transformHotkeyModifiers: UInt32 = 0
         var storeText = true
         var storeImages = true
         var textRetentionHours = TextRetention.oneWeek.rawValue

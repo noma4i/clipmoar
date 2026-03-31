@@ -18,19 +18,32 @@ protocol CarbonHotkeyBackend: AnyObject {
     func removeHandler()
 }
 
-final class RealCarbonBackend: CarbonHotkeyBackend {
-    private var eventHotKey: EventHotKeyRef?
+private final class CarbonHotkeyRegistry {
+    static let shared = CarbonHotkeyRegistry()
+    private var services: [UInt32: HotkeyService] = [:]
     private var eventHandler: EventHandlerRef?
+    private var nextId: UInt32 = 1
 
-    var isHotkeyRegistered: Bool {
-        eventHotKey != nil
+    func allocateId() -> UInt32 {
+        let id = nextId
+        nextId += 1
+        return id
     }
 
-    var isHandlerInstalled: Bool {
-        eventHandler != nil
+    func register(id: UInt32, service: HotkeyService) {
+        services[id] = service
+        installHandlerIfNeeded()
     }
 
-    func installHandler(service: HotkeyService) {
+    func unregister(id: UInt32) {
+        services.removeValue(forKey: id)
+        if services.isEmpty, let handler = eventHandler {
+            RemoveEventHandler(handler)
+            eventHandler = nil
+        }
+    }
+
+    private func installHandlerIfNeeded() {
         guard eventHandler == nil else { return }
         var handlerRef: EventHandlerRef?
         var spec = EventTypeSpec()
@@ -38,24 +51,58 @@ final class RealCarbonBackend: CarbonHotkeyBackend {
         spec.eventKind = UInt32(kEventHotKeyPressed)
         InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData -> OSStatus in
-                guard let userData else { return OSStatus(eventNotHandledErr) }
-                let svc = Unmanaged<HotkeyService>.fromOpaque(userData).takeUnretainedValue()
-                DispatchQueue.main.async { svc.fireTrigger() }
+            { _, event, _ -> OSStatus in
+                guard let event else { return OSStatus(eventNotHandledErr) }
+                var hotKeyID = EventHotKeyID()
+                let status = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &hotKeyID
+                )
+                guard status == noErr else { return OSStatus(eventNotHandledErr) }
+                let id = hotKeyID.id
+                DispatchQueue.main.async {
+                    CarbonHotkeyRegistry.shared.services[id]?.fireTrigger()
+                }
                 return noErr
             },
             1,
             &spec,
-            Unmanaged.passUnretained(service).toOpaque(),
+            nil,
             &handlerRef
         )
         eventHandler = handlerRef
+    }
+}
+
+final class RealCarbonBackend: CarbonHotkeyBackend {
+    private var eventHotKey: EventHotKeyRef?
+    private let hotkeyId: UInt32
+
+    init() {
+        hotkeyId = CarbonHotkeyRegistry.shared.allocateId()
+    }
+
+    var isHotkeyRegistered: Bool {
+        eventHotKey != nil
+    }
+
+    var isHandlerInstalled: Bool {
+        true
+    }
+
+    func installHandler(service: HotkeyService) {
+        CarbonHotkeyRegistry.shared.register(id: hotkeyId, service: service)
     }
 
     func registerHotkey(keyCode: UInt32, modifiers: UInt32) {
         var hotKeyID = EventHotKeyID()
         hotKeyID.signature = OSType(0x434C_5052)
-        hotKeyID.id = 1
+        hotKeyID.id = hotkeyId
         RegisterEventHotKey(
             keyCode,
             modifiers,
@@ -74,10 +121,7 @@ final class RealCarbonBackend: CarbonHotkeyBackend {
     }
 
     func removeHandler() {
-        if let handler = eventHandler {
-            RemoveEventHandler(handler)
-            eventHandler = nil
-        }
+        CarbonHotkeyRegistry.shared.unregister(id: hotkeyId)
     }
 }
 
@@ -85,13 +129,19 @@ final class HotkeyService: HotkeyServiceProtocol {
     private var onTrigger: (() -> Void)?
     private let settings: SettingsStore
     private let backend: CarbonHotkeyBackend
+    private let readKeyCode: (SettingsStore) -> Int
+    private let readModifiers: (SettingsStore) -> UInt32
 
     init(
         settings: SettingsStore = UserDefaultsSettingsStore(),
-        backend: CarbonHotkeyBackend = RealCarbonBackend()
+        backend: CarbonHotkeyBackend = RealCarbonBackend(),
+        keyCode: @escaping (SettingsStore) -> Int = { $0.hotkeyKeyCode },
+        modifiers: @escaping (SettingsStore) -> UInt32 = { $0.hotkeyModifiers }
     ) {
         self.settings = settings
         self.backend = backend
+        readKeyCode = keyCode
+        readModifiers = modifiers
     }
 
     func fireTrigger() {
@@ -128,8 +178,8 @@ final class HotkeyService: HotkeyServiceProtocol {
     }
 
     private func registerHotkey() {
-        let keyCode = settings.hotkeyKeyCode
-        let modifiers = Int(settings.hotkeyModifiers)
+        let keyCode = readKeyCode(settings)
+        let modifiers = Int(readModifiers(settings))
         let carbonModifiers = carbonFlags(from: NSEvent.ModifierFlags(rawValue: UInt(modifiers)))
         backend.installHandler(service: self)
         backend.registerHotkey(keyCode: UInt32(keyCode), modifiers: UInt32(carbonModifiers))

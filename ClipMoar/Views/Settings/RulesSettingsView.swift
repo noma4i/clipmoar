@@ -57,16 +57,43 @@ final class RulesSettingsModel: ObservableObject {
 struct RulesSettingsView: View {
     @StateObject private var model: RulesSettingsModel
     @StateObject private var regexStore: RegexStore
+    @StateObject private var presetStore: PresetStore
     @State private var testInput = ""
     @State private var testOutput = ""
 
-    init(model: RulesSettingsModel = RulesSettingsModel(), regexStore: RegexStore = RegexStore()) {
+    init(
+        model: RulesSettingsModel = RulesSettingsModel(),
+        regexStore: RegexStore = RegexStore(),
+        presetStore: PresetStore = PresetStore()
+    ) {
         _model = StateObject(wrappedValue: model)
         _regexStore = StateObject(wrappedValue: regexStore)
+        _presetStore = StateObject(wrappedValue: presetStore)
+    }
+
+    private var transformHotkeyString: String? {
+        let kc = UserDefaults.standard.integer(forKey: "transformHotkeyKeyCode")
+        let mods = UInt32(UserDefaults.standard.integer(forKey: "transformHotkeyModifiers"))
+        guard kc != 0 else { return nil }
+        return KeyboardShortcutFormatter.string(for: kc, modifiers: NSEvent.ModifierFlags(rawValue: UInt(mods)))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let shortcut = transformHotkeyString {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.blue)
+                    Text("Transform paste enabled (\(shortcut)). Clipboard keeps original text.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.08)))
+                .padding(.bottom, 8)
+            }
+
             rulesList
 
             Divider()
@@ -173,6 +200,14 @@ struct RulesSettingsView: View {
             }
 
             HStack(spacing: 8) {
+                Text("Preset:")
+                    .frame(width: 100, alignment: .trailing)
+                    .font(.system(size: 12))
+                presetPicker
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
                 Text("Transforms:")
                     .frame(width: 100, alignment: .trailing)
                     .font(.system(size: 12))
@@ -218,6 +253,21 @@ struct RulesSettingsView: View {
             icon?.size = NSSize(width: 16, height: 16)
             return (bundleId, app.localizedName ?? bundleId, icon)
         }
+    }
+
+    private var presetPicker: some View {
+        Picker("", selection: Binding(
+            get: { model.selectedRule?.presetId ?? "" },
+            set: { val in model.updateRule { $0.presetId = val } }
+        )) {
+            Text("None").tag("")
+            Divider()
+            ForEach(presetStore.presets.filter { !$0.transformTypes.isEmpty }) { preset in
+                Text(preset.name).tag(preset.id.uuidString)
+            }
+        }
+        .labelsHidden()
+        .frame(maxWidth: 200)
     }
 
     private var transformsList: some View {
@@ -370,7 +420,7 @@ struct RulesSettingsView: View {
         }
         var testRule = rule
         testRule.appBundleId = nil
-        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [testRule]))
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [testRule]), presetStore: presetStore)
         testOutput = engine.apply(to: testInput).text
     }
 

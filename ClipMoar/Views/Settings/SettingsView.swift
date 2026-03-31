@@ -4,6 +4,7 @@ struct SettingsView: View {
     @State private var selectedTab = "general"
     let settings: SettingsStore
     let hotkeyRecorder: HotkeyRecorder
+    var transformHotkeyRecorder: HotkeyRecorder?
     var onVisibilityChange: (() -> Void)?
     var onEditLook: (() -> Void)?
     var updateService: UpdateService?
@@ -12,6 +13,7 @@ struct SettingsView: View {
     init(
         settings: SettingsStore,
         hotkeyRecorder: HotkeyRecorder,
+        transformHotkeyRecorder: HotkeyRecorder? = nil,
         onVisibilityChange: (() -> Void)? = nil,
         onEditLook: (() -> Void)? = nil,
         updateService: UpdateService? = nil,
@@ -20,6 +22,7 @@ struct SettingsView: View {
     ) {
         self.settings = settings
         self.hotkeyRecorder = hotkeyRecorder
+        self.transformHotkeyRecorder = transformHotkeyRecorder
         self.onVisibilityChange = onVisibilityChange
         self.onEditLook = onEditLook
         self.updateService = updateService
@@ -45,6 +48,8 @@ struct SettingsView: View {
                     .tag("rules")
                 Label("Transforms", systemImage: "wand.and.rays")
                     .tag("transforms")
+                Label("Presets", systemImage: "tray.2")
+                    .tag("presets")
                 Label("Regex", systemImage: "number.circle")
                     .tag("regex")
                 Label("Images", systemImage: "photo")
@@ -72,13 +77,15 @@ struct SettingsView: View {
                 case "general":
                     GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 case "hotkeys":
-                    HotkeySettingsView(recorder: hotkeyRecorder)
+                    HotkeySettingsView(recorder: hotkeyRecorder, transformRecorder: transformHotkeyRecorder)
                 case "rules":
                     RulesSettingsView()
                 case "lookfeel":
                     GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 case "transforms":
                     TransformsSettingsView()
+                case "presets":
+                    PresetSettingsView()
                 case "regex":
                     RegexSettingsView()
                 case "images":

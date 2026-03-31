@@ -243,6 +243,8 @@ private final class TestUpdateSettings: SettingsStore {
     var maxHistorySize = 500
     var hotkeyKeyCode = 0
     var hotkeyModifiers: UInt32 = 0
+    var transformHotkeyKeyCode = 0
+    var transformHotkeyModifiers: UInt32 = 0
     var storeText = true
     var storeImages = true
     var textRetentionHours = 0

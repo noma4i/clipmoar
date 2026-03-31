@@ -200,4 +200,140 @@ final class ClipboardRuleEngineTests: XCTestCase {
         let result = engine.apply(to: "  hello  ", sourceAppBundleId: "com.googlecode.iterm2")
         XCTAssertEqual(result.text, "hello")
     }
+
+    // MARK: - Smart Join Lines
+
+    func testSmartJoinPlainLines() {
+        let input = "This is a long\nparagraph that was\nwrapped."
+        let expected = "This is a long paragraph that was wrapped."
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesBlankLineSeparators() {
+        let input = "First paragraph\nstill first.\n\nSecond paragraph\nstill second."
+        let expected = "First paragraph still first.\n\nSecond paragraph still second."
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesBulletList() {
+        let input = "Some text\n- item one\n- item two\n- item three"
+        let expected = "Some text\n- item one\n- item two\n- item three"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesNumberedList() {
+        let input = "Header:\n1. first\n2. second\n3. third"
+        let expected = "Header:\n1. first\n2. second\n3. third"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesCodeFence() {
+        let input = "Text before\n```\nlet x = 1\n```\nText after"
+        let expected = "Text before\n```\nlet x = 1\n```\nText after"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesIndentedCode() {
+        let input = "Description:\n    let x = 1\n    let y = 2"
+        let expected = "Description:\n    let x = 1\n    let y = 2"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesTable() {
+        let input = "Table:\n| A | B |\n| 1 | 2 |"
+        let expected = "Table:\n| A | B |\n| 1 | 2 |"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesHeadings() {
+        let input = "# Heading\nSome text\nthat wraps."
+        let expected = "# Heading\nSome text that wraps."
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesBlockquotes() {
+        let input = "> quote line\nText after\nwrapped."
+        let expected = "> quote line\nText after wrapped."
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinTerminalOutputSmallIndent() {
+        let input = "  Понял - пресет должен быть привязан к\n  правилу как ссылка (выбирается через\n  Picker), а"
+        let expected = "Понял - пресет должен быть привязан к правилу как ссылка (выбирается через Picker), а"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
+
+    func testSmartJoinPreservesDeepIndentedLines() {
+        let input = "    line one\n    line two\n    line three"
+        XCTAssertEqual(apply(.smartJoinLines, to: input), input)
+    }
+
+    // MARK: - Preset integration
+
+    func testRuleWithPresetAppliesPresetTransforms() throws {
+        let suite = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let presetStore = PresetStore(defaults: defaults)
+        let preset = try XCTUnwrap(presetStore.presets.first { $0.name == "Claude Code" })
+
+        var rule = ClipboardRule(name: "Test", presetId: preset.id.uuidString)
+        rule.transforms = []
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]), presetStore: presetStore)
+        let input = "  hello  \n\n\n\nworld  "
+        let result = engine.apply(to: input)
+        XCTAssertNotEqual(result.text, input, "Preset transforms must modify text")
+    }
+
+    func testRuleWithPresetAndAppBundleAppliesWhenMatching() throws {
+        let suite = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let presetStore = PresetStore(defaults: defaults)
+        let preset = try XCTUnwrap(presetStore.presets.first { $0.name == "Claude Code" })
+
+        var rule = ClipboardRule(name: "iTerm", appBundleId: "com.googlecode.iterm2", presetId: preset.id.uuidString)
+        rule.transforms = []
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]), presetStore: presetStore)
+
+        let input = "  hello  \n\n\n\nworld  "
+        let withApp = engine.apply(to: input, sourceAppBundleId: "com.googlecode.iterm2")
+        XCTAssertNotEqual(withApp.text, input, "Must apply when bundleId matches")
+
+        let withoutApp = engine.apply(to: input, sourceAppBundleId: nil)
+        XCTAssertEqual(withoutApp.text, input, "Must skip when bundleId is nil")
+
+        let wrongApp = engine.apply(to: input, sourceAppBundleId: "com.apple.Safari")
+        XCTAssertEqual(wrongApp.text, input, "Must skip when bundleId doesn't match")
+    }
+
+    func testRuleWithoutPresetAppliesOnlyTransforms() {
+        let rule = ClipboardRule(name: "Test", transforms: [ClipboardTransform(type: .trimWhitespace)])
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]))
+        XCTAssertEqual(engine.apply(to: "  hello  ").text, "hello")
+    }
+
+    func testPresetStoreReloadsOnApply() throws {
+        let suite = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let presetStore = PresetStore(defaults: defaults)
+        let preset = try XCTUnwrap(presetStore.presets.first { $0.name == "Claude Code" })
+
+        var rule = ClipboardRule(name: "Test", presetId: preset.id.uuidString)
+        rule.transforms = []
+        let engine = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]), presetStore: presetStore)
+
+        let idx = try XCTUnwrap(presetStore.presets.firstIndex(where: { $0.id == preset.id }))
+        presetStore.presets[idx].transformTypes = [.base64Encode]
+        presetStore.save()
+
+        let staleStore = PresetStore(defaults: defaults)
+        let engine2 = ClipboardRuleEngine(store: InMemoryRuleStore(rules: [rule]), presetStore: staleStore)
+        let result = engine2.apply(to: "hello")
+        XCTAssertEqual(result.text, "aGVsbG8=", "apply() must reload presets and see base64Encode")
+    }
+
+    func testSmartJoinPreservesCodeLines() {
+        let input = "Text that wraps\nacross lines.\n    func foo() {\n    }\nMore text\nthat wraps."
+        let expected = "Text that wraps across lines.\n    func foo() {\n    }\nMore text that wraps."
+        XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
+    }
 }

@@ -76,4 +76,67 @@ extension ClipboardRuleEngine {
         if !current.isEmpty { result.append(current) }
         return result.joined(separator: "\n")
     }
+
+    private func isStructuralLine(_ trimmed: String) -> Bool {
+        if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") { return true }
+        if trimmed.range(of: #"^\d+[\.\)]\s"#, options: .regularExpression) != nil { return true }
+        if trimmed.hasPrefix("```") { return true }
+        if trimmed.hasPrefix("|") && trimmed.hasSuffix("|") { return true }
+        if trimmed.hasPrefix("#") { return true }
+        if trimmed.hasPrefix(">") { return true }
+        return false
+    }
+
+    private func lineIndent(_ line: String) -> Int {
+        var count = 0
+        for ch in line {
+            if ch == " " { count += 1 }
+            else if ch == "\t" { count += 4 }
+            else { break }
+        }
+        return count
+    }
+
+    func smartJoinLines(_ text: String) -> String {
+        let lines = text.components(separatedBy: "\n")
+        var result: [String] = []
+        var current = ""
+        var currentIndent = 0
+        var inCodeFence = false
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let indent = lineIndent(line)
+
+            if trimmed.hasPrefix("```") {
+                if !current.isEmpty { result.append(current); current = "" }
+                result.append(line)
+                inCodeFence.toggle()
+                continue
+            }
+
+            if inCodeFence {
+                result.append(line)
+                continue
+            }
+
+            if trimmed.isEmpty {
+                if !current.isEmpty { result.append(current); current = "" }
+                result.append("")
+            } else if isStructuralLine(trimmed) {
+                if !current.isEmpty { result.append(current); current = "" }
+                result.append(line)
+            } else if indent >= 4 || line.hasPrefix("\t") {
+                if !current.isEmpty { result.append(current); current = "" }
+                result.append(line)
+            } else if current.isEmpty {
+                current = trimmed
+                currentIndent = indent
+            } else {
+                current = current + " " + trimmed
+            }
+        }
+        if !current.isEmpty { result.append(current) }
+        return result.joined(separator: "\n")
+    }
 }

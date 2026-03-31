@@ -63,9 +63,12 @@ final class HotkeySettingsModel: ObservableObject {
 
 struct HotkeySettingsView: View {
     @StateObject private var model: HotkeySettingsModel
+    @StateObject private var transformModel: HotkeySettingsModel
 
-    init(recorder: HotkeyRecorder) {
+    init(recorder: HotkeyRecorder, transformRecorder: HotkeyRecorder? = nil) {
         _model = StateObject(wrappedValue: HotkeySettingsModel(recorder: recorder))
+        let tr = transformRecorder ?? recorder
+        _transformModel = StateObject(wrappedValue: HotkeySettingsModel(recorder: tr))
     }
 
     var body: some View {
@@ -76,6 +79,36 @@ struct HotkeySettingsView: View {
             Text("Global shortcut to show clipboard:")
                 .font(.system(size: 13))
 
+            hotkeyRow(model: model)
+
+            Divider()
+                .padding(.vertical, 4)
+
+            Text("Global shortcut to paste transformed:")
+                .font(.system(size: 13))
+
+            Text("Applies transform rules and pastes the result. Clipboard keeps the original text.")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+
+            hotkeyRow(model: transformModel)
+
+            Divider()
+                .padding(.vertical, 4)
+
+            Text("Panel shortcuts")
+                .font(.system(size: 14, weight: .semibold))
+
+            shortcutsTable
+
+            Spacer()
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func hotkeyRow(model: HotkeySettingsModel) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 TextField("", text: .constant(model.shortcutString))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
@@ -98,19 +131,7 @@ struct HotkeySettingsView: View {
                     .font(.system(size: 11))
                     .foregroundColor(model.statusColor)
             }
-
-            Divider()
-                .padding(.vertical, 4)
-
-            Text("Panel shortcuts")
-                .font(.system(size: 14, weight: .semibold))
-
-            shortcutsTable
-
-            Spacer()
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var shortcutsTable: some View {

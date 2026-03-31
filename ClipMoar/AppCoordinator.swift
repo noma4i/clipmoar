@@ -3,11 +3,14 @@ import CoreData
 
 final class AppCoordinator {
     private let settings: SettingsStore
+    private let presetStore = PresetStore()
     private let context: NSManagedObjectContext
     private let repository: ClipboardRepository
     private let clipboardActions: ClipboardActionServicing
     private let clipboardService: ClipboardService
     private let hotkeyService: HotkeyServiceProtocol
+    private let transformHotkeyService: HotkeyServiceProtocol
+    private let ruleEngine: ClipboardRuleEngine
     private let updateService: UpdateService
     private let statsService: StatsService
     private let secureInputDetector = SecureInputDetector()
@@ -24,6 +27,16 @@ final class AppCoordinator {
         onResume: { [weak self] in self?.hotkeyService.resume() },
         onHotkeyChange: { [weak self] in self?.reregisterHotkey() }
     )
+    private lazy var transformHotkeyRecorder = HotkeyRecorder(
+        settings: settings,
+        onSuspend: { [weak self] in self?.transformHotkeyService.suspend() },
+        onResume: { [weak self] in self?.transformHotkeyService.resume() },
+        onHotkeyChange: { [weak self] in self?.setupTransformHotkey() },
+        keyCode: { $0.transformHotkeyKeyCode },
+        setKeyCode: { $0.transformHotkeyKeyCode = $1 },
+        modifiers: { $0.transformHotkeyModifiers },
+        setModifiers: { $0.transformHotkeyModifiers = $1 }
+    )
     private lazy var lookEditorController = LookEditorController(
         settings: settings,
         repository: repository,
@@ -34,6 +47,7 @@ final class AppCoordinator {
         settings: settings,
         onVisibilityChange: { [weak self] in self?.applyVisibilitySettings() },
         hotkeyRecorder: hotkeyRecorder,
+        transformHotkeyRecorder: transformHotkeyRecorder,
         onEditLook: { [weak self] in self?.enterLookEditor() },
         updateService: updateService,
         statsService: statsService
@@ -48,8 +62,15 @@ final class AppCoordinator {
         self.context = context
         repository = CoreDataClipboardRepository(context: context)
         clipboardActions = ClipboardActionService()
-        clipboardService = ClipboardService(repository: repository, settings: settings)
+        let ruleEngine = ClipboardRuleEngine(presetStore: presetStore)
+        self.ruleEngine = ruleEngine
+        clipboardService = ClipboardService(repository: repository, settings: settings, ruleEngine: ruleEngine)
         hotkeyService = HotkeyService(settings: settings)
+        transformHotkeyService = HotkeyService(
+            settings: settings,
+            keyCode: { $0.transformHotkeyKeyCode },
+            modifiers: { $0.transformHotkeyModifiers }
+        )
         updateService = UpdateService(settings: settings)
         statsService = StatsService(context: context)
     }
@@ -57,6 +78,7 @@ final class AppCoordinator {
     func start() {
         setupStatusItem()
         setupHotkey()
+        setupTransformHotkey()
         setupKeyboardShortcuts()
         setupSecureInputDetector()
         applyVisibilitySettings()
@@ -71,6 +93,7 @@ final class AppCoordinator {
     func stop() {
         clipboardService.stopMonitoring()
         hotkeyService.unregister()
+        transformHotkeyService.unregister()
         secureInputDetector.stopMonitoring()
     }
 
@@ -160,6 +183,7 @@ final class AppCoordinator {
             ("Hotkeys", "hotkeys", "", "keyboard"),
             ("Rules", "rules", "", "wand.and.stars"),
             ("Transforms", "transforms", "", "wand.and.rays"),
+            ("Presets", "presets", "", "tray.2"),
             ("Regex", "regex", "", "number.circle"),
             ("Images", "images", "", "photo"),
             ("Ignore Apps", "ignore", "", "nosign"),
@@ -208,6 +232,59 @@ final class AppCoordinator {
     private func setupHotkey() {
         hotkeyService.register { [weak self] in
             self?.toggleFloatingPanel()
+        }
+    }
+
+    private func setupTransformHotkey() {
+        if settings.transformHotkeyKeyCode == 0 {
+            transformHotkeyService.unregister()
+            return
+        }
+        transformHotkeyService.register { [weak self] in
+            self?.pasteTransformed()
+        }
+    }
+
+    private func pasteTransformed() {
+        let pasteboard = NSPasteboard.general
+        guard let text = pasteboard.string(forType: .string), !text.isEmpty else { return }
+        let targetApp = NSWorkspace.shared.frontmostApplication
+        let sourceApp = clipboardService.lastSourceAppBundleId ?? targetApp?.bundleIdentifier
+        let result = ruleEngine.apply(to: text, sourceAppBundleId: sourceApp)
+        let transformed = result.text != text
+
+        NSLog("[ClipMoar] pasteTransformed: source=%@ target=%@ transformed=%d rules=%@",
+              sourceApp ?? "nil", targetApp?.bundleIdentifier ?? "nil",
+              transformed ? 1 : 0, result.appliedRules.joined(separator: ", "))
+
+        if transformed {
+            pasteboard.clearContents()
+            pasteboard.setString(result.text, forType: .string)
+            pasteboard.setData(Data(), forType: ClipboardActionService.markerType)
+        }
+
+        sendPasteEvent(to: targetApp)
+
+        if transformed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                pasteboard.clearContents()
+                pasteboard.setString(text, forType: .string)
+                pasteboard.setData(Data(), forType: ClipboardActionService.markerType)
+            }
+        }
+    }
+
+    private func sendPasteEvent(to app: NSRunningApplication?) {
+        app?.activate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard let source = CGEventSource(stateID: .hidSystemState),
+                  let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+                  let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
+            else { return }
+            keyDown.flags = .maskCommand
+            keyUp.flags = .maskCommand
+            keyDown.post(tap: .cghidEventTap)
+            keyUp.post(tap: .cghidEventTap)
         }
     }
 
