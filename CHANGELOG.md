@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0] - 2026-03-31
+
+### Added
+- Transform presets system with 5 built-in presets (Clean Terminal Output, Claude Code, Clean URL, Code Snippet, Plain Text Cleanup)
+- Presets settings tab for managing transform presets
+- Preset picker in Rules - assign a preset to a rule instead of adding transforms manually
+- Smart join lines transform - joins soft-wrapped text while preserving code blocks, lists, tables, and headings
+- Global hotkey for paste transformed text - applies transform rules and pastes the result while keeping original in clipboard
+- Transform paste info banner in Rules settings when hotkey is enabled
+
+### Changed
+- Rules now support preset reference (preset transforms run before rule transforms)
+- Hotkey system supports multiple independent global hotkeys via shared Carbon registry
+
 ## [1.3.2] - 2026-03-30
 
 ### Fixed
