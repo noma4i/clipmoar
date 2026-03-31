@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.0] - 2026-03-31
+
+### Added
+- Transform overlay (Alt+Tab style) - hold modifier keys to browse presets with live preview, release to paste
+- Tap vs Hold gesture for transform hotkey - quick tap does instant paste, holding shows preset overlay
+- 18 new transforms inspired by Boop: UPPERCASE, lowercase, camelCase to snake_case, snake_case to camelCase, kebab-case, Reverse lines, Markdown quote, Count stats, Number lines, HTML encode/decode, Add/Remove slashes, MD5 hash, SHA256 hash, JSON to query string, Query string to JSON, ROT13
+- Quick presets - mark presets for use in the transform overlay
+- Custom icons for presets (16 SF Symbols to choose from)
+- Drag to reorder presets
+- Apply Preset button in Rules - adds all preset transforms to a rule in one click
+- Auto-paste on return setting - toggle whether Return in panel pastes or just copies
+- Move to top on use setting - used items move to the top of clipboard history
+- Configurable transform timing: hold delay, paste delay, restore delay (ms inputs with steppers)
+- Scrollable hotkey settings page for better layout
+
+### Changed
+- Transform list in playground is now scrollable
+- Preset overlay shows floating hint pill with shortcut and instructions
+- If no quick presets exist, overlay is skipped entirely (instant paste only)
+
 ## [1.4.0] - 2026-03-31
 
 ### Added
