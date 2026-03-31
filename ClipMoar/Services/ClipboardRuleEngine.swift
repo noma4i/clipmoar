@@ -201,6 +201,60 @@ final class ClipboardRuleEngine {
 
         case .smartJoinLines:
             return smartJoinLines(text)
+
+        case .uppercaseText:
+            return text.uppercased()
+
+        case .lowercaseText:
+            return text.lowercased()
+
+        case .camelToSnake:
+            return camelToSnake(text)
+
+        case .snakeToCamel:
+            return snakeToCamel(text)
+
+        case .kebabCase:
+            return toKebabCase(text)
+
+        case .reverseLines:
+            return reverseLines(text)
+
+        case .markdownQuote:
+            return markdownQuote(text)
+
+        case .countStats:
+            return countStats(text)
+
+        case .htmlEncode:
+            return htmlEncode(text)
+
+        case .htmlDecode:
+            return htmlDecode(text)
+
+        case .addSlashes:
+            return addSlashes(text)
+
+        case .removeSlashes:
+            return removeSlashes(text)
+
+        case .md5Hash:
+            return md5Hash(text)
+
+        case .sha256Hash:
+            return sha256Hash(text)
+
+        case .jsonToQueryString:
+            return jsonToQueryString(text)
+
+        case .queryStringToJson:
+            return queryStringToJson(text)
+
+        case .rot13:
+            return rot13(text)
+
+        case .numberLines:
+            return numberLines(text)
         }
     }
 }

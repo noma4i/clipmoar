@@ -86,7 +86,7 @@ final class FloatingClipboardViewController: NSViewController,
         isPreviewRenderer: Bool = false
     ) {
         self.settings = settings
-        stateController = FloatingPanelStateController(repository: repository, actionService: actionService)
+        stateController = FloatingPanelStateController(repository: repository, actionService: actionService, settings: settings)
         currentConfiguration = settings.panelConfiguration()
         self.isPreviewRenderer = isPreviewRenderer
         super.init(nibName: nil, bundle: nil)

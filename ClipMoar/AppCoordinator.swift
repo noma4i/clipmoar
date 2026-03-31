@@ -14,6 +14,29 @@ final class AppCoordinator {
     private let updateService: UpdateService
     private let statsService: StatsService
     private let secureInputDetector = SecureInputDetector()
+    private lazy var transformOverlay = TransformOverlayController(
+        ruleEngine: ruleEngine,
+        settings: settings,
+        clipboardService: clipboardService,
+        presetStore: presetStore
+    )
+    private lazy var transformGesture: TransformGestureController = .init(
+        overlay: transformOverlay,
+        onInstantPaste: { [weak self] in self?.instantPasteTransformed() },
+        readModifiers: { [weak self] in
+            guard let self else { return [] }
+            return NSEvent.ModifierFlags(rawValue: UInt(self.settings.transformHotkeyModifiers))
+                .intersection([.command, .option, .control, .shift])
+        },
+        readHoldDelay: { [weak self] in
+            TimeInterval(self?.settings.transformHoldDelay ?? 500) / 1000.0
+        },
+        hasQuickPresets: { [weak self] in
+            guard let self else { return false }
+            self.presetStore.load()
+            return self.presetStore.presets.contains { $0.isQuick && !$0.transformTypes.isEmpty }
+        }
+    )
 
     private var statusItem: NSStatusItem?
     private lazy var floatingPanelController = FloatingPanelController(
@@ -246,6 +269,10 @@ final class AppCoordinator {
     }
 
     private func pasteTransformed() {
+        transformGesture.handleHotkeyPress()
+    }
+
+    private func instantPasteTransformed() {
         let pasteboard = NSPasteboard.general
         guard let text = pasteboard.string(forType: .string), !text.isEmpty else { return }
         let targetApp = NSWorkspace.shared.frontmostApplication
@@ -253,20 +280,18 @@ final class AppCoordinator {
         let result = ruleEngine.apply(to: text, sourceAppBundleId: sourceApp)
         let transformed = result.text != text
 
-        NSLog("[ClipMoar] pasteTransformed: source=%@ target=%@ transformed=%d rules=%@",
-              sourceApp ?? "nil", targetApp?.bundleIdentifier ?? "nil",
-              transformed ? 1 : 0, result.appliedRules.joined(separator: ", "))
-
         if transformed {
             pasteboard.clearContents()
             pasteboard.setString(result.text, forType: .string)
             pasteboard.setData(Data(), forType: ClipboardActionService.markerType)
         }
 
-        sendPasteEvent(to: targetApp)
+        let pasteDelay = TimeInterval(settings.transformPasteDelay) / 1000.0
+        let restoreDelay = TimeInterval(settings.transformRestoreDelay) / 1000.0
+        sendPasteEvent(to: targetApp, delay: pasteDelay)
 
         if transformed {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + restoreDelay) {
                 pasteboard.clearContents()
                 pasteboard.setString(text, forType: .string)
                 pasteboard.setData(Data(), forType: ClipboardActionService.markerType)
@@ -274,9 +299,9 @@ final class AppCoordinator {
         }
     }
 
-    private func sendPasteEvent(to app: NSRunningApplication?) {
+    private func sendPasteEvent(to app: NSRunningApplication?, delay: TimeInterval = 0.2) {
         app?.activate()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             guard let source = CGEventSource(stateID: .hidSystemState),
                   let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)

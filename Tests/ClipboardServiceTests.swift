@@ -121,6 +121,7 @@ final class MockRepository: ClipboardRepository {
     var insertedTexts: [(text: String, fingerprint: String, uuid: UUID)] = []
     var insertedImages: [(dataCount: Int, fingerprint: String, uuid: UUID)] = []
     var insertedFiles: [(paths: String, fingerprint: String, uuid: UUID)] = []
+    var movedToTopUUIDs: [UUID] = []
     var removedUUIDs: [UUID] = []
     var fingerprints: Set<String> = []
     var trimHistoryCalls = 0
@@ -148,6 +149,10 @@ final class MockRepository: ClipboardRepository {
         insertedFiles.append((paths, fingerprint, id))
         fingerprints.insert(fingerprint)
         return id
+    }
+
+    func moveToTop(uuid: UUID) {
+        movedToTopUUIDs.append(uuid)
     }
 
     func removeItem(uuid: UUID) {
@@ -184,6 +189,11 @@ final class MockSettings: SettingsStore {
     var hotkeyModifiers: UInt32 = 0
     var transformHotkeyKeyCode = 0
     var transformHotkeyModifiers: UInt32 = 0
+    var transformHoldDelay = 500
+    var transformPasteDelay = 200
+    var transformRestoreDelay = 500
+    var autoPasteOnReturn = true
+    var moveToTopOnUse = true
     var storeText = true
     var storeImages = true
     var textRetentionHours: Int = 0

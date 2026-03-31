@@ -9,6 +9,11 @@ protocol SettingsStore: AnyObject {
     var hotkeyModifiers: UInt32 { get set }
     var transformHotkeyKeyCode: Int { get set }
     var transformHotkeyModifiers: UInt32 { get set }
+    var transformHoldDelay: Int { get set }
+    var transformPasteDelay: Int { get set }
+    var transformRestoreDelay: Int { get set }
+    var autoPasteOnReturn: Bool { get set }
+    var moveToTopOnUse: Bool { get set }
     var storeText: Bool { get set }
     var storeImages: Bool { get set }
     var textRetentionHours: Int { get set }
@@ -126,6 +131,11 @@ enum Settings {
     static let hotkeyModifiers = "hotkeyModifiers"
     static let transformHotkeyKeyCode = "transformHotkeyKeyCode"
     static let transformHotkeyModifiers = "transformHotkeyModifiers"
+    static let transformHoldDelay = "transformHoldDelay"
+    static let transformPasteDelay = "transformPasteDelay"
+    static let transformRestoreDelay = "transformRestoreDelay"
+    static let autoPasteOnReturn = "autoPasteOnReturn"
+    static let moveToTopOnUse = "moveToTopOnUse"
     static let storeText = "storeText"
     static let storeImages = "storeImages"
     static let textRetentionHours = "textRetentionHours"
@@ -335,6 +345,31 @@ final class UserDefaultsSettingsStore: SettingsStore {
     var transformHotkeyModifiers: UInt32 {
         get { UInt32(defaults.integer(forKey: Settings.transformHotkeyModifiers)) }
         set { defaults.set(Int(newValue), forKey: Settings.transformHotkeyModifiers) }
+    }
+
+    var transformHoldDelay: Int {
+        get { max(100, defaults.integer(forKey: Settings.transformHoldDelay)) }
+        set { defaults.set(newValue, forKey: Settings.transformHoldDelay) }
+    }
+
+    var transformPasteDelay: Int {
+        get { max(50, defaults.integer(forKey: Settings.transformPasteDelay)) }
+        set { defaults.set(newValue, forKey: Settings.transformPasteDelay) }
+    }
+
+    var transformRestoreDelay: Int {
+        get { max(100, defaults.integer(forKey: Settings.transformRestoreDelay)) }
+        set { defaults.set(newValue, forKey: Settings.transformRestoreDelay) }
+    }
+
+    var autoPasteOnReturn: Bool {
+        get { defaults.bool(forKey: Settings.autoPasteOnReturn) }
+        set { defaults.set(newValue, forKey: Settings.autoPasteOnReturn) }
+    }
+
+    var moveToTopOnUse: Bool {
+        get { defaults.bool(forKey: Settings.moveToTopOnUse) }
+        set { defaults.set(newValue, forKey: Settings.moveToTopOnUse) }
     }
 
     var storeText: Bool {
@@ -668,6 +703,11 @@ final class UserDefaultsSettingsStore: SettingsStore {
             Settings.imageMaxWidth: 0,
             Settings.imageMaxHeight: 0,
             Settings.imageQuality: 80,
+            Settings.transformHoldDelay: 500,
+            Settings.transformPasteDelay: 200,
+            Settings.transformRestoreDelay: 500,
+            Settings.autoPasteOnReturn: true,
+            Settings.moveToTopOnUse: true,
             Settings.autoCheckUpdates: true,
         ])
 

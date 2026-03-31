@@ -336,4 +336,85 @@ final class ClipboardRuleEngineTests: XCTestCase {
         let expected = "Text that wraps across lines.\n    func foo() {\n    }\nMore text that wraps."
         XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
     }
+
+    // MARK: - New transforms
+
+    func testUppercase() {
+        XCTAssertEqual(apply(.uppercaseText, to: "Hello World"), "HELLO WORLD")
+    }
+
+    func testLowercase() {
+        XCTAssertEqual(apply(.lowercaseText, to: "Hello World"), "hello world")
+    }
+
+    func testCamelToSnake() {
+        XCTAssertEqual(apply(.camelToSnake, to: "myVariableName"), "my_variable_name")
+    }
+
+    func testSnakeToCamel() {
+        XCTAssertEqual(apply(.snakeToCamel, to: "my_variable_name"), "myVariableName")
+    }
+
+    func testKebabCase() {
+        XCTAssertEqual(apply(.kebabCase, to: "myVariableName"), "my-variable-name")
+    }
+
+    func testReverseLines() {
+        XCTAssertEqual(apply(.reverseLines, to: "a\nb\nc"), "c\nb\na")
+    }
+
+    func testMarkdownQuote() {
+        XCTAssertEqual(apply(.markdownQuote, to: "Hello\nWorld"), "> Hello\n> World")
+    }
+
+    func testCountStats() {
+        let result = apply(.countStats, to: "Hello World")
+        XCTAssertTrue(result.contains("Characters: 11"))
+        XCTAssertTrue(result.contains("Words: 2"))
+        XCTAssertTrue(result.contains("Lines: 1"))
+    }
+
+    func testHtmlEncode() {
+        XCTAssertEqual(apply(.htmlEncode, to: "<div>"), "&lt;div&gt;")
+    }
+
+    func testHtmlDecode() {
+        XCTAssertEqual(apply(.htmlDecode, to: "&lt;div&gt;"), "<div>")
+    }
+
+    func testAddSlashes() {
+        XCTAssertTrue(apply(.addSlashes, to: "He said \"hi\"").contains("\\\""))
+    }
+
+    func testRemoveSlashes() {
+        XCTAssertEqual(apply(.removeSlashes, to: "He said \\\"hi\\\""), "He said \"hi\"")
+    }
+
+    func testMd5Hash() {
+        XCTAssertEqual(apply(.md5Hash, to: "hello"), "5d41402abc4b2a76b9719d911017c592")
+    }
+
+    func testSha256Hash() {
+        XCTAssertEqual(apply(.sha256Hash, to: "hello"), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+    }
+
+    func testJsonToQueryString() {
+        let result = apply(.jsonToQueryString, to: "{\"a\":\"1\",\"b\":\"2\"}")
+        XCTAssertEqual(result, "a=1&b=2")
+    }
+
+    func testQueryStringToJson() {
+        let result = apply(.queryStringToJson, to: "a=1&b=2")
+        XCTAssertTrue(result.contains("\"a\""))
+        XCTAssertTrue(result.contains("\"b\""))
+    }
+
+    func testRot13() {
+        XCTAssertEqual(apply(.rot13, to: "Hello"), "Uryyb")
+        XCTAssertEqual(apply(.rot13, to: "Uryyb"), "Hello")
+    }
+
+    func testNumberLines() {
+        XCTAssertEqual(apply(.numberLines, to: "a\nb\nc"), "1. a\n2. b\n3. c")
+    }
 }

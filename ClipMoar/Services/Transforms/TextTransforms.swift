@@ -139,4 +139,51 @@ extension ClipboardRuleEngine {
         if !current.isEmpty { result.append(current) }
         return result.joined(separator: "\n")
     }
+
+    func camelToSnake(_ text: String) -> String {
+        var result = ""
+        for (i, ch) in text.enumerated() {
+            if ch.isUppercase {
+                if i > 0 { result.append("_") }
+                result.append(ch.lowercased())
+            } else {
+                result.append(ch)
+            }
+        }
+        return result
+    }
+
+    func snakeToCamel(_ text: String) -> String {
+        let parts = text.components(separatedBy: "_")
+        guard let first = parts.first else { return text }
+        return first + parts.dropFirst().map(\.capitalized).joined()
+    }
+
+    func toKebabCase(_ text: String) -> String {
+        let snake = camelToSnake(text)
+        return snake.replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+            .lowercased()
+    }
+
+    func reverseLines(_ text: String) -> String {
+        text.components(separatedBy: "\n").reversed().joined(separator: "\n")
+    }
+
+    func markdownQuote(_ text: String) -> String {
+        text.components(separatedBy: "\n").map { "> \($0)" }.joined(separator: "\n")
+    }
+
+    func countStats(_ text: String) -> String {
+        let chars = text.count
+        let words = text.split { $0.isWhitespace || $0.isNewline }.count
+        let lines = text.components(separatedBy: "\n").count
+        return "Characters: \(chars)\nWords: \(words)\nLines: \(lines)"
+    }
+
+    func numberLines(_ text: String) -> String {
+        text.components(separatedBy: "\n").enumerated()
+            .map { "\($0.offset + 1). \($0.element)" }
+            .joined(separator: "\n")
+    }
 }

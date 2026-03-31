@@ -245,6 +245,11 @@ private final class TestUpdateSettings: SettingsStore {
     var hotkeyModifiers: UInt32 = 0
     var transformHotkeyKeyCode = 0
     var transformHotkeyModifiers: UInt32 = 0
+    var transformHoldDelay = 500
+    var transformPasteDelay = 200
+    var transformRestoreDelay = 500
+    var autoPasteOnReturn = true
+    var moveToTopOnUse = true
     var storeText = true
     var storeImages = true
     var textRetentionHours = 0

@@ -40,6 +40,8 @@ struct GeneralSettingsView: View {
     @State private var largeTypeEnabled: Bool
     @State private var launchAtLogin: Bool = false
     @State private var stats: StorageStats = .init()
+    @State private var autoPaste: Bool
+    @State private var moveToTop: Bool
 
     init(
         settings: SettingsStore,
@@ -62,6 +64,8 @@ struct GeneralSettingsView: View {
         _positionY = State(initialValue: settings.panelPositionY)
         _screenMode = State(initialValue: settings.panelScreenMode)
         _largeTypeEnabled = State(initialValue: settings.largeTypeEnabled)
+        _autoPaste = State(initialValue: settings.autoPasteOnReturn)
+        _moveToTop = State(initialValue: settings.moveToTopOnUse)
     }
 
     var body: some View {
@@ -180,6 +184,24 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Divider().padding(.vertical, 8)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 16) {
+                    Text("Pasting:").font(.system(size: 13, weight: .semibold))
+                    Toggle("Auto-paste on return", isOn: $autoPaste)
+                        .onChange(of: autoPaste) { settings.autoPasteOnReturn = autoPaste }
+                    Toggle("Move items to top of clipboard history when used", isOn: $moveToTop)
+                        .onChange(of: moveToTop) { settings.moveToTopOnUse = moveToTop }
+                }
+                .font(.system(size: 12))
+
+                Text("Automatically paste selected item to the currently active application.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 60)
             }
 
             Spacer()

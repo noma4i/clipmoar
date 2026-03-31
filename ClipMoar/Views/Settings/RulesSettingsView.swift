@@ -200,14 +200,6 @@ struct RulesSettingsView: View {
             }
 
             HStack(spacing: 8) {
-                Text("Preset:")
-                    .frame(width: 100, alignment: .trailing)
-                    .font(.system(size: 12))
-                presetPicker
-                Spacer()
-            }
-
-            HStack(spacing: 8) {
                 Text("Transforms:")
                     .frame(width: 100, alignment: .trailing)
                     .font(.system(size: 12))
@@ -255,21 +247,6 @@ struct RulesSettingsView: View {
         }
     }
 
-    private var presetPicker: some View {
-        Picker("", selection: Binding(
-            get: { model.selectedRule?.presetId ?? "" },
-            set: { val in model.updateRule { $0.presetId = val } }
-        )) {
-            Text("None").tag("")
-            Divider()
-            ForEach(presetStore.presets.filter { !$0.transformTypes.isEmpty }) { preset in
-                Text(preset.name).tag(preset.id.uuidString)
-            }
-        }
-        .labelsHidden()
-        .frame(maxWidth: 200)
-    }
-
     private var transformsList: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let rule = model.selectedRule {
@@ -278,24 +255,45 @@ struct RulesSettingsView: View {
                 }
             }
 
-            Menu {
-                ForEach(ClipboardTransformType.grouped, id: \.0) { group, types in
-                    Section(group.rawValue) {
-                        ForEach(types, id: \.self) { type in
-                            Button {
-                                model.addTransform(type: type)
-                            } label: {
-                                Label(type.displayName, systemImage: type.icon)
+            HStack(spacing: 12) {
+                Menu {
+                    ForEach(ClipboardTransformType.grouped, id: \.0) { group, types in
+                        Section(group.rawValue) {
+                            ForEach(types, id: \.self) { type in
+                                Button {
+                                    model.addTransform(type: type)
+                                } label: {
+                                    Label(type.displayName, systemImage: type.icon)
+                                }
                             }
                         }
                     }
+                } label: {
+                    Label("Add Transform", systemImage: "plus")
+                        .font(.system(size: 11))
                 }
-            } label: {
-                Label("Add Transform", systemImage: "plus")
-                    .font(.system(size: 11))
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+
+                Menu {
+                    ForEach(presetStore.presets.filter { !$0.transformTypes.isEmpty }) { preset in
+                        Button {
+                            model.updateRule { rule in
+                                for type in preset.transformTypes {
+                                    rule.transforms.append(ClipboardTransform(type: type))
+                                }
+                            }
+                        } label: {
+                            Label(preset.name, systemImage: preset.icon)
+                        }
+                    }
+                } label: {
+                    Label("Apply Preset", systemImage: "tray.2")
+                        .font(.system(size: 11))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
         }
     }
 

@@ -64,47 +64,144 @@ final class HotkeySettingsModel: ObservableObject {
 struct HotkeySettingsView: View {
     @StateObject private var model: HotkeySettingsModel
     @StateObject private var transformModel: HotkeySettingsModel
+    let settings: SettingsStore
 
-    init(recorder: HotkeyRecorder, transformRecorder: HotkeyRecorder? = nil) {
+    init(recorder: HotkeyRecorder, transformRecorder: HotkeyRecorder? = nil, settings: SettingsStore = UserDefaultsSettingsStore()) {
         _model = StateObject(wrappedValue: HotkeySettingsModel(recorder: recorder))
         let tr = transformRecorder ?? recorder
         _transformModel = StateObject(wrappedValue: HotkeySettingsModel(recorder: tr))
+        self.settings = settings
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Hotkeys")
-                .font(.system(size: 18, weight: .semibold))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Global shortcut to show clipboard:")
+                    .font(.system(size: 13))
 
-            Text("Global shortcut to show clipboard:")
-                .font(.system(size: 13))
+                hotkeyRow(model: model)
 
-            hotkeyRow(model: model)
+                Divider()
+                    .padding(.vertical, 4)
 
-            Divider()
-                .padding(.vertical, 4)
+                Text("Global shortcut to paste transformed:")
+                    .font(.system(size: 13))
 
-            Text("Global shortcut to paste transformed:")
-                .font(.system(size: 13))
+                Text("Applies transform rules and pastes the result. Clipboard keeps the original text.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
 
-            Text("Applies transform rules and pastes the result. Clipboard keeps the original text.")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                hotkeyRow(model: transformModel)
 
-            hotkeyRow(model: transformModel)
+                transformTimingSettings
 
-            Divider()
-                .padding(.vertical, 4)
+                Divider()
+                    .padding(.vertical, 4)
 
-            Text("Panel shortcuts")
-                .font(.system(size: 14, weight: .semibold))
+                Text("Panel shortcuts")
+                    .font(.system(size: 14, weight: .semibold))
 
-            shortcutsTable
-
-            Spacer()
+                shortcutsTable
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @State private var holdDelay = ""
+    @State private var pasteDelay = ""
+    @State private var restoreDelay = ""
+
+    private var transformTimingSettings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().padding(.vertical, 4)
+
+            Text("Transform timing")
+                .font(.system(size: 12, weight: .semibold))
+
+            timingRow(
+                label: "Hold delay",
+                hint: "How long to hold before showing preset overlay",
+                value: $holdDelay,
+                save: { settings.transformHoldDelay = max(100, $0) }
+            )
+
+            timingRow(
+                label: "Paste delay",
+                hint: "Delay before sending Cmd+V after activating target app",
+                value: $pasteDelay,
+                save: { settings.transformPasteDelay = max(50, $0) }
+            )
+
+            timingRow(
+                label: "Restore delay",
+                hint: "Delay before restoring original clipboard content",
+                value: $restoreDelay,
+                save: { settings.transformRestoreDelay = max(100, $0) }
+            )
+        }
+        .onAppear {
+            holdDelay = "\(settings.transformHoldDelay)"
+            pasteDelay = "\(settings.transformPasteDelay)"
+            restoreDelay = "\(settings.transformRestoreDelay)"
+        }
+    }
+
+    private func timingRow(
+        label: String,
+        hint: String,
+        value: Binding<String>,
+        step: Int = 50,
+        save: @escaping (Int) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(.system(size: 11))
+                    .frame(width: 100, alignment: .trailing)
+                TextField("", text: value)
+                    .font(.system(size: 11, design: .monospaced))
+                    .frame(width: 60)
+                    .multilineTextAlignment(.trailing)
+                    .onChange(of: value.wrappedValue) {
+                        if let v = Int(value.wrappedValue) { save(v) }
+                    }
+                VStack(spacing: 0) {
+                    Button {
+                        if let v = Int(value.wrappedValue) {
+                            let newVal = v + step
+                            value.wrappedValue = "\(newVal)"
+                            save(newVal)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 8, weight: .bold))
+                            .frame(width: 16, height: 11)
+                    }
+                    .buttonStyle(.borderless)
+
+                    Button {
+                        if let v = Int(value.wrappedValue) {
+                            let newVal = max(0, v - step)
+                            value.wrappedValue = "\(newVal)"
+                            save(newVal)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                            .frame(width: 16, height: 11)
+                    }
+                    .buttonStyle(.borderless)
+                }
+                Text("ms")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            Text(hint)
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .padding(.leading, 108)
+        }
     }
 
     private func hotkeyRow(model: HotkeySettingsModel) -> some View {

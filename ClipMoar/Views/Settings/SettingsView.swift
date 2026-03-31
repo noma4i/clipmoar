@@ -77,7 +77,7 @@ struct SettingsView: View {
                 case "general":
                     GeneralSettingsView(settings: settings, onVisibilityChange: onVisibilityChange)
                 case "hotkeys":
-                    HotkeySettingsView(recorder: hotkeyRecorder, transformRecorder: transformHotkeyRecorder)
+                    HotkeySettingsView(recorder: hotkeyRecorder, transformRecorder: transformHotkeyRecorder, settings: settings)
                 case "rules":
                     RulesSettingsView()
                 case "lookfeel":

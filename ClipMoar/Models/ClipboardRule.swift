@@ -31,6 +31,24 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
     case extractURLs
     case collapseMultilineBash
     case smartJoinLines
+    case uppercaseText
+    case lowercaseText
+    case camelToSnake
+    case snakeToCamel
+    case kebabCase
+    case reverseLines
+    case markdownQuote
+    case countStats
+    case htmlEncode
+    case htmlDecode
+    case addSlashes
+    case removeSlashes
+    case md5Hash
+    case sha256Hash
+    case jsonToQueryString
+    case queryStringToJson
+    case rot13
+    case numberLines
 
     var displayName: String {
         switch self {
@@ -64,6 +82,24 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .extractURLs: return "Extract URLs"
         case .collapseMultilineBash: return "Collapse multiline bash"
         case .smartJoinLines: return "Smart join lines"
+        case .uppercaseText: return "UPPERCASE"
+        case .lowercaseText: return "lowercase"
+        case .camelToSnake: return "camelCase to snake_case"
+        case .snakeToCamel: return "snake_case to camelCase"
+        case .kebabCase: return "kebab-case"
+        case .reverseLines: return "Reverse lines"
+        case .markdownQuote: return "Markdown quote"
+        case .countStats: return "Count stats"
+        case .htmlEncode: return "HTML encode"
+        case .htmlDecode: return "HTML decode"
+        case .addSlashes: return "Add slashes"
+        case .removeSlashes: return "Remove slashes"
+        case .md5Hash: return "MD5 hash"
+        case .sha256Hash: return "SHA256 hash"
+        case .jsonToQueryString: return "JSON to query string"
+        case .queryStringToJson: return "Query string to JSON"
+        case .rot13: return "ROT13"
+        case .numberLines: return "Number lines"
         }
     }
 
@@ -99,6 +135,24 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .extractURLs: return "link.badge.plus"
         case .collapseMultilineBash: return "text.line.first.and.arrowtriangle.forward"
         case .smartJoinLines: return "text.append"
+        case .uppercaseText: return "textformat.size.larger"
+        case .lowercaseText: return "textformat.size.smaller"
+        case .camelToSnake: return "arrow.right"
+        case .snakeToCamel: return "arrow.left"
+        case .kebabCase: return "minus"
+        case .reverseLines: return "arrow.up.arrow.down"
+        case .markdownQuote: return "text.quote"
+        case .countStats: return "number.square"
+        case .htmlEncode: return "chevron.left.forwardslash.chevron.right"
+        case .htmlDecode: return "chevron.left.forwardslash.chevron.right"
+        case .addSlashes: return "backslash"
+        case .removeSlashes: return "backslash"
+        case .md5Hash: return "number"
+        case .sha256Hash: return "number"
+        case .jsonToQueryString: return "questionmark"
+        case .queryStringToJson: return "curlybraces"
+        case .rot13: return "lock.rotation"
+        case .numberLines: return "list.number"
         }
     }
 
@@ -117,13 +171,17 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
             return .cleanup
         case .flattenMultiline, .stripShellPrompts, .removeBoxDrawing, .escapeShell, .collapseMultilineBash:
             return .shell
-        case .joinParagraphs, .smartJoinLines, .sortLines, .uniqueLines, .commentLines, .regexReplace:
+        case .joinParagraphs, .smartJoinLines, .sortLines, .uniqueLines, .commentLines, .regexReplace,
+             .uppercaseText, .lowercaseText, .camelToSnake, .snakeToCamel, .kebabCase,
+             .reverseLines, .markdownQuote, .countStats, .numberLines:
             return .text
-        case .escapeJSON, .unescapeJSON, .base64Encode, .base64Decode, .urlEncode, .urlDecode:
+        case .escapeJSON, .unescapeJSON, .base64Encode, .base64Decode, .urlEncode, .urlDecode,
+             .htmlEncode, .htmlDecode, .addSlashes, .removeSlashes, .md5Hash, .sha256Hash, .rot13:
             return .encoding
         case .prettyJSON, .minifyJSON, .jsonToYAML, .htmlToMarkdown:
             return .json
-        case .repairWrappedURL, .quotePathsWithSpaces, .stripTrackingParams, .extractURLs:
+        case .repairWrappedURL, .quotePathsWithSpaces, .stripTrackingParams, .extractURLs,
+             .jsonToQueryString, .queryStringToJson:
             return .url
         }
     }

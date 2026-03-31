@@ -1,3 +1,4 @@
+import CommonCrypto
 import Foundation
 
 extension ClipboardRuleEngine {
@@ -93,5 +94,95 @@ extension ClipboardRuleEngine {
         let urls = matches.compactMap { $0.url?.absoluteString }
         guard !urls.isEmpty else { return text }
         return urls.joined(separator: "\n")
+    }
+
+    func htmlEncode(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+    }
+
+    func htmlDecode(_ text: String) -> String {
+        text.replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&#x27;", with: "'")
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+    }
+
+    func addSlashes(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+    }
+
+    func removeSlashes(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\n", with: "\n")
+            .replacingOccurrences(of: "\\r", with: "\r")
+            .replacingOccurrences(of: "\\t", with: "\t")
+            .replacingOccurrences(of: "\\'", with: "'")
+            .replacingOccurrences(of: "\\\"", with: "\"")
+            .replacingOccurrences(of: "\\\\", with: "\\")
+    }
+
+    func md5Hash(_ text: String) -> String {
+        let data = Data(text.utf8)
+        var digest = [UInt8](repeating: 0, count: 16)
+        _ = data.withUnsafeBytes { CC_MD5($0.baseAddress, CC_LONG(data.count), &digest) }
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    func sha256Hash(_ text: String) -> String {
+        let data = Data(text.utf8)
+        var digest = [UInt8](repeating: 0, count: 32)
+        _ = data.withUnsafeBytes { CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest) }
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    func rot13(_ text: String) -> String {
+        String(text.map { ch in
+            switch ch {
+            case "a" ... "m", "A" ... "M":
+                return Character(UnicodeScalar(ch.asciiValue! + 13))
+            case "n" ... "z", "N" ... "Z":
+                return Character(UnicodeScalar(ch.asciiValue! - 13))
+            default:
+                return ch
+            }
+        })
+    }
+
+    func jsonToQueryString(_ text: String) -> String {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return text }
+        let pairs = json.sorted { $0.key < $1.key }.compactMap { key, value -> String? in
+            let v = "\(value)"
+            guard let encoded = v.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+            return "\(key)=\(encoded)"
+        }
+        return pairs.joined(separator: "&")
+    }
+
+    func queryStringToJson(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmed.hasPrefix("?") ? String(trimmed.dropFirst()) : trimmed
+        var dict: [String: String] = [:]
+        for pair in query.components(separatedBy: "&") {
+            let parts = pair.components(separatedBy: "=")
+            guard parts.count == 2 else { continue }
+            dict[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted, .sortedKeys]),
+              let result = String(data: data, encoding: .utf8)
+        else { return text }
+        return result
     }
 }

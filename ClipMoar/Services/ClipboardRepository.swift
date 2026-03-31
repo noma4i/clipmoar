@@ -7,6 +7,7 @@ protocol ClipboardRepository: AnyObject {
     @discardableResult func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String?) -> UUID
     @discardableResult func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
     @discardableResult func insertFile(_ paths: String, sourceAppBundleId: String?, fingerprint: String) -> UUID
+    func moveToTop(uuid: UUID)
     func removeItem(uuid: UUID)
     func trimHistory(maxSize: Int)
     func removeOlderThan(hours: Int, contentType: String?)
@@ -115,6 +116,16 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         CoreDataStack.shared.saveIfNeeded()
         context.refresh(item, mergeChanges: false)
         return id
+    }
+
+    func moveToTop(uuid: UUID) {
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.predicate = NSPredicate(format: "uuid == %@", uuid as CVarArg)
+        request.fetchLimit = 1
+
+        guard let item = try? context.fetch(request).first else { return }
+        item.createdAt = Date()
+        CoreDataStack.shared.saveIfNeeded()
     }
 
     func removeItem(uuid: UUID) {

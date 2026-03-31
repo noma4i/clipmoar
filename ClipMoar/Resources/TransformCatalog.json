@@ -148,5 +148,95 @@
     "description": "Joins soft-wrapped prose lines but preserves structural lines: code (indented), lists, headings, URLs, shell prompts, and lines ending with code characters.",
     "exampleInput": "This is a long\nparagraph that was\nwrapped.\n- list item\n  code line",
     "exampleOutput": "This is a long paragraph that was wrapped.\n- list item\n  code line"
+  },
+  "uppercaseText": {
+    "description": "Converts all text to UPPERCASE.",
+    "exampleInput": "Hello World",
+    "exampleOutput": "HELLO WORLD"
+  },
+  "lowercaseText": {
+    "description": "Converts all text to lowercase.",
+    "exampleInput": "Hello World",
+    "exampleOutput": "hello world"
+  },
+  "camelToSnake": {
+    "description": "Converts camelCase to snake_case.",
+    "exampleInput": "myVariableName",
+    "exampleOutput": "my_variable_name"
+  },
+  "snakeToCamel": {
+    "description": "Converts snake_case to camelCase.",
+    "exampleInput": "my_variable_name",
+    "exampleOutput": "myVariableName"
+  },
+  "kebabCase": {
+    "description": "Converts text to kebab-case.",
+    "exampleInput": "myVariableName",
+    "exampleOutput": "my-variable-name"
+  },
+  "reverseLines": {
+    "description": "Reverses the order of lines.",
+    "exampleInput": "first\nsecond\nthird",
+    "exampleOutput": "third\nsecond\nfirst"
+  },
+  "markdownQuote": {
+    "description": "Adds > to the beginning of each line (Markdown blockquote).",
+    "exampleInput": "Hello\nWorld",
+    "exampleOutput": "> Hello\n> World"
+  },
+  "countStats": {
+    "description": "Counts characters, words, and lines in the text.",
+    "exampleInput": "Hello World",
+    "exampleOutput": "Characters: 11\nWords: 2\nLines: 1"
+  },
+  "htmlEncode": {
+    "description": "Encodes special characters as HTML entities.",
+    "exampleInput": "<div class=\"test\">",
+    "exampleOutput": "&lt;div class=&quot;test&quot;&gt;"
+  },
+  "htmlDecode": {
+    "description": "Decodes HTML entities back to characters.",
+    "exampleInput": "&lt;div&gt;hello&lt;/div&gt;",
+    "exampleOutput": "<div>hello</div>"
+  },
+  "addSlashes": {
+    "description": "Escapes special characters with backslashes.",
+    "exampleInput": "He said \"hello\"",
+    "exampleOutput": "He said \\\"hello\\\""
+  },
+  "removeSlashes": {
+    "description": "Removes backslash escaping from text.",
+    "exampleInput": "He said \\\"hello\\\"",
+    "exampleOutput": "He said \"hello\""
+  },
+  "md5Hash": {
+    "description": "Computes the MD5 hash of the text.",
+    "exampleInput": "hello",
+    "exampleOutput": "5d41402abc4b2a76b9719d911017c592"
+  },
+  "sha256Hash": {
+    "description": "Computes the SHA-256 hash of the text.",
+    "exampleInput": "hello",
+    "exampleOutput": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "jsonToQueryString": {
+    "description": "Converts a JSON object to a URL query string.",
+    "exampleInput": "{\"name\":\"John\",\"age\":\"30\"}",
+    "exampleOutput": "age=30&name=John"
+  },
+  "queryStringToJson": {
+    "description": "Converts a URL query string to a JSON object.",
+    "exampleInput": "name=John&age=30",
+    "exampleOutput": "{\n  \"age\" : \"30\",\n  \"name\" : \"John\"\n}"
+  },
+  "rot13": {
+    "description": "Applies ROT13 cipher (shifts each letter by 13 positions).",
+    "exampleInput": "Hello World",
+    "exampleOutput": "Uryyb Jbeyq"
+  },
+  "numberLines": {
+    "description": "Adds line numbers to each line.",
+    "exampleInput": "apple\nbanana\ncherry",
+    "exampleOutput": "1. apple\n2. banana\n3. cherry"
   }
 }

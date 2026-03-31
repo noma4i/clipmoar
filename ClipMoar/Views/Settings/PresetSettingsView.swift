@@ -52,30 +52,35 @@ final class PresetStore: ObservableObject {
         TransformPreset(
             name: "Clean Terminal Output",
             description: "Strip prompts, flatten, trim, collapse blanks, remove box drawing",
+            icon: "terminal",
             transformTypes: [.stripShellPrompts, .flattenMultiline, .trimWhitespace, .collapseBlankLines, .removeBoxDrawing],
             isBuiltIn: true
         ),
         TransformPreset(
             name: "Claude Code",
             description: "Clean up text copied from Claude Code output",
+            icon: "text.append",
             transformTypes: [.smartJoinLines, .collapseBlankLines, .trimWhitespace],
             isBuiltIn: true
         ),
         TransformPreset(
             name: "Clean URL",
             description: "Remove tracking parameters and trim whitespace",
+            icon: "link",
             transformTypes: [.stripTrackingParams, .trimWhitespace],
             isBuiltIn: true
         ),
         TransformPreset(
             name: "Code Snippet",
             description: "Clean up code: trim, dedent, convert tabs to spaces",
+            icon: "chevron.left.forwardslash.chevron.right",
             transformTypes: [.trimWhitespace, .dedent, .tabsToSpaces],
             isBuiltIn: true
         ),
         TransformPreset(
             name: "Plain Text Cleanup",
             description: "General text cleanup: trim, normalize quotes, collapse blanks, join paragraphs",
+            icon: "doc.text",
             transformTypes: [.trimWhitespace, .normalizeQuotes, .collapseBlankLines, .joinParagraphs],
             isBuiltIn: true
         ),
@@ -113,36 +118,42 @@ struct PresetSettingsView: View {
         return store.presets.firstIndex { $0.id == id }
     }
 
-    private var presetList: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(store.presets) { preset in
-                Button {
-                    selectedId = preset.id
-                } label: {
-                    HStack(spacing: 6) {
-                        if preset.isBuiltIn {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 9))
-                                .foregroundColor(.secondary)
-                        }
-                        Text(preset.name)
-                            .font(.system(size: 12))
-                            .foregroundColor(selectedId == preset.id ? .primary : .secondary)
-                            .lineLimit(1)
-                        Spacer()
-                        Text("\(preset.transformTypes.count)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(selectedId == preset.id ? Color.accentColor.opacity(0.12) : Color.clear)
-                    )
-                }
-                .buttonStyle(.plain)
+    private func movePreset(from source: IndexSet, to destination: Int) {
+        store.presets.move(fromOffsets: source, toOffset: destination)
+        store.save()
+    }
+
+    private func presetRow(_ preset: TransformPreset) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: preset.icon)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .frame(width: 16)
+            if preset.isQuick {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8))
+                    .foregroundColor(.green)
             }
+            Text(preset.name)
+                .font(.system(size: 12))
+                .lineLimit(1)
+            Spacer()
+            Text("\(preset.transformTypes.count)")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+        }
+        .tag(preset.id)
+    }
+
+    private var presetList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            List(selection: $selectedId) {
+                ForEach(store.presets) { preset in
+                    presetRow(preset)
+                }
+                .onMove(perform: movePreset)
+            }
+            .listStyle(.plain)
 
             HStack(spacing: 8) {
                 Button(action: {
@@ -165,11 +176,10 @@ struct PresetSettingsView: View {
 
                 Spacer()
             }
-            .padding(.top, 4)
 
             Spacer()
         }
-        .frame(width: 200)
+        .frame(width: 240)
     }
 
     private var editor: some View {
@@ -200,6 +210,23 @@ struct PresetSettingsView: View {
                         .onChange(of: store.presets[idx].description) { store.save() }
                 }
 
+                HStack(spacing: 8) {
+                    Text("Icon:")
+                        .font(.system(size: 11))
+                        .frame(width: 80, alignment: .trailing)
+                    iconPicker(presetIndex: idx)
+                }
+
+                HStack(spacing: 8) {
+                    Text("Quick:")
+                        .font(.system(size: 11))
+                        .frame(width: 80, alignment: .trailing)
+                    Toggle("Show in transform overlay", isOn: $store.presets[idx].isQuick)
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 11))
+                        .onChange(of: store.presets[idx].isQuick) { store.save() }
+                }
+
                 Divider().padding(.vertical, 4)
 
                 Text("Transforms")
@@ -224,6 +251,37 @@ struct PresetSettingsView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static let availableIcons = [
+        "tray.2", "terminal", "text.append", "link", "doc.text",
+        "chevron.left.forwardslash.chevron.right", "scissors", "wand.and.stars",
+        "text.alignleft", "curlybraces", "number", "globe",
+        "paintbrush", "bolt", "gear", "star",
+    ]
+
+    private func iconPicker(presetIndex idx: Int) -> some View {
+        HStack(spacing: 4) {
+            ForEach(Self.availableIcons, id: \.self) { iconName in
+                Button {
+                    store.presets[idx].icon = iconName
+                    store.save()
+                } label: {
+                    Image(systemName: iconName)
+                        .font(.system(size: 12))
+                        .frame(width: 24, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(store.presets[idx].icon == iconName ? Color.accentColor.opacity(0.2) : Color.clear)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(store.presets[idx].icon == iconName ? Color.accentColor : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.borderless)
+            }
+        }
     }
 
     private func transformList(presetIndex idx: Int) -> some View {

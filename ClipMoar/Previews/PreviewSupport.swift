@@ -12,6 +12,11 @@
         var hotkeyModifiers: UInt32 = .init(NSEvent.ModifierFlags.command.rawValue)
         var transformHotkeyKeyCode = 0
         var transformHotkeyModifiers: UInt32 = 0
+        var transformHoldDelay = 500
+        var transformPasteDelay = 200
+        var transformRestoreDelay = 500
+        var autoPasteOnReturn = true
+        var moveToTopOnUse = true
         var storeText = true
         var storeImages = true
         var textRetentionHours = TextRetention.oneWeek.rawValue
@@ -166,6 +171,12 @@
             )
             items.insert(item, at: 0)
             return item.uuid ?? UUID()
+        }
+
+        func moveToTop(uuid: UUID) {
+            if let idx = items.firstIndex(where: { $0.uuid == uuid }) {
+                items[idx].createdAt = Date()
+            }
         }
 
         func removeItem(uuid: UUID) {

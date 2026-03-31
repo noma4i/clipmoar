@@ -32,6 +32,7 @@ struct FloatingPanelViewState {
 final class FloatingPanelStateController {
     private let repository: ClipboardRepository
     private let actionService: ClipboardActionServicing
+    private let settings: SettingsStore
     var onStatEvent: ((StatEventKind) -> Void)?
 
     private(set) var state = FloatingPanelViewState()
@@ -42,8 +43,9 @@ final class FloatingPanelStateController {
         return formatter
     }()
 
-    init(repository: ClipboardRepository, actionService: ClipboardActionServicing) {
+    init(repository: ClipboardRepository, actionService: ClipboardActionServicing, settings: SettingsStore = UserDefaultsSettingsStore()) {
         self.repository = repository
+        self.settings = settings
         self.actionService = actionService
     }
 
@@ -105,7 +107,14 @@ final class FloatingPanelStateController {
 
     func paste(at index: Int, previousApp: NSRunningApplication? = nil) {
         guard let item = item(at: index) else { return }
-        actionService.pasteFromPasteboard(item: item, previousApp: previousApp)
+        if settings.moveToTopOnUse, let uuid = item.uuid {
+            repository.moveToTop(uuid: uuid)
+        }
+        if settings.autoPasteOnReturn {
+            actionService.pasteFromPasteboard(item: item, previousApp: previousApp)
+        } else {
+            actionService.writeToPasteboard(item: item)
+        }
         onStatEvent?(.paste)
     }
 
