@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.3] - 2026-04-01
+
+### Changed
+- Renamed "Strip non-ASCII" to "Reveal invisible chars"
+- Now detects only truly invisible Unicode characters (zero-width spaces, BOM, NBSP, directional marks, etc.) instead of all non-ASCII
+- Cyrillic, CJK, emoji, and other visible non-ASCII characters are no longer affected
+- Uses ogre emoji as marker for invisible characters
+
 ## [1.5.2] - 2026-04-01
 
 ### Changed
