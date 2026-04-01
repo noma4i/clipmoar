@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.1] - 2026-04-01
+
+### Added
+- Strip non-ASCII transform - removes zero-width spaces, invisible Unicode characters, BOM markers, and other non-ASCII symbols
+
 ## [1.5.0] - 2026-03-31
 
 ### Added
