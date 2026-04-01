@@ -3,6 +3,38 @@ import Foundation
 extension ClipboardRuleEngine {
     static let boxDrawingPattern = "[│┃╎╏┆┇┊┋╽╿￨｜]"
 
+    private static let invisibleCodepoints: Set<UInt32> = {
+        var set: Set<UInt32> = [
+            0x00A0, 0x00AD, 0x034F, 0x061C,
+            0x115F, 0x1160, 0x1680, 0x17B4, 0x17B5, 0x180E,
+            0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
+            0x202F, 0x205F, 0x2060, 0x2061, 0x2062, 0x2063, 0x2064, 0x2065,
+            0x2800, 0x3000, 0x3164, 0xFEFF, 0xFFA0, 0xFFFC,
+        ]
+        for cp in 0x2000 ... 0x200A {
+            set.insert(UInt32(cp))
+        }
+        for cp in 0x206A ... 0x206F {
+            set.insert(UInt32(cp))
+        }
+        for cp in 0xFFF9 ... 0xFFFB {
+            set.insert(UInt32(cp))
+        }
+        return set
+    }()
+
+    func stripNonASCII(_ text: String) -> String {
+        var result = ""
+        for scalar in text.unicodeScalars {
+            if Self.invisibleCodepoints.contains(scalar.value) {
+                result.append("\u{1F479}")
+            } else {
+                result.append(Character(scalar))
+            }
+        }
+        return result
+    }
+
     func removeBoxDrawing(_ text: String) -> String {
         guard text.range(of: Self.boxDrawingPattern, options: .regularExpression) != nil else { return text }
 

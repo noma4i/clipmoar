@@ -337,6 +337,17 @@ final class ClipboardRuleEngineTests: XCTestCase {
         XCTAssertEqual(apply(.smartJoinLines, to: input), expected)
     }
 
+    // MARK: - Strip non-ASCII
+
+    func testStripNonASCII() {
+        XCTAssertEqual(apply(.stripNonASCII, to: "Hello\u{200B}World"), "Hello\u{1F479}World")
+        XCTAssertEqual(apply(.stripNonASCII, to: "test\u{200E}\u{FEFF}ok"), "test\u{1F479}\u{1F479}ok")
+        XCTAssertEqual(apply(.stripNonASCII, to: "plain ascii"), "plain ascii")
+        XCTAssertEqual(apply(.stripNonASCII, to: "\u{00A0}nbsp"), "\u{1F479}nbsp")
+        XCTAssertEqual(apply(.stripNonASCII, to: "Привет"), "Привет")
+        XCTAssertEqual(apply(.stripNonASCII, to: "Hello 🎉"), "Hello 🎉")
+    }
+
     // MARK: - New transforms
 
     func testUppercase() {

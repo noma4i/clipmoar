@@ -31,6 +31,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
     case extractURLs
     case collapseMultilineBash
     case smartJoinLines
+    case stripNonASCII
     case uppercaseText
     case lowercaseText
     case camelToSnake
@@ -82,6 +83,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .extractURLs: return "Extract URLs"
         case .collapseMultilineBash: return "Collapse multiline bash"
         case .smartJoinLines: return "Smart join lines"
+        case .stripNonASCII: return "Reveal invisible chars"
         case .uppercaseText: return "UPPERCASE"
         case .lowercaseText: return "lowercase"
         case .camelToSnake: return "camelCase to snake_case"
@@ -135,6 +137,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
         case .extractURLs: return "link.badge.plus"
         case .collapseMultilineBash: return "text.line.first.and.arrowtriangle.forward"
         case .smartJoinLines: return "text.append"
+        case .stripNonASCII: return "eye.slash"
         case .uppercaseText: return "textformat.size.larger"
         case .lowercaseText: return "textformat.size.smaller"
         case .camelToSnake: return "arrow.right"
@@ -167,7 +170,7 @@ enum ClipboardTransformType: String, Codable, CaseIterable {
 
     var group: Group {
         switch self {
-        case .trimWhitespace, .normalizeQuotes, .tabsToSpaces, .dedent, .collapseBlankLines:
+        case .trimWhitespace, .normalizeQuotes, .tabsToSpaces, .dedent, .collapseBlankLines, .stripNonASCII:
             return .cleanup
         case .flattenMultiline, .stripShellPrompts, .removeBoxDrawing, .escapeShell, .collapseMultilineBash:
             return .shell

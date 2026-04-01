@@ -149,6 +149,11 @@
     "exampleInput": "This is a long\nparagraph that was\nwrapped.\n- list item\n  code line",
     "exampleOutput": "This is a long paragraph that was wrapped.\n- list item\n  code line"
   },
+  "stripNonASCII": {
+    "description": "Reveals invisible Unicode characters (zero-width spaces, BOM, NBSP, directional marks) by replacing them with ogre emoji.",
+    "exampleInput": "Hello\u200bWorld",
+    "exampleOutput": "Hello\ud83d\udc79World"
+  },
   "uppercaseText": {
     "description": "Converts all text to UPPERCASE.",
     "exampleInput": "Hello World",

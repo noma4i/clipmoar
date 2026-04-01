@@ -202,6 +202,9 @@ final class ClipboardRuleEngine {
         case .smartJoinLines:
             return smartJoinLines(text)
 
+        case .stripNonASCII:
+            return stripNonASCII(text)
+
         case .uppercaseText:
             return text.uppercased()
 
