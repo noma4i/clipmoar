@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.2] - 2026-04-01
+
+### Changed
+- Strip non-ASCII now replaces invisible characters with gremlin emoji instead of removing them
+
 ## [1.5.1] - 2026-04-01
 
 ### Added
