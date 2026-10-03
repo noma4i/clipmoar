@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.4] - 2026-10-03
+
+### Changed
+- MD5 and SHA-256 transforms now use CryptoKit instead of the deprecated CommonCrypto calls
+- Builds are signed with a stable Apple Development identity, so the Accessibility permission survives rebuilds
+
+### Fixed
+- Removed an unused variable in the smart join lines transform
+
 ## [1.5.3] - 2026-04-01
 
 ### Changed
