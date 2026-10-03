@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0] - 2026-10-03
+
+### Added
+- Floating drag-and-drop window for the Accessibility permission: drag the ClipMoar icon straight into the System Settings list. The window sticks to the bottom of System Settings, hides when you switch to another app and closes once access is granted
+
+### Changed
+- The Accessibility banner and the About instructions now describe the drag-and-drop flow
+
 ## [1.5.5] - 2026-10-03
 
 ### Changed
