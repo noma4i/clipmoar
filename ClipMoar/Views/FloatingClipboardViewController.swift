@@ -183,8 +183,7 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     @objc private func openAccessibilitySettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-        NSWorkspace.shared.open(url)
+        AccessibilityDragWindow.show()
     }
 
     func updateAccessibilityBanner() {
@@ -230,7 +229,7 @@ final class FloatingClipboardViewController: NSViewController,
             iconView.contentTintColor = .white
             backgroundView.addSubview(iconView)
 
-            let label = NSTextField(labelWithString: "Accessibility needed. Remove & re-add ClipMoar in Settings. Click to open.")
+            let label = NSTextField(labelWithString: "Accessibility needed. Click to open Settings and drag ClipMoar in.")
             label.frame = NSRect(x: 30, y: 5, width: currentConfiguration.layout.listWidth - 40, height: 18)
             label.font = .systemFont(ofSize: 11, weight: .medium)
             label.textColor = .white

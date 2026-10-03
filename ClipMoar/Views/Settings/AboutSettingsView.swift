@@ -76,13 +76,11 @@ struct AboutSettingsView: View {
         }
         .alert("Accessibility Permissions", isPresented: $showPermissionsAlert) {
             Button("Open System Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                    NSWorkspace.shared.open(url)
-                }
+                AccessibilityDragWindow.show()
             }
             Button("OK", role: .cancel) {}
         } message: {
-            Text("After updating, macOS resets Accessibility permissions.\n\nTo restore:\n1. Open System Settings > Privacy & Security > Accessibility\n2. Remove ClipMoar from the list (select and press minus)\n3. Add ClipMoar back (press plus, find in Applications)\n\nJust toggling the checkbox is not enough.")
+            Text("After updating, macOS resets Accessibility permissions.\n\nTo restore:\n1. Open System Settings > Privacy & Security > Accessibility\n2. Remove ClipMoar from the list (select and press minus)\n3. Drag ClipMoar from the floating window into the list\n\nJust toggling the checkbox is not enough.")
         }
     }
 
