@@ -10,11 +10,23 @@ final class AccessibilityDragWindow: NSPanel {
     private var hasSeenSettings = false
 
     static func show() {
+        if current == nil, !AXIsProcessTrusted() {
+            resetStaleEntry()
+        }
         NSWorkspace.shared.open(settingsURL)
         guard current == nil, !AXIsProcessTrusted() else { return }
         let window = AccessibilityDragWindow()
         current = window
         window.follow()
+    }
+
+    private static func resetStaleEntry() {
+        guard let bundleId = Bundle.main.bundleIdentifier else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "Accessibility", bundleId]
+        try? process.run()
+        process.waitUntilExit()
     }
 
     private init() {
