@@ -19,7 +19,17 @@ if ! security find-identity -v -p codesigning | grep -qF "$SIGN_IDENTITY"; then
     echo "Identity '$SIGN_IDENTITY' not found, using ad-hoc signature"
     SIGN_IDENTITY="-"
 fi
-codesign -fs "$SIGN_IDENTITY" ".build/$CONFIG/ClipMoar.app"
+APP=".build/$CONFIG/ClipMoar.app"
+if [ "$CONFIG" = "release" ]; then
+    codesign -f --options runtime --timestamp --entitlements ClipMoar/Resources/ClipMoar.entitlements \
+        -s "${NOTARIZE_IDENTITY:-Developer ID Application: Alexander Tsirel (89QF7X66FR)}" "$APP"
+    ditto -c -k --keepParent "$APP" .build/ClipMoar-notarize.zip
+    xcrun notarytool submit .build/ClipMoar-notarize.zip --keychain-profile clipmoar --wait
+    xcrun stapler staple "$APP"
+    rm -f .build/ClipMoar-notarize.zip
+else
+    codesign -fs "$SIGN_IDENTITY" "$APP"
+fi
 
 # Always restart
 pkill -x ClipMoar 2>/dev/null || true
