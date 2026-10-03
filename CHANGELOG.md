@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.5] - 2026-10-03
+
+### Changed
+- Release builds are signed with a Developer ID certificate, notarized by Apple and stapled, so Gatekeeper opens the app without warnings
+
 ## [1.5.4] - 2026-10-03
 
 ### Changed
