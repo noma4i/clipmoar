@@ -1,4 +1,4 @@
-import CommonCrypto
+import CryptoKit
 import Foundation
 
 extension ClipboardRuleEngine {
@@ -133,17 +133,11 @@ extension ClipboardRuleEngine {
     }
 
     func md5Hash(_ text: String) -> String {
-        let data = Data(text.utf8)
-        var digest = [UInt8](repeating: 0, count: 16)
-        _ = data.withUnsafeBytes { CC_MD5($0.baseAddress, CC_LONG(data.count), &digest) }
-        return digest.map { String(format: "%02x", $0) }.joined()
+        Insecure.MD5.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     func sha256Hash(_ text: String) -> String {
-        let data = Data(text.utf8)
-        var digest = [UInt8](repeating: 0, count: 32)
-        _ = data.withUnsafeBytes { CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest) }
-        return digest.map { String(format: "%02x", $0) }.joined()
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     func rot13(_ text: String) -> String {

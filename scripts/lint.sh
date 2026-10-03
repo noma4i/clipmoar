@@ -7,4 +7,4 @@ if ! command -v swiftlint &> /dev/null; then
 fi
 
 echo "Linting..."
-swiftlint lint --path ClipMoar/
+swiftlint lint ClipMoar/

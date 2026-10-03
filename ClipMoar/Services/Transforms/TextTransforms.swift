@@ -133,7 +133,6 @@ extension ClipboardRuleEngine {
         let lines = text.components(separatedBy: "\n")
         var result: [String] = []
         var current = ""
-        var currentIndent = 0
         var inCodeFence = false
 
         for line in lines {
@@ -163,7 +162,6 @@ extension ClipboardRuleEngine {
                 result.append(line)
             } else if current.isEmpty {
                 current = trimmed
-                currentIndent = indent
             } else {
                 current = current + " " + trimmed
             }
