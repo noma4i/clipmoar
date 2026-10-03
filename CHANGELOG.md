@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.1] - 2026-10-03
+
+### Fixed
+- After an update that changes the app signature, dragging ClipMoar into the Accessibility list did nothing because the old entry was not replaced. The drag window now clears the stale entry before opening System Settings
+
 ## [1.6.0] - 2026-10-03
 
 ### Added
