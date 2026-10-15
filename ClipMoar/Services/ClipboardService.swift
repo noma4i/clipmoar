@@ -106,6 +106,7 @@ final class ClipboardService {
     private let settings: SettingsStore
     private let pasteboard: PasteboardReadable
     private let ruleEngine: ClipboardRuleEngine
+    private let remoteSender: ClipboardRemoteSender
     private let logger: ClipboardLogger
     private let isRunningUnderTestHarness: () -> Bool
     private var timer: Timer?
@@ -122,6 +123,7 @@ final class ClipboardService {
         settings: SettingsStore = UserDefaultsSettingsStore(),
         pasteboard: PasteboardReadable = NSPasteboardGateway(),
         ruleEngine: ClipboardRuleEngine = ClipboardRuleEngine(),
+        remoteSender: ClipboardRemoteSender = SSHClipboardSender(),
         monitorInterval: TimeInterval = 0.5,
         maintenanceInterval: Int = 20,
         logger: ClipboardLogger = SystemClipboardLogger(),
@@ -131,6 +133,7 @@ final class ClipboardService {
         self.settings = settings
         self.pasteboard = pasteboard
         self.ruleEngine = ruleEngine
+        self.remoteSender = remoteSender
         self.monitorInterval = monitorInterval
         self.maintenanceInterval = max(1, maintenanceInterval)
         self.logger = logger
@@ -202,6 +205,7 @@ final class ClipboardService {
                 lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
                 repository.releaseMemory()
                 logger.log("[ClipMoar] inserted image from file: %@ (%d bytes)", urls[0].lastPathComponent, finalData.count)
+                syncImage(finalData)
                 onStatEvent?(.copy)
                 scheduleMaintenance()
                 return
@@ -244,6 +248,9 @@ final class ClipboardService {
             let appliedRule = result.appliedRules.isEmpty ? nil : result.appliedRules.joined(separator: ", ")
             lastInsertedUUID = repository.insertText(storedText, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint, appliedRule: appliedRule)
             logger.log("[ClipMoar] inserted text (rule: %@): %@", appliedRule ?? "none", String(result.text.prefix(80)))
+            if let target = remoteTarget() {
+                remoteSender.send(text: storedText, host: target.host, method: target.method, keyPath: target.keyPath)
+            }
             onStatEvent?(.copy)
             scheduleMaintenance()
         case let .image(imageData):
@@ -272,11 +279,23 @@ final class ClipboardService {
             lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
             repository.releaseMemory()
             logger.log("[ClipMoar] inserted image: %d bytes (original: %d)", finalData.count, imageData.count)
+            syncImage(finalData)
             onStatEvent?(.copy)
             scheduleMaintenance()
         case .unsupported:
             logger.log("[ClipMoar] skip: no matching content (storeText=%d hasString=%d hasImage=%d)", settings.storeText ? 1 : 0, 0, 0)
         }
+    }
+
+    private func remoteTarget() -> (host: String, method: RemoteCopyMethod, keyPath: String)? {
+        let host = settings.sshSyncHost.trimmingCharacters(in: .whitespaces)
+        guard !host.isEmpty else { return nil }
+        return (host, RemoteCopyMethod(rawValue: settings.sshSyncMethod) ?? .auto, settings.sshSyncKeyPath.trimmingCharacters(in: .whitespaces))
+    }
+
+    private func syncImage(_ data: Data) {
+        guard let target = remoteTarget() else { return }
+        remoteSender.sendImage(data, host: target.host, method: target.method, keyPath: target.keyPath)
     }
 
     private func readSnapshot(changeCount: Int) -> ClipboardSnapshot {

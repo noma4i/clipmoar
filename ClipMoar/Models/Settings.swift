@@ -67,6 +67,9 @@ protocol SettingsStore: AnyObject {
     var imageSharpen: Bool { get set }
     var imageReduceNoise: Bool { get set }
     var ignoredAppBundleIds: [String] { get set }
+    var sshSyncHost: String { get set }
+    var sshSyncMethod: String { get set }
+    var sshSyncKeyPath: String { get set }
     var autoCheckUpdates: Bool { get set }
     var lastUpdateCheck: Date? { get set }
 
@@ -189,6 +192,9 @@ enum Settings {
     static let imageSharpen = "imageSharpen"
     static let imageReduceNoise = "imageReduceNoise"
     static let ignoredAppBundleIds = "ignoredAppBundleIds"
+    static let sshSyncHost = "sshSyncHost"
+    static let sshSyncMethod = "sshSyncMethod"
+    static let sshSyncKeyPath = "sshSyncKeyPath"
     static let autoCheckUpdates = "autoCheckUpdates"
     static let lastUpdateCheck = "lastUpdateCheck"
 }
@@ -642,6 +648,21 @@ final class UserDefaultsSettingsStore: SettingsStore {
             guard let data = try? JSONEncoder().encode(newValue) else { return }
             defaults.set(data, forKey: Settings.ignoredAppBundleIds)
         }
+    }
+
+    var sshSyncHost: String {
+        get { defaults.string(forKey: Settings.sshSyncHost) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.sshSyncHost) }
+    }
+
+    var sshSyncMethod: String {
+        get { defaults.string(forKey: Settings.sshSyncMethod) ?? RemoteCopyMethod.auto.rawValue }
+        set { defaults.set(newValue, forKey: Settings.sshSyncMethod) }
+    }
+
+    var sshSyncKeyPath: String {
+        get { defaults.string(forKey: Settings.sshSyncKeyPath) ?? "" }
+        set { defaults.set(newValue, forKey: Settings.sshSyncKeyPath) }
     }
 
     var autoCheckUpdates: Bool {

@@ -70,6 +70,9 @@
         var imageSharpen = false
         var imageReduceNoise = false
         var ignoredAppBundleIds: [String] = []
+        var sshSyncHost: String = ""
+        var sshSyncMethod: String = "auto"
+        var sshSyncKeyPath: String = ""
         var autoCheckUpdates: Bool = true
         var lastUpdateCheck: Date?
 

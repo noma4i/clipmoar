@@ -22,6 +22,26 @@ struct ScreenPositionPickerRepresentable: NSViewRepresentable {
     }
 }
 
+enum SSHHostState {
+    case unchecked, checking, found, notFound
+
+    var color: Color? {
+        switch self {
+        case .found: .green
+        case .notFound: .red
+        case .unchecked, .checking: nil
+        }
+    }
+
+    var symbol: String? {
+        switch self {
+        case .found: "checkmark.circle.fill"
+        case .notFound: "xmark.circle.fill"
+        case .unchecked, .checking: nil
+        }
+    }
+}
+
 struct GeneralSettingsView: View {
     let settings: SettingsStore
     let repository: ClipboardRepository
@@ -42,6 +62,10 @@ struct GeneralSettingsView: View {
     @State private var stats: StorageStats = .init()
     @State private var autoPaste: Bool
     @State private var moveToTop: Bool
+    @State private var sshSyncHost: String
+    @State private var sshSyncMethod: String
+    @State private var sshSyncKeyPath: String
+    @State private var sshHostState: SSHHostState = .unchecked
 
     init(
         settings: SettingsStore,
@@ -66,6 +90,9 @@ struct GeneralSettingsView: View {
         _largeTypeEnabled = State(initialValue: settings.largeTypeEnabled)
         _autoPaste = State(initialValue: settings.autoPasteOnReturn)
         _moveToTop = State(initialValue: settings.moveToTopOnUse)
+        _sshSyncHost = State(initialValue: settings.sshSyncHost)
+        _sshSyncMethod = State(initialValue: settings.sshSyncMethod)
+        _sshSyncKeyPath = State(initialValue: settings.sshSyncKeyPath)
     }
 
     var body: some View {
@@ -182,6 +209,62 @@ struct GeneralSettingsView: View {
                         .labelsHidden()
                         .onChange(of: screenMode) { settings.panelScreenMode = screenMode }
                     }
+
+                    Spacer().frame(height: 12)
+
+                    Text("Remote Sync").font(.system(size: 13, weight: .semibold))
+
+                    HStack {
+                        Text("SSH host:")
+                        TextField("myserver", text: $sshSyncHost)
+                            .frame(width: 160)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(sshHostState.color ?? .clear, lineWidth: 2)
+                            )
+                            .onChange(of: sshSyncHost) {
+                                settings.sshSyncHost = sshSyncHost
+                                sshHostState = .unchecked
+                            }
+                            .onSubmit { checkSSHHost() }
+                        if sshHostState == .checking {
+                            ProgressView().controlSize(.small)
+                        } else if let symbol = sshHostState.symbol {
+                            Image(systemName: symbol)
+                                .foregroundColor(sshHostState.color)
+                        }
+                    }
+
+                    HStack {
+                        Text("Method:")
+                        Picker("", selection: $sshSyncMethod) {
+                            ForEach(RemoteCopyMethod.allCases, id: \.rawValue) { method in
+                                Text(method.title).tag(method.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 120)
+                        .onChange(of: sshSyncMethod) {
+                            settings.sshSyncMethod = sshSyncMethod
+                            sshHostState = .unchecked
+                        }
+                    }
+
+                    HStack {
+                        Text("Key:")
+                        TextField("~/.ssh/id_ed25519", text: $sshSyncKeyPath)
+                            .frame(width: 160)
+                            .onChange(of: sshSyncKeyPath) {
+                                settings.sshSyncKeyPath = sshSyncKeyPath
+                                sshHostState = .unchecked
+                            }
+                            .onSubmit { checkSSHHost() }
+                        Button("Choose...") { chooseSSHKey() }
+                    }
+
+                    Text("New text and images are copied to this host's clipboard over ssh (pbcopy, wl-copy or xclip). Images need wl-copy or xclip. Leave empty to disable. Requires key-based login. Empty key uses the default keys and ssh-agent. Keys with a passphrase need ssh-agent.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -295,6 +378,35 @@ struct GeneralSettingsView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 3)
+    }
+
+    private func chooseSSHKey() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        sshSyncKeyPath = url.path
+    }
+
+    private func checkSSHHost() {
+        let host = sshSyncHost.trimmingCharacters(in: .whitespaces)
+        guard !host.isEmpty else {
+            sshHostState = .unchecked
+            return
+        }
+        sshHostState = .checking
+        let method = RemoteCopyMethod(rawValue: sshSyncMethod) ?? .auto
+        let keyPath = sshSyncKeyPath.trimmingCharacters(in: .whitespaces)
+        DispatchQueue.global().async {
+            let reachable = SSHHostCheck.isReachable(host: host, method: method, keyPath: keyPath)
+            DispatchQueue.main.async {
+                guard host == sshSyncHost.trimmingCharacters(in: .whitespaces) else { return }
+                sshHostState = reachable ? .found : .notFound
+            }
+        }
     }
 
     private func refreshStats() {

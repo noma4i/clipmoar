@@ -247,9 +247,26 @@ final class MockSettings: SettingsStore {
     var imageSharpen: Bool = false
     var imageReduceNoise: Bool = false
     var ignoredAppBundleIds: [String] = []
+    var sshSyncHost: String = ""
+    var sshSyncMethod: String = "auto"
+    var sshSyncKeyPath: String = ""
     var autoCheckUpdates: Bool = true
     var lastUpdateCheck: Date?
     func registerDefaults() {}
+}
+
+final class MockRemoteSender: ClipboardRemoteSender {
+    var sent: [(text: String, host: String, method: RemoteCopyMethod, keyPath: String)] = []
+
+    var sentImages: [(data: Data, host: String)] = []
+
+    func send(text: String, host: String, method: RemoteCopyMethod, keyPath: String) {
+        sent.append((text, host, method, keyPath))
+    }
+
+    func sendImage(_ data: Data, host: String, method _: RemoteCopyMethod, keyPath _: String) {
+        sentImages.append((data, host))
+    }
 }
 
 struct SilentClipboardLogger: ClipboardLogger {
@@ -465,6 +482,155 @@ final class ClipboardServiceTests: XCTestCase {
         service.checkForChanges()
     }
 
+    func testRemoteSyncCases() {
+        struct Case {
+            let host: String
+            let copies: [String]
+            let expected: [String]
+        }
+        let cases = [
+            Case(host: "myserver", copies: ["Hello"], expected: ["Hello"]),
+            Case(host: "", copies: ["Hello"], expected: []),
+            Case(host: "   ", copies: ["Hello"], expected: []),
+            Case(host: "myserver", copies: ["Hello", "Hello"], expected: ["Hello"]),
+        ]
+        for c in cases {
+            let pasteboard = MockPasteboard()
+            let settings = MockSettings()
+            settings.sshSyncHost = c.host
+            let sender = MockRemoteSender()
+            let service = makeService(repository: MockRepository(), pasteboard: pasteboard, settings: settings, remoteSender: sender)
+            service.startMonitoring()
+            for text in c.copies {
+                pasteboard.simulateCopy(text: text)
+                triggerCheck(service)
+            }
+            XCTAssertEqual(sender.sent.map(\.text), c.expected, "host=\(c.host)")
+            XCTAssertTrue(sender.sent.allSatisfy { $0.host == c.host }, "host=\(c.host)")
+        }
+    }
+
+    func testRemoteSyncMethodReachesSender() {
+        let cases: [(stored: String, expected: RemoteCopyMethod)] = [
+            ("auto", .auto), ("pbcopy", .pbcopy), ("wlCopy", .wlCopy), ("xclip", .xclip), ("bogus", .auto),
+        ]
+        for c in cases {
+            let pasteboard = MockPasteboard()
+            let settings = MockSettings()
+            settings.sshSyncHost = "myserver"
+            settings.sshSyncMethod = c.stored
+            let sender = MockRemoteSender()
+            let service = makeService(repository: MockRepository(), pasteboard: pasteboard, settings: settings, remoteSender: sender)
+            service.startMonitoring()
+            pasteboard.simulateCopy(text: "Hello")
+            triggerCheck(service)
+            XCTAssertEqual(sender.sent.map(\.method), [c.expected], "stored=\(c.stored)")
+        }
+    }
+
+    func testRemoteSyncKeyPathReachesSender() {
+        let cases: [(stored: String, expected: String)] = [
+            ("", ""), ("   ", ""), ("~/.ssh/id_work", "~/.ssh/id_work"), ("  /keys/id  ", "/keys/id"),
+        ]
+        for c in cases {
+            let pasteboard = MockPasteboard()
+            let settings = MockSettings()
+            settings.sshSyncHost = "myserver"
+            settings.sshSyncKeyPath = c.stored
+            let sender = MockRemoteSender()
+            let service = makeService(repository: MockRepository(), pasteboard: pasteboard, settings: settings, remoteSender: sender)
+            service.startMonitoring()
+            pasteboard.simulateCopy(text: "Hello")
+            triggerCheck(service)
+            XCTAssertEqual(sender.sent.map(\.keyPath), [c.expected], "stored=\(c.stored)")
+        }
+    }
+
+    func testSSHOptionsArguments() {
+        XCTAssertEqual(SSHOptions.arguments(keyPath: ""), [])
+        XCTAssertEqual(SSHOptions.arguments(keyPath: "/keys/id"), ["-i", "/keys/id", "-o", "IdentitiesOnly=yes"])
+        let home = NSString(string: "~/.ssh/id_work").expandingTildeInPath
+        XCTAssertEqual(SSHOptions.arguments(keyPath: "~/.ssh/id_work"), ["-i", home, "-o", "IdentitiesOnly=yes"])
+        XCTAssertNotEqual(home, "~/.ssh/id_work")
+    }
+
+    func testRemoteSyncImageCases() {
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01])
+        let cases: [(host: String, copies: Int, expected: Int)] = [
+            ("myserver", 1, 1), ("", 1, 0), ("myserver", 2, 1),
+        ]
+        for c in cases {
+            let pasteboard = MockPasteboard()
+            let settings = MockSettings()
+            settings.sshSyncHost = c.host
+            let sender = MockRemoteSender()
+            let service = makeService(repository: MockRepository(), pasteboard: pasteboard, settings: settings, remoteSender: sender)
+            service.startMonitoring()
+            for _ in 0 ..< c.copies {
+                pasteboard.simulateCopy(imageData: png)
+                triggerCheck(service)
+            }
+            XCTAssertEqual(sender.sentImages.count, c.expected, "host=\(c.host) copies=\(c.copies)")
+            XCTAssertEqual(sender.sentImages.first?.data, c.expected > 0 ? png : nil)
+            XCTAssertTrue(sender.sent.isEmpty)
+        }
+    }
+
+    func testRemoteSyncImageFromFileIsSent() throws {
+        let image = NSImage(size: NSSize(width: 2, height: 2), flipped: false) { rect in
+            NSColor.red.setFill()
+            rect.fill()
+            return true
+        }
+        let rep = try XCTUnwrap(try NSBitmapImageRep(data: XCTUnwrap(image.tiffRepresentation)))
+        let png = try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("clipmoar-sync-\(UUID().uuidString).png")
+        try png.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let pasteboard = MockPasteboard()
+        let settings = MockSettings()
+        settings.sshSyncHost = "myserver"
+        let sender = MockRemoteSender()
+        let service = makeService(repository: MockRepository(), pasteboard: pasteboard, settings: settings, remoteSender: sender)
+        service.startMonitoring()
+        pasteboard.simulateCopy(fileURLs: [url])
+        triggerCheck(service)
+
+        XCTAssertEqual(sender.sentImages.count, 1)
+    }
+
+    func testImageMimeDetectAndCommands() {
+        XCTAssertEqual(ImageMime.detect(Data([0x89, 0x50, 0x4E, 0x47, 0x00])), "image/png")
+        XCTAssertEqual(ImageMime.detect(Data([0xFF, 0xD8, 0xFF, 0xE0])), "image/jpeg")
+        XCTAssertNil(ImageMime.detect(Data([0x01, 0x02, 0x03])))
+        XCTAssertNil(RemoteCopyMethod.pbcopy.imageCopyCommand(mime: "image/png"))
+        XCTAssertTrue(RemoteCopyMethod.wlCopy.imageCopyCommand(mime: "image/png")?.contains("--type image/png") == true)
+        XCTAssertTrue(RemoteCopyMethod.xclip.imageCopyCommand(mime: "image/png")?.contains("-t image/png") == true)
+        XCTAssertNotNil(RemoteCopyMethod.auto.imageCopyCommand(mime: "image/png"))
+    }
+
+    func testMissingKeyFileIsNotReachable() {
+        XCTAssertFalse(SSHHostCheck.isReachable(host: "myserver", method: .auto, keyPath: "/nonexistent/key"))
+        XCTAssertFalse(SSHOptions.keyFileExists(keyPath: "~/nonexistent-key-file"))
+        XCTAssertTrue(SSHOptions.keyFileExists(keyPath: ""))
+        XCTAssertTrue(SSHOptions.keyFileExists(keyPath: "/etc/hosts"))
+    }
+
+    func testRemoteSyncSkipsTransientCopy() {
+        let pasteboard = MockPasteboard()
+        let settings = MockSettings()
+        settings.sshSyncHost = "myserver"
+        let sender = MockRemoteSender()
+        let service = makeService(repository: MockRepository(), pasteboard: pasteboard, settings: settings, remoteSender: sender)
+        service.startMonitoring()
+
+        pasteboard.simulateTransientCopy(text: "secret")
+        triggerCheck(service)
+
+        XCTAssertTrue(sender.sent.isEmpty)
+    }
+
     func testIgnoredAppIsSkipped() {
         let pasteboard = MockPasteboard()
         pasteboard.frontmostBundleIdValue = "com.ignored.app"
@@ -500,12 +666,14 @@ final class ClipboardServiceTests: XCTestCase {
         pasteboard: MockPasteboard,
         maintenanceInterval: Int = 20,
         settings: MockSettings = MockSettings(),
+        remoteSender: ClipboardRemoteSender = MockRemoteSender(),
         isRunningUnderTestHarness: @escaping () -> Bool = { false }
     ) -> ClipboardService {
         ClipboardService(
             repository: repository,
             settings: settings,
             pasteboard: pasteboard,
+            remoteSender: remoteSender,
             maintenanceInterval: maintenanceInterval,
             logger: SilentClipboardLogger(),
             isRunningUnderTestHarness: isRunningUnderTestHarness

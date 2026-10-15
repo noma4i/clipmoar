@@ -18,6 +18,7 @@ Highly opinionated clipboard manager for macOS. Built with Swift, AppKit and Swi
 - Per-application transform rules
 - Panel position and screen selection
 - History retention settings
+- Remote sync: copy new text and images to an SSH host's clipboard (`pbcopy`, `wl-copy` or `xclip`, auto-detected or chosen in settings, optional SSH key file)
 - Global hotkey support
 - Configurable visibility: dock and menu bar
 - Native macOS experience - pure Swift, no Electron
