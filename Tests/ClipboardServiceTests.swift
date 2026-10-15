@@ -680,3 +680,24 @@ final class ClipboardServiceTests: XCTestCase {
         )
     }
 }
+
+final class FailureSignalLogger: ClipboardLogger, @unchecked Sendable {
+    let failed: XCTestExpectation
+    init(_ failed: XCTestExpectation) {
+        self.failed = failed
+    }
+
+    func log(_ message: StaticString, _: CVarArg...) {
+        if "\(message)".contains("failed") { failed.fulfill() }
+    }
+}
+
+final class SSHClipboardSenderTests: XCTestCase {
+    func testLargePayloadToUnreachableHostDoesNotKillProcess() {
+        let failed = expectation(description: "failure logged")
+        failed.assertForOverFulfill = false
+        let sender = SSHClipboardSender(logger: FailureSignalLogger(failed))
+        sender.send(text: String(repeating: "x", count: 8_000_000), host: "clipmoar-nonexistent.invalid", method: .auto, keyPath: "")
+        wait(for: [failed], timeout: 20)
+    }
+}

@@ -125,10 +125,15 @@ final class SSHClipboardSender: ClipboardRemoteSender {
             process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice
             do {
+                _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
                 try process.run()
-                input.fileHandleForWriting.write(data)
-                try input.fileHandleForWriting.close()
+                let writeError: Error?
+                do { try input.fileHandleForWriting.write(contentsOf: data); writeError = nil } catch { writeError = error }
+                try? input.fileHandleForWriting.close()
                 process.waitUntilExit()
+                if let writeError {
+                    logger.log("[ClipMoar] ssh sync to %@ stdin write failed: %@", host, writeError.localizedDescription)
+                }
                 if process.terminationStatus != 0 {
                     logger.log("[ClipMoar] ssh sync to %@ failed: exit %d", host, process.terminationStatus)
                 }
