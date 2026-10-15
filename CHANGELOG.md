@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.0] - 2026-10-15
+
+### Added
+- Remote Sync in General settings: enter an SSH host name and every new text copy (and image, such as a screenshot or a picture from a phone, on Wayland and X11 hosts) is sent to its clipboard over ssh (`pbcopy` on macOS, `wl-copy` on Wayland, `xclip` on X11). The copy method can be chosen in settings (Auto, pbcopy, wl-copy, xclip) and an SSH key file can be set (empty uses default keys and ssh-agent). Requires key-based login, an unreachable host is skipped silently. Press Enter in the field to check the host: a green checkmark and border mean it is reachable, red means it is not
+
 ## [1.6.1] - 2026-10-03
 
 ### Fixed
