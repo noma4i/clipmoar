@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.1] - 2026-10-16
+
+### Fixed
+- ClipMoar no longer crashes when an SSH sync fails mid-transfer (unreachable host, missing clipboard tool on the remote side, or a large screenshot). A write to an already closed ssh pipe killed the app, now it is logged and skipped
+
 ## [1.7.0] - 2026-10-15
 
 ### Added
