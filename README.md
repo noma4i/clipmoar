@@ -19,6 +19,7 @@ Highly opinionated clipboard manager for macOS. Built with Swift, AppKit and Swi
 - Panel position and screen selection
 - History retention settings
 - Remote sync: copy new text and images to an SSH host's clipboard (`pbcopy`, `wl-copy` or `xclip`, auto-detected or chosen in settings, optional SSH key file)
+- DrawMoar companion: grab the Mac screen on an iPhone or iPad, draw and crop on it, send it back to the Mac clipboard (local network, PIN pairing, Settings -> Companion)
 - Global hotkey support
 - Configurable visibility: dock and menu bar
 - Native macOS experience - pure Swift, no Electron

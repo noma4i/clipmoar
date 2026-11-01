@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Companion server for the DrawMoar iPhone/iPad app (Settings -> Companion). Pair a device with a 6-digit PIN shown on the Mac, then the app grabs the current Mac screen, lets you draw and crop on it, and sends the result back to the Mac clipboard (and ClipMoar history). Works on the local network over TLS with a pre-shared key, needs Screen Recording access, off by default
+
 ## [1.7.1] - 2026-10-16
 
 ### Fixed
