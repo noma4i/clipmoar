@@ -4,6 +4,7 @@ import PackageDescription
 let package = Package(
     name: "ClipMoar",
     platforms: [.macOS(.v14)],
+    dependencies: [.package(path: "CompanionKit")],
     targets: [
         .executableTarget(
             name: "ClipMoar",
@@ -14,8 +15,8 @@ let package = Package(
         ),
         .testTarget(
             name: "ClipMoarTests",
-            dependencies: ["ClipMoar"],
+            dependencies: ["ClipMoar", "CompanionKit"],
             path: "Tests"
-        )
+        ),
     ]
 )
