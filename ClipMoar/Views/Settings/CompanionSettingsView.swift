@@ -17,30 +17,37 @@ struct CompanionSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Companion").font(.title2.bold())
-            Toggle("Enable DrawMoar companion", isOn: $enabled)
-                .onChange(of: enabled) {
-                    settings.companionEnabled = enabled
-                    onChange?()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Companion").font(.title2.bold())
+                Toggle("Enable DrawMoar companion", isOn: $enabled)
+                    .onChange(of: enabled) {
+                        settings.companionEnabled = enabled
+                        onChange?()
+                    }
+                HStack {
+                    Text("Companion server")
+                    Spacer()
+                    if server?.isRunning != true {
+                        status("Off", color: .gray)
+                    } else if let error = server?.error {
+                        status(error, color: .red)
+                    } else {
+                        status("Running", color: .green)
+                    }
                 }
-            HStack {
-                Text("Screen Recording")
-                Spacer()
-                if screenGranted {
-                    Text("Granted").foregroundStyle(.secondary)
-                } else {
-                    Button("Request access") { screenGranted = CGRequestScreenCaptureAccess() }
-                        .frame(width: 120)
+                HStack {
+                    Text("Screen Recording")
+                    Spacer()
+                    status(screenGranted ? "Granted" : "Not granted", color: screenGranted ? .green : .red)
+                    if !screenGranted {
+                        Button("Request access") { screenGranted = CGRequestScreenCaptureAccess() }
+                    }
                 }
-            }
-            Divider()
-            HStack(alignment: .top, spacing: 20) {
-                Button("Pair device") { server?.startPairing() }
-                    .disabled(!enabled || server == nil || server?.invite != nil)
-                    .frame(width: 120)
-                if let invite = server?.invite {
-                    VStack(spacing: 8) {
+                Divider()
+                Text("Pair device").font(.system(size: 13, weight: .semibold))
+                VStack(spacing: 8) {
+                    if let invite = server?.invite {
                         if let image = qrImage(for: invite.url) {
                             Image(nsImage: image)
                                 .interpolation(.none)
@@ -48,39 +55,55 @@ struct CompanionSettingsView: View {
                                 .frame(width: 220, height: 220)
                                 .padding(12)
                                 .background(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.black, lineWidth: 1.5))
                         }
                         Text("Scan with your iPhone or iPad camera")
-                        Text("\(server?.secondsRemaining ?? 0) s remaining").foregroundStyle(.secondary)
+                        Text("\(server?.secondsRemaining ?? 0) s remaining")
+                            .monospacedDigit()
+                            .frame(width: 120)
+                            .foregroundStyle(.secondary)
                         Button("Cancel") { server?.closePairing() }
+                    } else {
+                        Button("Pair device") { server?.startPairing() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!enabled || server == nil)
+                        Text("Shows a QR code to scan with DrawMoar")
+                            .foregroundStyle(.secondary)
                     }
                 }
-            }
-            Text("Paired devices").font(.headline)
-            if let devices = server?.devices, !devices.isEmpty {
-                ScrollView {
-                    VStack(spacing: 12) {
+                .frame(maxWidth: .infinity)
+                Divider()
+                Text("Paired devices").font(.system(size: 13, weight: .semibold))
+                if let devices = server?.devices, !devices.isEmpty {
+                    VStack(spacing: 8) {
                         ForEach(devices) { device in
                             HStack {
+                                Image(systemName: device.name.localizedCaseInsensitiveContains("ipad") ? "ipad" : "iphone")
+                                    .frame(width: 20)
                                 Text(device.name).lineLimit(1).truncationMode(.tail)
                                 Spacer()
                                 Button("Revoke") { server?.revoke(device.id) }
-                                    .frame(width: 80)
                             }
                         }
                     }
+                } else {
+                    Text("No paired devices").foregroundStyle(.secondary)
                 }
-            } else {
-                Text("No paired devices").foregroundStyle(.secondary)
             }
-            if let error = server?.error {
-                Text(error).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             screenGranted = CGPreflightScreenCaptureAccess()
+        }
+    }
+
+    private func status(_ title: String, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(title).fixedSize(horizontal: false, vertical: true)
         }
     }
 

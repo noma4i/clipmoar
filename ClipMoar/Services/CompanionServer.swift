@@ -229,6 +229,10 @@ final class CompanionServer {
     private var timer: Timer?
     private var enabled = false
 
+    var isRunning: Bool {
+        enabled
+    }
+
     init(capturer: ScreenCapturing, images: CompanionImageIngest, store: CompanionDeviceStoring, connections: CompanionConnections = CompanionConnections()) {
         self.capturer = capturer
         self.images = images
