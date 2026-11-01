@@ -23,14 +23,16 @@ public struct WindowFrame: Codable, Equatable {
     public let height: Int
     public let app: String
     public let title: String
+    public let children: [WindowFrame]
 
-    public init(x: Int, y: Int, width: Int, height: Int, app: String, title: String) {
+    public init(x: Int, y: Int, width: Int, height: Int, app: String, title: String, children: [WindowFrame] = []) {
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.app = app
         self.title = title
+        self.children = children
     }
 }
 

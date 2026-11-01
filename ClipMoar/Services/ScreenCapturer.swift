@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CompanionKit
 import ScreenCaptureKit
 
@@ -11,6 +12,8 @@ struct CapturedWindow {
     let frame: CGRect
     let app: String
     let title: String
+    var processID: pid_t? = nil
+    var parts: [WindowPartNode] = []
 }
 
 func windowFrames(_ windows: [CapturedWindow], display: CGRect, pixelWidth: Int, pixelHeight: Int) -> [WindowFrame] {
@@ -24,7 +27,8 @@ func windowFrames(_ windows: [CapturedWindow], display: CGRect, pixelWidth: Int,
         let top = Int(((clipped.minY - display.minY) * scaleY).rounded())
         let right = Int(((clipped.maxX - display.minX) * scaleX).rounded())
         let bottom = Int(((clipped.maxY - display.minY) * scaleY).rounded())
-        return WindowFrame(x: left, y: top, width: right - left, height: bottom - top, app: window.app, title: window.title)
+        let parent = CGRect(x: left, y: top, width: right - left, height: bottom - top)
+        return WindowFrame(x: left, y: top, width: right - left, height: bottom - top, app: window.app, title: window.title, children: windowParts(window.parts, parent: parent, app: window.app))
     }
 }
 
@@ -81,7 +85,7 @@ struct ScreenCapturer: ScreenCapturing {
                   owner.bundleIdentifier != "com.apple.dock",
                   owner.bundleIdentifier != "com.apple.systemuiserver"
             else { return nil }
-            return CapturedWindow(frame: window.frame, app: owner.applicationName, title: window.title ?? "")
+            return CapturedWindow(frame: window.frame, app: owner.applicationName, title: window.title ?? "", processID: owner.processID)
         }
         let image = try await SCScreenshotManager.captureImage(
             contentFilter: SCContentFilter(display: display, excludingWindows: []),
@@ -90,10 +94,59 @@ struct ScreenCapturer: ScreenCapturing {
         guard let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
             throw ScreenCaptureError.encodingFailed
         }
-        return (png, windowFrames(ordered, display: display.frame, pixelWidth: image.width, pixelHeight: image.height))
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.15
+        let windows = ordered.map { window in
+            var window = window
+            if AXIsProcessTrusted(), let pid = window.processID, ProcessInfo.processInfo.systemUptime < deadline {
+                window.parts = accessibilityParts(pid: pid, frame: window.frame, display: display.frame, pixelWidth: image.width, pixelHeight: image.height, deadline: deadline)
+            }
+            return window
+        }
+        return (png, windowFrames(windows, display: display.frame, pixelWidth: image.width, pixelHeight: image.height))
     }
 
     private func screenID(_ screen: NSScreen) -> CGDirectDisplayID? {
         (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
     }
+}
+
+private func accessibilityParts(pid: pid_t, frame: CGRect, display: CGRect, pixelWidth: Int, pixelHeight: Int, deadline: TimeInterval) -> [WindowPartNode] {
+    let application = AXUIElementCreateApplication(pid)
+    AXUIElementSetMessagingTimeout(application, 0.02)
+    func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+        guard ProcessInfo.processInfo.systemUptime < deadline else { return nil }
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
+    }
+    func rect(_ element: AXUIElement) -> CGRect? {
+        guard let position = attribute(element, kAXPositionAttribute), CFGetTypeID(position) == AXValueGetTypeID(),
+              let size = attribute(element, kAXSizeAttribute), CFGetTypeID(size) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero
+        var dimensions = CGSize.zero
+        guard AXValueGetValue(position as! AXValue, .cgPoint, &point), AXValueGetValue(size as! AXValue, .cgSize, &dimensions) else { return nil }
+        return CGRect(origin: point, size: dimensions)
+    }
+    guard let windows = attribute(application, kAXWindowsAttribute) as? [AXUIElement],
+          let window = windows.first(where: { element in
+              guard let bounds = rect(element) else { return false }
+              return abs(bounds.minX - frame.minX) <= 2 && abs(bounds.minY - frame.minY) <= 2 && abs(bounds.width - frame.width) <= 2 && abs(bounds.height - frame.height) <= 2
+          }) else { return [] }
+    var visited = 0
+    func read(_ element: AXUIElement, depth: Int) -> WindowPartNode? {
+        guard depth <= 64, visited < 2000, ProcessInfo.processInfo.systemUptime < deadline else { return nil }
+        visited += 1
+        AXUIElementSetMessagingTimeout(element, 0.02)
+        var role = attribute(element, kAXRoleAttribute) as? String ?? ""
+        let title = attribute(element, kAXTitleAttribute) as? String ?? ""
+        let nodeRect = rect(element)
+        if nodeRect == nil { role = "" }
+        let bounds = nodeRect ?? frame
+        let children = (attribute(element, kAXChildrenAttribute) as? [AXUIElement] ?? []).compactMap { read($0, depth: depth + 1) }
+        let x1 = ((bounds.minX - display.minX) * CGFloat(pixelWidth) / display.width).rounded()
+        let y1 = ((bounds.minY - display.minY) * CGFloat(pixelHeight) / display.height).rounded()
+        let x2 = ((bounds.maxX - display.minX) * CGFloat(pixelWidth) / display.width).rounded()
+        let y2 = ((bounds.maxY - display.minY) * CGFloat(pixelHeight) / display.height).rounded()
+        return WindowPartNode(role: role, title: title, rect: CGRect(x: x1, y: y1, width: x2 - x1, height: y2 - y1), children: children)
+    }
+    return (attribute(window, kAXChildrenAttribute) as? [AXUIElement] ?? []).compactMap { read($0, depth: 1) }
 }

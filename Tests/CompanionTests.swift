@@ -10,7 +10,11 @@ final class CompanionTests: XCTestCase {
         var bytes = [UInt8](repeating: 0, count: 300 * 1024)
         XCTAssertEqual(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes), errSecSuccess)
         let windows = [
-            WindowFrame(x: 1, y: 2, width: 300, height: 400, app: "App", title: "Caf\u{E9}"),
+            WindowFrame(x: 1, y: 2, width: 300, height: 400, app: "App", title: "Caf\u{E9}", children: [
+                WindowFrame(x: 10, y: 20, width: 200, height: 250, app: "App", title: "AXGroup", children: [
+                    WindowFrame(x: 20, y: 30, width: 120, height: 130, app: "App", title: "AXList"),
+                ]),
+            ]),
             WindowFrame(x: 5, y: 6, width: 700, height: 800, app: "Other", title: "Window"),
         ]
         let messages: [Message] = [.hello(deviceId: "device"), .screenshot(png: Data(bytes), windows: windows), .paste(png: Data(bytes), session: "session")]
