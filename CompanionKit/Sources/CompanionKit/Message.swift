@@ -16,6 +16,24 @@ public struct DisplayInfo: Codable, Equatable {
     }
 }
 
+public struct WindowFrame: Codable, Equatable {
+    public let x: Int
+    public let y: Int
+    public let width: Int
+    public let height: Int
+    public let app: String
+    public let title: String
+
+    public init(x: Int, y: Int, width: Int, height: Int, app: String, title: String) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.app = app
+        self.title = title
+    }
+}
+
 public enum Message: Equatable {
     case hello(deviceId: String)
     case pairRequest(deviceId: String, deviceName: String)
@@ -23,7 +41,7 @@ public enum Message: Equatable {
     case listDisplays
     case displays([DisplayInfo])
     case capture(displayId: UInt32?)
-    case image(png: Data)
+    case screenshot(png: Data, windows: [WindowFrame])
     case paste(png: Data, session: String)
     case ok
     case error(String)
@@ -42,7 +60,14 @@ public enum Message: Equatable {
     public func encode() throws -> Data {
         let frame: Frame
         switch self {
-        case let .image(png): frame = Frame(type: 1, payload: png)
+        case let .screenshot(png, windows):
+            let json = try JSONEncoder().encode(windows)
+            guard json.count <= 1024 * 1024 else { throw FrameError.tooLarge }
+            let length = UInt32(json.count)
+            var payload = Data([UInt8(length >> 24), UInt8((length >> 16) & 255), UInt8((length >> 8) & 255), UInt8(length & 255)])
+            payload.append(json)
+            payload.append(png)
+            frame = Frame(type: 1, payload: payload)
         case let .paste(png, session):
             let bytes = Data(session.utf8)
             guard !bytes.isEmpty, bytes.count <= 128 else { throw FrameError.invalidSession }
@@ -61,7 +86,7 @@ public enum Message: Equatable {
             case let .capture(displayId): value = .capture(displayId: displayId)
             case .ok: value = .ok
             case let .error(message): value = .error(message)
-            case .image, .paste: preconditionFailure()
+            case .screenshot, .paste: preconditionFailure()
             }
             frame = try Frame(type: 0, payload: JSONEncoder().encode(value))
         }
@@ -70,7 +95,14 @@ public enum Message: Equatable {
 
     public init(frame: Frame) throws {
         switch frame.type {
-        case 1: self = .image(png: frame.payload)
+        case 1:
+            let bytes = [UInt8](frame.payload)
+            guard bytes.count >= 4 else { throw FrameError.truncated }
+            let length = bytes.prefix(4).reduce(0) { ($0 << 8) | Int($1) }
+            guard length <= 1024 * 1024 else { throw FrameError.tooLarge }
+            guard bytes.count > 4 + length else { throw FrameError.truncated }
+            let windows = try JSONDecoder().decode([WindowFrame].self, from: Data(bytes[4 ..< 4 + length]))
+            self = .screenshot(png: Data(bytes[(4 + length)...]), windows: windows)
         case 2:
             let bytes = [UInt8](frame.payload)
             guard bytes.count >= 2 else { throw FrameError.truncated }

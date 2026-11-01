@@ -179,7 +179,9 @@ final class CompanionSession {
             }
             switch message {
             case .listDisplays: return try await .displays(capturer.displays())
-            case let .capture(id): return try await .image(png: capturer.capture(displayId: id))
+            case let .capture(id):
+                let result = try await capturer.capture(displayId: id)
+                return .screenshot(png: result.png, windows: result.windows)
             case let .paste(png, session):
                 try images.paste(png: png, session: session)
                 return .ok

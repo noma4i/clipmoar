@@ -9,7 +9,11 @@ final class CompanionTests: XCTestCase {
     func testFragmentedFrames() throws {
         var bytes = [UInt8](repeating: 0, count: 300 * 1024)
         XCTAssertEqual(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes), errSecSuccess)
-        let messages: [Message] = [.hello(deviceId: "device"), .image(png: Data(bytes)), .paste(png: Data(bytes), session: "session")]
+        let windows = [
+            WindowFrame(x: 1, y: 2, width: 300, height: 400, app: "App", title: "Caf\u{E9}"),
+            WindowFrame(x: 5, y: 6, width: 700, height: 800, app: "Other", title: "Window"),
+        ]
+        let messages: [Message] = [.hello(deviceId: "device"), .screenshot(png: Data(bytes), windows: windows), .paste(png: Data(bytes), session: "session")]
         let wire = try messages.reduce(into: Data()) { result, message in
             try result.append(message.encode())
         }
@@ -19,6 +23,12 @@ final class CompanionTests: XCTestCase {
             try received.append(contentsOf: decoder.append(Data([byte])).map { try Message(frame: $0) })
         }
         XCTAssertEqual(received, messages)
+    }
+
+    func testInvalidScreenshotPayloads() {
+        for payload in [Data(), Data([0, 0, 0]), Data([0, 0, 0, 2, 91]), Data([0, 0, 0, 2, 91, 93]), Data([0, 0, 0, 1, 123, 1]), Data([0, 16, 0, 1, 1])] {
+            XCTAssertThrowsError(try Message(frame: Frame(type: 1, payload: payload)))
+        }
     }
 
     func testOversizedFrame() {

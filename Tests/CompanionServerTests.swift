@@ -18,7 +18,7 @@ final class CompanionServerTests: XCTestCase {
         let session = makeSession(capture: capture)
         _ = await session.receive(.hello(deviceId: "device"))
         let result = await session.receive(.capture(displayId: nil))
-        XCTAssertEqual(result, .image(png: capture.png))
+        XCTAssertEqual(result, .screenshot(png: capture.png, windows: capture.windows))
         XCTAssertEqual(capture.calls, 1)
         XCTAssertNil(capture.displayID)
     }
@@ -126,16 +126,17 @@ private final class FakeDevices: CompanionDeviceStoring {
 
 private final class FakeCapture: ScreenCapturing {
     let png = Data([5, 6, 7])
+    let windows = [WindowFrame(x: 1, y: 2, width: 3, height: 4, app: "App", title: "Window")]
     var calls = 0
     var displayID: UInt32?
     func displays() async throws -> [DisplayInfo] {
         []
     }
 
-    func capture(displayId: UInt32?) async throws -> Data {
+    func capture(displayId: UInt32?) async throws -> (png: Data, windows: [WindowFrame]) {
         calls += 1
         displayID = displayId
-        return png
+        return (png, windows)
     }
 }
 
