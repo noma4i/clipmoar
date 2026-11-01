@@ -23,6 +23,9 @@ final class PermissionDragWindow: NSPanel {
     }
 
     private static var current: PermissionDragWindow?
+    static var resetServices: Set<Permission> = []
+    static var resetCommand: (Permission) -> Void = resetStaleEntry
+    static var openSettings: (URL) -> Void = { NSWorkspace.shared.open($0) }
     private static let settingsBundleId = "com.apple.systempreferences"
     private static let size = NSSize(width: 300, height: 68)
 
@@ -35,13 +38,18 @@ final class PermissionDragWindow: NSPanel {
             current.dismiss()
         }
         if current == nil, !permission.isGranted {
-            resetStaleEntry(permission)
+            resetOnce(permission)
         }
-        NSWorkspace.shared.open(permission.settingsURL)
+        openSettings(permission.settingsURL)
         guard current == nil, !permission.isGranted else { return }
         let window = PermissionDragWindow(permission: permission)
         current = window
         window.follow()
+    }
+
+    static func resetOnce(_ permission: Permission) {
+        guard resetServices.insert(permission).inserted else { return }
+        resetCommand(permission)
     }
 
     private static func resetStaleEntry(_ permission: Permission) {

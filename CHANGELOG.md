@@ -7,6 +7,7 @@
 - Companion pairing invitations include direct network routes for Tailscale and local connections.
 
 ### Fixed
+- Granting one permission no longer resets another granted in the same session.
 - Companion connections report unreachable endpoints instead of waiting indefinitely.
 
 ## [1.8.0] - 2026-11-01

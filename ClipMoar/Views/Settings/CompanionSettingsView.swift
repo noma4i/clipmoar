@@ -3,11 +3,13 @@ import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 struct CompanionSettingsView: View {
+    private static var screenAccessRequested = false
     let settings: SettingsStore
     let server: CompanionServer?
     let onChange: (() -> Void)?
     @State private var enabled: Bool
     @State private var screenGranted = CGPreflightScreenCaptureAccess()
+    @State private var restartRequired = false
 
     init(settings: SettingsStore, server: CompanionServer?, onChange: (() -> Void)?) {
         self.settings = settings
@@ -46,7 +48,17 @@ struct CompanionSettingsView: View {
                     Spacer()
                     status(screenGranted ? "Granted" : "Not granted", color: screenGranted ? .green : .red)
                     if !screenGranted {
-                        Button("Request access") { PermissionDragWindow.show(.screenRecording) }
+                        if restartRequired {
+                            Text("Restart ClipMoar to apply").fixedSize()
+                            Button("Restart", action: restart)
+                                .frame(width: 110)
+                        } else {
+                            Button("Request access") {
+                                Self.screenAccessRequested = true
+                                PermissionDragWindow.show(.screenRecording)
+                            }
+                            .frame(width: 110)
+                        }
                     }
                 }
                 Divider()
@@ -102,6 +114,19 @@ struct CompanionSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             screenGranted = CGPreflightScreenCaptureAccess()
+            restartRequired = Self.screenAccessRequested && !screenGranted
+        }
+    }
+
+    private func restart() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-n", Bundle.main.bundlePath]
+        do {
+            try process.run()
+            NSApp.terminate(nil)
+        } catch {
+            return
         }
     }
 
