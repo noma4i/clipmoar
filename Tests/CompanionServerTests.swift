@@ -3,7 +3,7 @@ import CompanionKit
 import Foundation
 import XCTest
 
-final class CompanionServerTests: XCTestCase {
+@MainActor final class CompanionServerTests: XCTestCase {
     func testCaptureBeforeHelloIsRejected() async {
         let capture = FakeCapture()
         let session = makeSession(capture: capture)
@@ -44,6 +44,21 @@ final class CompanionServerTests: XCTestCase {
         let updated = await session.receive(.paste(png: Data([5]), session: "s1"))
         XCTAssertEqual(updated, .ok)
         XCTAssertEqual(history.items.map(\.data), [Data([5, 9]), Data([4, 9])])
+    }
+
+    func testDetachedPasteUsesMainThreadForClipboardAndHistory() async {
+        let clipboard = FakeClipboard()
+        let history = FakeHistory()
+        let session = makeSession(clipboard: clipboard, history: history)
+        let results = await Task.detached {
+            _ = await session.receive(.hello(deviceId: "device"))
+            let first = await session.receive(.paste(png: Data([1]), session: "s1"))
+            let second = await session.receive(.paste(png: Data([2]), session: "s1"))
+            return [first, second]
+        }.value
+        XCTAssertEqual(results, [.ok, .ok])
+        XCTAssertEqual(clipboard.mainThreadCalls, [true, true])
+        XCTAssertEqual(history.mainThreadCalls, [true, true, true])
     }
 
     func testPairingRequiresOpenWindowAndPersistsKey() async throws {
@@ -97,11 +112,11 @@ final class CompanionServerTests: XCTestCase {
         XCTAssertEqual(cancellations, 2)
     }
 
-    private func makeImages(clipboard: FakeClipboard = FakeClipboard(), history: FakeHistory = FakeHistory()) -> CompanionImageIngest {
-        CompanionImageIngest(clipboard: clipboard, history: history) { $0 + Data([9]) }
+    private func makeImages(clipboard: FakeClipboard? = nil, history: FakeHistory? = nil) -> CompanionImageIngest {
+        CompanionImageIngest(clipboard: clipboard ?? FakeClipboard(), history: history ?? FakeHistory()) { $0 + Data([9]) }
     }
 
-    private func makeSession(capture: FakeCapture = FakeCapture(), clipboard: FakeClipboard = FakeClipboard(), history: FakeHistory = FakeHistory()) -> CompanionSession {
+    private func makeSession(capture: FakeCapture = FakeCapture(), clipboard: FakeClipboard? = nil, history: FakeHistory? = nil) -> CompanionSession {
         let store = FakeDevices()
         try! store.save(CompanionDevice(id: "device", name: "iPad", key: Data(repeating: 1, count: 32)))
         return CompanionSession(devices: store, pairing: PairingWindow(), capturer: capture, images: makeImages(clipboard: clipboard, history: history))
@@ -143,7 +158,9 @@ private final class FakeCapture: ScreenCapturing {
 private final class FakeClipboard: CompanionImageWriting {
     var png: Data?
     var marked = false
+    var mainThreadCalls: [Bool] = []
     func writeImage(png: Data, marked: Bool) throws {
+        mainThreadCalls.append(Thread.isMainThread)
         self.png = png
         self.marked = marked
     }
@@ -158,13 +175,16 @@ private final class FakeHistory: CompanionImageHistory {
     }
 
     var items: [Item] = []
+    var mainThreadCalls: [Bool] = []
     func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        mainThreadCalls.append(Thread.isMainThread)
         let id = UUID()
         items.insert(Item(id: id, data: data, source: sourceAppBundleId, fingerprint: fingerprint), at: 0)
         return id
     }
 
     func replaceImage(uuid: UUID, data: Data, fingerprint: String) -> Bool {
+        mainThreadCalls.append(Thread.isMainThread)
         guard let index = items.firstIndex(where: { $0.id == uuid }) else { return false }
         items[index].data = data
         items[index].fingerprint = fingerprint
@@ -172,6 +192,7 @@ private final class FakeHistory: CompanionImageHistory {
     }
 
     func moveToTop(uuid: UUID) {
+        mainThreadCalls.append(Thread.isMainThread)
         guard let index = items.firstIndex(where: { $0.id == uuid }) else { return }
         items.insert(items.remove(at: index), at: 0)
     }

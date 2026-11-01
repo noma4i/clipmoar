@@ -1,6 +1,6 @@
 import Cocoa
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor class AppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = AppCoordinator()
 
     func applicationDidFinishLaunching(_: Notification) {

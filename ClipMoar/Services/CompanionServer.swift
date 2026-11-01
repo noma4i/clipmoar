@@ -103,13 +103,13 @@ final class PairingWindow {
     }
 }
 
-protocol CompanionImageWriting {
+@MainActor protocol CompanionImageWriting {
     func writeImage(png: Data, marked: Bool) throws
 }
 
 extension ClipboardActionService: CompanionImageWriting {}
 
-protocol CompanionImageHistory: AnyObject {
+@MainActor protocol CompanionImageHistory: AnyObject {
     func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
     func replaceImage(uuid: UUID, data: Data, fingerprint: String) -> Bool
     func moveToTop(uuid: UUID)
@@ -117,7 +117,7 @@ protocol CompanionImageHistory: AnyObject {
 
 extension CoreDataClipboardRepository: CompanionImageHistory {}
 
-final class CompanionImageIngest {
+@MainActor final class CompanionImageIngest {
     private let clipboard: CompanionImageWriting
     private let history: CompanionImageHistory
     private let prepare: (Data) -> Data
@@ -141,7 +141,7 @@ final class CompanionImageIngest {
     }
 }
 
-final class CompanionSession {
+@MainActor final class CompanionSession {
     private let devices: CompanionDeviceStoring
     private let pairing: PairingWindow
     private let capturer: ScreenCapturing
@@ -313,7 +313,9 @@ final class CompanionServer {
             guard !keys.isEmpty else { return }
             let listener = try NWListener(using: CompanionTLS.serverParameters(keys: keys))
             listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: bonjourServiceType)
-            listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
+            listener.newConnectionHandler = { [weak self] connection in
+                Task { @MainActor in self?.accept(connection) }
+            }
             listener.stateUpdateHandler = { [weak self] state in
                 if case let .failed(error) = state {
                     self?.error = error.localizedDescription
@@ -328,7 +330,7 @@ final class CompanionServer {
         }
     }
 
-    private func accept(_ connection: NWConnection) {
+    @MainActor private func accept(_ connection: NWConnection) {
         guard invite == nil || pairing.isOpen else { connection.cancel(); return }
         let id = UUID()
         let session = CompanionSession(devices: store, pairing: pairing, capturer: capturer, images: images)

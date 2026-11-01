@@ -80,7 +80,7 @@ final class AppCoordinator {
         onCompanionChange: { [weak self] in self?.applyCompanionSettings() }
     )
 
-    init(
+    @MainActor init(
         settings: SettingsStore = UserDefaultsSettingsStore(),
         context: NSManagedObjectContext = CoreDataStack.shared.viewContext
     ) {
