@@ -18,20 +18,31 @@ protocol CompanionDeviceStoring {
 }
 
 struct KeychainCompanionDevices: CompanionDeviceStoring {
-    private let service = "com.noma4i.ClipMoar.companion"
+    private let service: String
+
+    init(service: String = "com.noma4i.ClipMoar.companion") {
+        self.service = service
+    }
 
     func devices() throws -> [CompanionDevice] {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-                                    kSecReturnAttributes as String: true, kSecReturnData as String: true,
+                                    kSecReturnAttributes as String: true,
                                     kSecMatchLimit as String: kSecMatchLimitAll]
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return [] }
         guard status == errSecSuccess else { throw keychainError(status) }
-        return (result as? [[String: Any]] ?? []).compactMap { item in
+        guard let items = result as? [[String: Any]] else { throw keychainError(errSecDecode) }
+        return try items.map { item in
             guard let id = item[kSecAttrAccount as String] as? String,
-                  let name = item[kSecAttrLabel as String] as? String,
-                  let key = item[kSecValueData as String] as? Data else { return nil }
+                  let name = item[kSecAttrLabel as String] as? String else { throw keychainError(errSecDecode) }
+            let dataQuery: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                            kSecAttrService as String: service, kSecAttrAccount as String: id,
+                                            kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+            var dataResult: CFTypeRef?
+            let dataStatus = SecItemCopyMatching(dataQuery as CFDictionary, &dataResult)
+            guard dataStatus == errSecSuccess else { throw keychainError(dataStatus) }
+            guard let key = dataResult as? Data else { throw keychainError(errSecDecode) }
             return CompanionDevice(id: id, name: name, key: key)
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
