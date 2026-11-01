@@ -1,6 +1,6 @@
 cask "clipmoar" do
-  version "1.7.1"
-  sha256 "dc24644801286eb6dfdc16c38ff44de44ed1f16c2d3790627539793f989b85a1"
+  version "1.8.0"
+  sha256 "a429c884cc40d01c53c6bad8977e6bdc0cac4e246060a645859dd64a12d5724a"
 
   url "https://github.com/noma4i/clipmoar/releases/download/v#{version}/ClipMoar.app.zip"
   name "ClipMoar"
