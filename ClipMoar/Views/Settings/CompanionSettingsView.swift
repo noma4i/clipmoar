@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 struct CompanionSettingsView: View {
@@ -34,13 +35,24 @@ struct CompanionSettingsView: View {
                 }
             }
             Divider()
-            HStack {
+            HStack(alignment: .top, spacing: 20) {
                 Button("Pair device") { server?.startPairing() }
-                    .disabled(!enabled || server == nil)
+                    .disabled(!enabled || server == nil || server?.invite != nil)
                     .frame(width: 120)
-                if let pin = server?.pin {
-                    Text(pin).font(.system(size: 28, weight: .semibold, design: .monospaced))
-                    Text("\(server?.secondsRemaining ?? 0) s remaining").foregroundStyle(.secondary)
+                if let invite = server?.invite {
+                    VStack(spacing: 8) {
+                        if let image = qrImage(for: invite.url) {
+                            Image(nsImage: image)
+                                .interpolation(.none)
+                                .resizable()
+                                .frame(width: 220, height: 220)
+                                .padding(12)
+                                .background(.white)
+                        }
+                        Text("Scan with your iPhone or iPad camera")
+                        Text("\(server?.secondsRemaining ?? 0) s remaining").foregroundStyle(.secondary)
+                        Button("Cancel") { server?.closePairing() }
+                    }
                 }
             }
             Text("Paired devices").font(.headline)
@@ -70,5 +82,13 @@ struct CompanionSettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             screenGranted = CGPreflightScreenCaptureAccess()
         }
+    }
+
+    private func qrImage(for url: URL) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(url.absoluteString.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage, let image = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
 }

@@ -73,27 +73,25 @@ struct KeychainCompanionDevices: CompanionDeviceStoring {
 }
 
 final class PairingWindow {
-    private(set) var pin: String?
+    private(set) var invite: PairingInvite?
     private(set) var expiresAt: Date?
     private var failures = 0
     var isOpen: Bool {
-        pin != nil && (expiresAt ?? .distantPast) > Date()
+        invite != nil && (expiresAt ?? .distantPast) > Date()
     }
 
     func open() throws {
-        var random: UInt32 = 0
-        repeat {
-            guard SecRandomCopyBytes(kSecRandomDefault, MemoryLayout<UInt32>.size, &random) == errSecSuccess else {
-                throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecAllocate))
-            }
-        } while random >= UInt32.max - (UInt32.max % 1_000_000)
-        pin = String(format: "%06u", random % 1_000_000)
+        var secret = Data(count: 32)
+        let status = secret.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!) }
+        guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
+        let name = Host.current().localizedName.flatMap { $0.isEmpty ? nil : $0 } ?? "Mac"
+        invite = PairingInvite(macName: name, secret: secret)
         expiresAt = Date().addingTimeInterval(120)
         failures = 0
     }
 
     func close() {
-        pin = nil
+        invite = nil
         expiresAt = nil
         failures = 0
     }
@@ -218,7 +216,7 @@ final class CompanionConnections {
 
 @Observable
 final class CompanionServer {
-    private(set) var pin: String?
+    private(set) var invite: PairingInvite?
     private(set) var secondsRemaining = 0
     private(set) var devices: [CompanionDevice] = []
     private(set) var error: String?
@@ -291,7 +289,7 @@ final class CompanionServer {
     }
 
     private func updatePairingState() {
-        pin = pairing.pin
+        invite = pairing.invite
         secondsRemaining = max(0, Int(ceil(pairing.expiresAt?.timeIntervalSinceNow ?? 0)))
     }
 
@@ -303,8 +301,8 @@ final class CompanionServer {
         do {
             devices = try store.devices()
             var keys = devices.map { (identity: $0.id, key: SymmetricKey(data: $0.key)) }
-            if pairing.isOpen, let pin = pairing.pin {
-                keys.append((identity: "pair", key: CompanionTLS.pairingKey(pin: pin)))
+            if pairing.isOpen, let invite = pairing.invite {
+                keys.append((identity: "pair", key: CompanionTLS.pairingKey(secret: invite.secret)))
             }
             guard !keys.isEmpty else { return }
             let listener = try NWListener(using: CompanionTLS.serverParameters(keys: keys))
@@ -325,7 +323,7 @@ final class CompanionServer {
     }
 
     private func accept(_ connection: NWConnection) {
-        guard pin == nil || pairing.isOpen else { connection.cancel(); return }
+        guard invite == nil || pairing.isOpen else { connection.cancel(); return }
         let id = UUID()
         let session = CompanionSession(devices: store, pairing: pairing, capturer: capturer, images: images)
         let peer = CompanionPeer(connection: connection, session: session)

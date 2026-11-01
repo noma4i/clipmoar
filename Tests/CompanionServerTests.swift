@@ -75,6 +75,16 @@ final class CompanionServerTests: XCTestCase {
         XCTAssertTrue(try store.devices().isEmpty)
     }
 
+    func testPairingWindowPublishesAndRemovesInvite() throws {
+        let server = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices())
+        server.start()
+        server.startPairing()
+        XCTAssertEqual(try XCTUnwrap(server.invite).secret.count, 32)
+        server.closePairing()
+        XCTAssertNil(server.invite)
+        server.stop()
+    }
+
     func testClosingPairingAndRevokingCancelConnections() {
         let connections = CompanionConnections()
         let server = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices(), connections: connections)

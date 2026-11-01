@@ -34,15 +34,35 @@ final class CompanionTests: XCTestCase {
         XCTAssertThrowsError(try Message.paste(png: Data([1]), session: String(repeating: "a", count: 129)).encode())
     }
 
+    func testPairingInviteURL() throws {
+        let invite = PairingInvite(macName: "Mac \u{1F4BB} Caf\u{E9}", secret: Data(0 ..< 32))
+        XCTAssertEqual(PairingInvite(url: invite.url), invite)
+        var components = try XCTUnwrap(URLComponents(url: invite.url, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(components.queryItems?.first(where: { $0.name == "key" })?.value?.count, 43)
+        components.scheme = "https"
+        XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
+        components.scheme = "drawmoar"
+        components.host = "other"
+        XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
+        components.host = "pair"
+        components.queryItems = [URLQueryItem(name: "v", value: "2"), URLQueryItem(name: "name", value: "Mac"), URLQueryItem(name: "key", value: String(repeating: "A", count: 43))]
+        XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
+        components.queryItems = [URLQueryItem(name: "v", value: "1"), URLQueryItem(name: "name", value: "Mac"), URLQueryItem(name: "key", value: Data(repeating: 0, count: 31).base64EncodedString().replacingOccurrences(of: "=", with: ""))]
+        XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
+        components.queryItems = [URLQueryItem(name: "v", value: "1"), URLQueryItem(name: "key", value: String(repeating: "A", count: 43))]
+        XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
+    }
+
     func testPairingHandshake() throws {
-        let key = CompanionTLS.pairingKey(pin: "123456")
+        let invite = PairingInvite(macName: "Mac", secret: Data(repeating: 1, count: 32))
+        let key = CompanionTLS.pairingKey(secret: invite.secret)
         try checkHandshake(keys: [("pair", key)], identity: "pair", key: key, accepted: true)
-        try checkHandshake(keys: [("pair", key)], identity: "pair", key: CompanionTLS.pairingKey(pin: "000000"), accepted: false)
+        try checkHandshake(keys: [("pair", key)], identity: "pair", key: CompanionTLS.pairingKey(secret: Data(repeating: 2, count: 32)), accepted: false)
     }
 
     func testIdentitySelectsKey() throws {
-        let keyA = CompanionTLS.pairingKey(pin: "123456")
-        let keyB = CompanionTLS.pairingKey(pin: "654321")
+        let keyA = CompanionTLS.pairingKey(secret: Data(repeating: 1, count: 32))
+        let keyB = CompanionTLS.pairingKey(secret: Data(repeating: 2, count: 32))
         let keys = [("devA", keyA), ("devB", keyB)]
         try checkHandshake(keys: keys, identity: "devB", key: keyB, accepted: true)
         try checkHandshake(keys: keys, identity: "devB", key: keyA, accepted: false)
