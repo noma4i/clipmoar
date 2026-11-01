@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Drag window for Screen Recording in Settings -> Companion.
 - Companion pairing invitations include direct network routes for Tailscale and local connections.
 
 ### Fixed

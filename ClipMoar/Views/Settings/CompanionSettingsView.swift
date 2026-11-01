@@ -46,7 +46,7 @@ struct CompanionSettingsView: View {
                     Spacer()
                     status(screenGranted ? "Granted" : "Not granted", color: screenGranted ? .green : .red)
                     if !screenGranted {
-                        Button("Request access") { screenGranted = CGRequestScreenCaptureAccess() }
+                        Button("Request access") { PermissionDragWindow.show(.screenRecording) }
                     }
                 }
                 Divider()

@@ -1,35 +1,60 @@
 import Cocoa
 
-final class AccessibilityDragWindow: NSPanel {
-    private static var current: AccessibilityDragWindow?
-    private static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+final class PermissionDragWindow: NSPanel {
+    enum Permission {
+        case accessibility, screenRecording
+
+        var settingsURL: URL {
+            let pane = self == .accessibility ? "Privacy_Accessibility" : "Privacy_ScreenCapture"
+            return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!
+        }
+
+        var service: String {
+            self == .accessibility ? "Accessibility" : "ScreenCapture"
+        }
+
+        var isGranted: Bool {
+            self == .accessibility ? AXIsProcessTrusted() : CGPreflightScreenCaptureAccess()
+        }
+
+        var tooltip: String {
+            self == .accessibility ? "Drag into the Accessibility list" : "Drag into the Screen Recording list"
+        }
+    }
+
+    private static var current: PermissionDragWindow?
     private static let settingsBundleId = "com.apple.systempreferences"
     private static let size = NSSize(width: 300, height: 68)
 
     private var timer: Timer?
     private var hasSeenSettings = false
+    private let permission: Permission
 
-    static func show() {
-        if current == nil, !AXIsProcessTrusted() {
-            resetStaleEntry()
+    static func show(_ permission: Permission) {
+        if let current, current.permission != permission {
+            current.dismiss()
         }
-        NSWorkspace.shared.open(settingsURL)
-        guard current == nil, !AXIsProcessTrusted() else { return }
-        let window = AccessibilityDragWindow()
+        if current == nil, !permission.isGranted {
+            resetStaleEntry(permission)
+        }
+        NSWorkspace.shared.open(permission.settingsURL)
+        guard current == nil, !permission.isGranted else { return }
+        let window = PermissionDragWindow(permission: permission)
         current = window
         window.follow()
     }
 
-    private static func resetStaleEntry() {
+    private static func resetStaleEntry(_ permission: Permission) {
         guard let bundleId = Bundle.main.bundleIdentifier else { return }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-        process.arguments = ["reset", "Accessibility", bundleId]
+        process.arguments = ["reset", permission.service, bundleId]
         try? process.run()
         process.waitUntilExit()
     }
 
-    private init() {
+    private init(permission: Permission) {
+        self.permission = permission
         super.init(
             contentRect: NSRect(origin: .zero, size: Self.size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -59,6 +84,7 @@ final class AccessibilityDragWindow: NSPanel {
         let icon = AppIconDragView(
             frame: NSRect(x: 14, y: (Self.size.height - iconSize) / 2, width: iconSize, height: iconSize)
         )
+        icon.toolTip = permission.tooltip
         background.addSubview(icon)
 
         let title = NSTextField(labelWithString: "Drag ClipMoar into the list")
@@ -101,7 +127,7 @@ final class AccessibilityDragWindow: NSPanel {
     private func follow() {
         let isSettingsRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: Self.settingsBundleId).isEmpty
         hasSeenSettings = hasSeenSettings || isSettingsRunning
-        if AXIsProcessTrusted() || (hasSeenSettings && !isSettingsRunning) {
+        if permission.isGranted || (hasSeenSettings && !isSettingsRunning) {
             dismiss()
             return
         }
@@ -151,7 +177,6 @@ private final class AppIconDragView: NSImageView, NSDraggingSource {
         image = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
         imageScaling = .scaleProportionallyUpOrDown
         isEditable = false
-        toolTip = "Drag into the Accessibility list"
     }
 
     @available(*, unavailable)

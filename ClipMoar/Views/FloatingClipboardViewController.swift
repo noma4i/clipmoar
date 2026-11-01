@@ -212,7 +212,7 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     @objc private func openAccessibilitySettings() {
-        AccessibilityDragWindow.show()
+        PermissionDragWindow.show(.accessibility)
     }
 
     func updateAccessibilityBanner() {
