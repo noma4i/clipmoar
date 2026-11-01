@@ -132,18 +132,6 @@ func lookEditorFrame(fitting: NSSize, visibleFrame: NSRect, mockFrame: NSRect) -
     return NSRect(x: x, y: y, width: width, height: height)
 }
 
-private final class LookEditorPanel: KeyablePanel {
-    var onEscape: (() -> Void)?
-
-    override func sendEvent(_ event: NSEvent) {
-        if event.type == .keyDown, event.keyCode == 53 {
-            onEscape?()
-            return
-        }
-        super.sendEvent(event)
-    }
-}
-
 final class LookEditorController {
     /// Editor content width is fixed by the SwiftUI view contract.
     private static let editorPanelWidth: CGFloat = 500
@@ -225,7 +213,7 @@ final class LookEditorController {
 
         vc.refresh()
 
-        let editor = LookEditorPanel(
+        let editor = KeyablePanel(
             contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
@@ -237,7 +225,6 @@ final class LookEditorController {
         editor.hasShadow = true
         editor.hidesOnDeactivate = false
         editor.isMovableByWindowBackground = true
-        editor.onEscape = { [weak self] in self?.dismiss() }
 
         let editorView = EditorControlsView(
             model: model,
