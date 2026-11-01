@@ -124,6 +124,26 @@ final class LookEditorModel: ObservableObject {
     }
 }
 
+func lookEditorFrame(fitting: NSSize, visibleFrame: NSRect, mockFrame: NSRect) -> NSRect {
+    let height = min(fitting.height, max(0, visibleFrame.height - 24))
+    let width = min(fitting.width, visibleFrame.width)
+    let x = min(max(mockFrame.maxX + 272, visibleFrame.minX), visibleFrame.maxX - width)
+    let y = min(max(mockFrame.midY - height / 2, visibleFrame.minY + 12), visibleFrame.maxY - 12 - height)
+    return NSRect(x: x, y: y, width: width, height: height)
+}
+
+private final class LookEditorPanel: KeyablePanel {
+    var onEscape: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 53 {
+            onEscape?()
+            return
+        }
+        super.sendEvent(event)
+    }
+}
+
 final class LookEditorController {
     /// Editor content width is fixed by the SwiftUI view contract.
     private static let editorPanelWidth: CGFloat = 500
@@ -205,7 +225,7 @@ final class LookEditorController {
 
         vc.refresh()
 
-        let editor = KeyablePanel(
+        let editor = LookEditorPanel(
             contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
@@ -217,6 +237,7 @@ final class LookEditorController {
         editor.hasShadow = true
         editor.hidesOnDeactivate = false
         editor.isMovableByWindowBackground = true
+        editor.onEscape = { [weak self] in self?.dismiss() }
 
         let editorView = EditorControlsView(
             model: model,
@@ -226,6 +247,7 @@ final class LookEditorController {
             onReset: { [weak self] in
                 self?.repositionMockPanel()
             },
+            onDone: { [weak self] in self?.dismiss() },
             onHighlightChanged: { [weak self] zone in
                 self?.clipViewController?.highlightZone(zone)
             }
@@ -239,10 +261,8 @@ final class LookEditorController {
         let mockY = visibleFrame.origin.y + (visibleFrame.height - mockH) * settings.panelPositionY
 
         mock.setFrameOrigin(NSPoint(x: mockX, y: mockY))
-        let editorSize = editorPanelSize(for: editorHosting)
-        editor.setContentSize(editorSize)
-        let editorY = mockY + (mockH - editorSize.height) / 2
-        editor.setFrameOrigin(NSPoint(x: mockX + mockWidth + 260 + 12, y: editorY))
+        let editorSize = editorPanelSize(for: editorView)
+        editor.setFrame(lookEditorFrame(fitting: editorSize, visibleFrame: visibleFrame, mockFrame: mock.frame), display: true)
 
         mock.orderFront(nil)
         mock.addChildWindow(editor, ordered: .above)
@@ -339,7 +359,10 @@ final class LookEditorController {
         clipViewController = nil
     }
 
-    private func editorPanelSize(for hostingController: NSHostingController<EditorControlsView>) -> NSSize {
+    private func editorPanelSize(for editorView: EditorControlsView) -> NSSize {
+        var measuringView = editorView
+        measuringView.measureContent = true
+        let hostingController = NSHostingController(rootView: measuringView)
         let hostingView = hostingController.view
         hostingView.frame = NSRect(x: 0, y: 0, width: Self.editorPanelWidth, height: 1)
         let fittingSize = hostingView.fittingSize
@@ -483,7 +506,9 @@ struct EditorControlsView: View {
     @ObservedObject var model: LookEditorModel
     var onChanged: (() -> Void)?
     var onReset: (() -> Void)?
+    var onDone: (() -> Void)?
     var onHighlightChanged: ((HighlightZone?) -> Void)?
+    var measureContent = false
 
     private func changed() {
         model.syncToSettings()
@@ -496,6 +521,29 @@ struct EditorControlsView: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Edit Look").font(.headline)
+                Spacer()
+                Button("Reset") { resetDefaults() }
+                Button("Done") { onDone?() }
+            }
+            .padding(20)
+
+            Divider()
+
+            if measureContent {
+                controls
+            } else {
+                ScrollView { controls }
+            }
+        }
+        .frame(width: 500)
+        .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 20) {
                 listSettings
@@ -506,20 +554,8 @@ struct EditorControlsView: View {
             Divider()
 
             paletteSection
-
-            HStack {
-                Button("Reset") { resetDefaults() }
-                    .controlSize(.small)
-                Spacer()
-                Text("ESC to close")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
         }
         .padding(20)
-        .frame(width: 500)
-        .background(Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1.0)))
-        .environment(\.colorScheme, .dark)
     }
 
     private var themePills: some View {
