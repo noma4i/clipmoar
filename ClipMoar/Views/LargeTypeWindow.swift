@@ -92,12 +92,18 @@ final class LargeTypeWindow: NSWindow {
 
     func showImage(_ data: Data, on screen: NSScreen? = nil) {
         guard let screen = screen ?? NSScreen.main ?? NSScreen.screens.first,
-              let image = NSImage(data: data) else { return }
+              NSImage(data: data) != nil else { return }
         let screenFrame = screen.frame
         setFrame(screenFrame, display: true)
         setupViews(in: screenFrame)
 
-        let cvSize = contentView?.bounds.size ?? screenFrame.size
+        backdropView.addSubview(contentImageView)
+        updateImage(data)
+        orderFrontRegardless()
+    }
+
+    func updateImage(_ data: Data) {
+        guard let image = NSImage(data: data), let cvSize = contentView?.bounds.size else { return }
         let imageSize = image.size
         let maxW = cvSize.width * 0.7
         let maxH = cvSize.height * 0.7
@@ -111,9 +117,6 @@ final class LargeTypeWindow: NSWindow {
 
         contentImageView.frame = NSRect(x: 20, y: 20, width: w - 40, height: h - 40)
         contentImageView.image = image
-        backdropView.addSubview(contentImageView)
-
-        orderFrontRegardless()
     }
 
     func dismiss() {
@@ -134,6 +137,7 @@ final class LargeTypeWindow: NSWindow {
 final class LargeTypeController {
     private var window: LargeTypeWindow?
     private var eventMonitor: Any?
+    private var displayedUUID: UUID?
     var fontSize: CGFloat?
 
     var isVisible: Bool {
@@ -159,6 +163,12 @@ final class LargeTypeController {
         }
 
         window = win
+        displayedUUID = item.uuid
+    }
+
+    func updateImage(for uuid: UUID, item: ClipboardItem?) {
+        guard isVisible, let data = replacementImage(selectedUUID: displayedUUID, eventUUID: uuid, item: item) else { return }
+        window?.updateImage(data)
     }
 
     func dismiss() {
@@ -168,5 +178,6 @@ final class LargeTypeController {
         }
         window?.dismiss()
         window = nil
+        displayedUUID = nil
     }
 }

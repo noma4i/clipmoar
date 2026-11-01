@@ -2,6 +2,23 @@ import Cocoa
 
 private let defaultPanelHeight: CGFloat = 32 * 9 + 36 + 28
 
+func replacementImage(selectedUUID: UUID?, eventUUID: UUID, item: ClipboardItem?) -> Data? {
+    guard selectedUUID == eventUUID, item?.uuid == eventUUID, item?.isImage == true else { return nil }
+    return item?.imageData
+}
+
+extension FloatingPanelStateController {
+    func refreshAfterImageReplacement(configuration: PanelConfiguration) {
+        let selectedUUID = selectedItem?.uuid
+        let previewVisible = state.preview.isVisible
+        let filter = state.filter
+        updateFilter(filter, configuration: configuration)
+        if let row = items.firstIndex(where: { $0.uuid == selectedUUID }) {
+            selectRow(row, configuration: configuration, forcePreview: previewVisible)
+        }
+    }
+}
+
 private final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
         var result = super.drawingRect(forBounds: rect)
@@ -60,6 +77,7 @@ final class FloatingClipboardViewController: NSViewController,
     private let settings: SettingsStore
     private let largeTypeController = LargeTypeController()
     private let isPreviewRenderer: Bool
+    private let repository: ClipboardRepository
 
     private var currentConfiguration: PanelConfiguration
 
@@ -86,6 +104,7 @@ final class FloatingClipboardViewController: NSViewController,
         isPreviewRenderer: Bool = false
     ) {
         self.settings = settings
+        self.repository = repository
         stateController = FloatingPanelStateController(repository: repository, actionService: actionService, settings: settings)
         currentConfiguration = settings.panelConfiguration()
         self.isPreviewRenderer = isPreviewRenderer
@@ -121,9 +140,19 @@ final class FloatingClipboardViewController: NSViewController,
         setupMetaLabel()
         setupPreviewContainer()
         setupTableView()
+        NotificationCenter.default.addObserver(self, selector: #selector(imageReplaced(_:)), name: .companionImageReplaced, object: nil)
         if !isPreviewRenderer {
             setupKeyHandling()
         }
+    }
+
+    @objc private func imageReplaced(_ notification: Notification) {
+        guard let uuid = notification.object as? UUID else { return }
+        let updatedItem = repository.fetchItems(filter: "").first { $0.uuid == uuid }
+        largeTypeController.updateImage(for: uuid, item: updatedItem)
+        guard isViewLoaded, view.window?.isVisible == true else { return }
+        stateController.refreshAfterImageReplacement(configuration: currentConfiguration)
+        renderState(reloadTable: true)
     }
 
     func refresh() {

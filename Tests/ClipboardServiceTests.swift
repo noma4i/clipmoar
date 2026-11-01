@@ -108,9 +108,10 @@ final class MockPasteboard: PasteboardReadable {
 
 final class MockRepository: ClipboardRepository {
     var items: [(uuid: UUID, content: String?, contentType: String, fingerprint: String)] = []
+    var fetchedItems: [ClipboardItem] = []
 
     func fetchItems(filter _: String) -> [ClipboardItem] {
-        []
+        fetchedItems
     }
 
     func isDuplicate(fingerprint: String) -> Bool {

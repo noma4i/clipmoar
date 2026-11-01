@@ -117,6 +117,10 @@ extension ClipboardActionService: CompanionImageWriting {}
 
 extension CoreDataClipboardRepository: CompanionImageHistory {}
 
+extension Notification.Name {
+    static let companionImageReplaced = Notification.Name("companionImageReplaced")
+}
+
 @MainActor final class CompanionImageIngest {
     private let clipboard: CompanionImageWriting
     private let history: CompanionImageHistory
@@ -135,6 +139,7 @@ extension CoreDataClipboardRepository: CompanionImageHistory {}
         let fingerprint = ContentFingerprint.hash(data: png)
         if let uuid = sessions[session], history.replaceImage(uuid: uuid, data: data, fingerprint: fingerprint) {
             history.moveToTop(uuid: uuid)
+            NotificationCenter.default.post(name: .companionImageReplaced, object: uuid)
         } else {
             sessions[session] = history.insertImage(data, sourceAppBundleId: "com.noma4i.DrawMoar", fingerprint: fingerprint)
         }

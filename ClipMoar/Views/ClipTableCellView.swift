@@ -31,13 +31,11 @@ final class ClipTableCellView: NSTableCellView {
 
     func configure(with item: ClipboardItem, row: Int, fontSize: CGFloat = 15, fontName: String = "", textColor: NSColor = NSColor(calibratedWhite: 0.9, alpha: 1.0), shortcutColor: NSColor = NSColor(calibratedWhite: 0.45, alpha: 1.0), fontWeight: NSFont.Weight = .regular, iconSize: CGFloat = 22, padding: CGFloat = 10) {
         let iconSz = NSSize(width: iconSize, height: iconSize)
-        if item.isImage {
-            let cacheKey = "\(item.fingerprint ?? item.uuid?.uuidString ?? "img")_\(Int(iconSize))" as NSString
+        if item.isImage, let data = item.imageData {
+            let cacheKey = Self.thumbnailKey(data: data, size: iconSize) as NSString
             if let cached = Self.thumbnailCache.object(forKey: cacheKey) {
                 imageView?.image = cached
-            } else if let data = item.imageData,
-                      let thumb = Self.createThumbnail(from: data, maxPixelSize: iconSize * 2)
-            {
+            } else if let thumb = Self.createThumbnail(from: data, maxPixelSize: iconSize * 2) {
                 thumb.size = iconSz
                 Self.thumbnailCache.setObject(thumb, forKey: cacheKey, cost: data.count)
                 imageView?.image = thumb
@@ -92,6 +90,10 @@ final class ClipTableCellView: NSTableCellView {
 
         iconLeading?.constant = padding
         shortcutTrailing?.constant = -padding
+    }
+
+    static func thumbnailKey(data: Data, size: CGFloat) -> String {
+        "\(ContentFingerprint.hash(data: data))_\(size)"
     }
 
     private static func createThumbnail(from data: Data, maxPixelSize: CGFloat) -> NSImage? {

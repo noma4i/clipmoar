@@ -46,6 +46,77 @@ import XCTest
         XCTAssertEqual(history.items.map(\.data), [Data([5, 9]), Data([4, 9])])
     }
 
+    func testReplacementPublishesUUIDAfterMovingItem() throws {
+        let history = FakeHistory()
+        let images = makeImages(history: history)
+        try images.paste(png: Data([1]), session: "s1")
+        let uuid = try XCTUnwrap(history.items.first?.id)
+        var received: UUID?
+        var receivedOnMain = false
+        let observer = NotificationCenter.default.addObserver(forName: .companionImageReplaced, object: nil, queue: nil) { notification in
+            received = notification.object as? UUID
+            receivedOnMain = Thread.isMainThread
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        try images.paste(png: Data([2]), session: "s1")
+        XCTAssertEqual(received, uuid)
+        XCTAssertTrue(receivedOnMain)
+        XCTAssertEqual(history.items.first?.data, Data([2, 9]))
+    }
+
+    func testReplacementImageAndThumbnailFollowNewData() {
+        let context = CoreDataStack.shared.viewContext
+        let item = ClipboardItem(context: context)
+        defer { context.delete(item) }
+        let uuid = UUID()
+        let first = Data([1])
+        let second = Data([2])
+        item.uuid = uuid
+        item.contentType = ClipboardItemType.image.rawValue
+        item.imageData = first
+        let firstKey = ClipTableCellView.thumbnailKey(data: first, size: 22)
+        item.imageData = second
+        XCTAssertNotEqual(firstKey, ClipTableCellView.thumbnailKey(data: second, size: 22))
+        XCTAssertEqual(replacementImage(selectedUUID: uuid, eventUUID: uuid, item: item), second)
+        XCTAssertNil(replacementImage(selectedUUID: uuid, eventUUID: UUID(), item: item))
+    }
+
+    func testPanelKeepsSelectionAndRefreshesSelectedImage() {
+        let context = CoreDataStack.shared.viewContext
+        let selected = ClipboardItem(context: context)
+        let other = ClipboardItem(context: context)
+        defer {
+            context.delete(selected)
+            context.delete(other)
+        }
+        selected.uuid = UUID()
+        selected.contentType = ClipboardItemType.image.rawValue
+        selected.imageData = Data([1])
+        other.uuid = UUID()
+        other.contentType = ClipboardItemType.image.rawValue
+        other.imageData = Data([2])
+        let repository = MockRepository()
+        repository.fetchedItems = [other, selected]
+        let settings = MockSettings()
+        let configuration = settings.panelConfiguration()
+        let panel = FloatingPanelStateController(repository: repository, actionService: ClipboardActionService(), settings: settings)
+        panel.reload(configuration: configuration)
+        panel.selectRow(1, configuration: configuration, forcePreview: true)
+        selected.imageData = Data([3])
+        repository.fetchedItems = [selected, other]
+        panel.refreshAfterImageReplacement(configuration: configuration)
+        XCTAssertEqual(panel.selectedItem?.uuid, selected.uuid)
+        XCTAssertEqual(panel.state.selectedRow, 0)
+        guard case let .image(updated) = panel.state.preview.content else { return XCTFail("Expected image preview") }
+        XCTAssertEqual(updated, Data([3]))
+        other.imageData = Data([4])
+        repository.fetchedItems = [other, selected]
+        panel.refreshAfterImageReplacement(configuration: configuration)
+        XCTAssertEqual(panel.selectedItem?.uuid, selected.uuid)
+        guard case let .image(unchanged) = panel.state.preview.content else { return XCTFail("Expected image preview") }
+        XCTAssertEqual(unchanged, Data([3]))
+    }
+
     func testDetachedPasteUsesMainThreadForClipboardAndHistory() async {
         let clipboard = FakeClipboard()
         let history = FakeHistory()
