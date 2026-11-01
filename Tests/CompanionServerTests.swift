@@ -74,9 +74,14 @@ import XCTest
         item.uuid = uuid
         item.contentType = ClipboardItemType.image.rawValue
         item.imageData = first
-        let firstKey = ClipTableCellView.thumbnailKey(data: first, size: 22)
+        item.fingerprint = "first"
+        let firstKey = ClipTableCellView.thumbnailKey(item: item, size: 22)
+        XCTAssertEqual(firstKey, ClipTableCellView.thumbnailKey(item: item, size: 22))
         item.imageData = second
-        XCTAssertNotEqual(firstKey, ClipTableCellView.thumbnailKey(data: second, size: 22))
+        item.fingerprint = "second"
+        XCTAssertNotEqual(firstKey, ClipTableCellView.thumbnailKey(item: item, size: 22))
+        item.fingerprint = ""
+        XCTAssertEqual(ClipTableCellView.thumbnailKey(item: item, size: 22), "\(uuid.uuidString)_1_22.0")
         XCTAssertEqual(replacementImage(selectedUUID: uuid, eventUUID: uuid, item: item), second)
         XCTAssertNil(replacementImage(selectedUUID: uuid, eventUUID: UUID(), item: item))
     }
