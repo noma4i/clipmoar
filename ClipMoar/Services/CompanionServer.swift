@@ -1,9 +1,11 @@
 import CompanionKit
 import CryptoKit
+import Darwin
 import Foundation
 import Network
 import Observation
 import Security
+import SystemConfiguration
 
 struct CompanionDevice: Identifiable, Equatable {
     let id: String
@@ -227,11 +229,15 @@ final class CompanionServer {
     private(set) var secondsRemaining = 0
     private(set) var devices: [CompanionDevice] = []
     private(set) var error: String?
+    private(set) var listeningPort: UInt16?
+    private(set) var hosts: [String] = []
     private let store: CompanionDeviceStoring
     private let capturer: ScreenCapturing
     private let images: CompanionImageIngest
     private let pairing = PairingWindow()
     private let connections: CompanionConnections
+    private let preferredPort: UInt16
+    private let addressSource: () -> ([String], String?)
     private var listener: NWListener?
     private var timer: Timer?
     private var enabled = false
@@ -240,11 +246,13 @@ final class CompanionServer {
         enabled
     }
 
-    init(capturer: ScreenCapturing, images: CompanionImageIngest, store: CompanionDeviceStoring, connections: CompanionConnections = CompanionConnections()) {
+    init(capturer: ScreenCapturing, images: CompanionImageIngest, store: CompanionDeviceStoring, connections: CompanionConnections = CompanionConnections(), preferredPort: UInt16 = CompanionTLS.port, addressSource: @escaping () -> ([String], String?) = companionAddresses) {
         self.capturer = capturer
         self.images = images
         self.store = store
         self.connections = connections
+        self.preferredPort = preferredPort
+        self.addressSource = addressSource
         do { devices = try store.devices() } catch { self.error = error.localizedDescription }
     }
 
@@ -266,6 +274,7 @@ final class CompanionServer {
         timer = nil
         listener?.cancel()
         listener = nil
+        listeningPort = nil
         connections.cancelAll()
     }
 
@@ -300,13 +309,19 @@ final class CompanionServer {
     }
 
     private func updatePairingState() {
-        invite = pairing.invite
+        if let source = pairing.invite, let listeningPort {
+            invite = PairingInvite(macName: source.macName, secret: source.secret, port: listeningPort, hosts: hosts)
+        } else {
+            invite = nil
+        }
         secondsRemaining = max(0, Int(ceil(pairing.expiresAt?.timeIntervalSinceNow ?? 0)))
     }
 
     private func refreshListener() {
         listener?.cancel()
         listener = nil
+        listeningPort = nil
+        updatePairingState()
         connections.cancelAll()
         guard enabled else { return }
         do {
@@ -316,23 +331,51 @@ final class CompanionServer {
                 keys.append((identity: "pair", key: CompanionTLS.pairingKey(secret: invite.secret)))
             }
             guard !keys.isEmpty else { return }
-            let listener = try NWListener(using: CompanionTLS.serverParameters(keys: keys))
-            listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: bonjourServiceType)
-            listener.newConnectionHandler = { [weak self] connection in
-                Task { @MainActor in self?.accept(connection) }
-            }
-            listener.stateUpdateHandler = { [weak self] state in
-                if case let .failed(error) = state {
-                    self?.error = error.localizedDescription
-                    NSLog("[ClipMoar] companion listener: %@", error.localizedDescription)
-                }
-            }
-            self.listener = listener
-            listener.start(queue: .main)
+            let (addresses, localName) = addressSource()
+            let localHosts = localName.map { [$0 + ".local"] } ?? []
+            hosts = Array(addresses.prefix(8 - localHosts.count)) + localHosts
+            try startListener(keys: keys, fallback: false)
         } catch {
             self.error = error.localizedDescription
-            NSLog("[ClipMoar] companion listener: %@", error.localizedDescription)
         }
+    }
+
+    private func startListener(keys: [(identity: String, key: SymmetricKey)], fallback: Bool) throws {
+        let parameters = CompanionTLS.serverParameters(keys: keys)
+        let listener: NWListener
+        do {
+            listener = try NWListener(using: parameters, on: fallback ? .any : NWEndpoint.Port(rawValue: preferredPort)!)
+        } catch {
+            guard !fallback else { throw error }
+            self.error = "Port \(preferredPort) is unavailable."
+            try startListener(keys: keys, fallback: true)
+            return
+        }
+        listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: bonjourServiceType)
+        listener.newConnectionHandler = { [weak self] connection in
+            Task { @MainActor in self?.accept(connection) }
+        }
+        listener.stateUpdateHandler = { [weak self, weak listener] state in
+            guard let self, let listener, self.listener === listener else { return }
+            switch state {
+            case .ready:
+                if !fallback { self.error = nil }
+                self.listeningPort = listener.port?.rawValue
+                self.updatePairingState()
+            case let .failed(error):
+                listener.cancel()
+                if !fallback {
+                    self.error = "Port \(self.preferredPort) is unavailable."
+                    do { try self.startListener(keys: keys, fallback: true) }
+                    catch { self.error = error.localizedDescription }
+                } else {
+                    self.error = error.localizedDescription
+                }
+            default: break
+            }
+        }
+        self.listener = listener
+        listener.start(queue: .main)
     }
 
     @MainActor private func accept(_ connection: NWConnection) {
@@ -439,4 +482,29 @@ private final class CompanionPeer {
             })
         }
     }
+}
+
+private func companionAddresses() -> ([String], String?) {
+    var first: UnsafeMutablePointer<ifaddrs>?
+    var addresses: [String] = []
+    if getifaddrs(&first) == 0 {
+        defer { freeifaddrs(first) }
+        var current = first
+        while let interface = current {
+            let item = interface.pointee
+            if item.ifa_flags & UInt32(IFF_UP) != 0, let address = item.ifa_addr, address.pointee.sa_family == UInt8(AF_INET) {
+                let ipv4 = UnsafeRawPointer(address).assumingMemoryBound(to: sockaddr_in.self).pointee.sin_addr
+                let value = UInt32(bigEndian: ipv4.s_addr)
+                if value & 0xFFC0_0000 == 0x6440_0000 {
+                    var ip = ipv4
+                    var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                    if inet_ntop(AF_INET, &ip, &buffer, socklen_t(buffer.count)) != nil {
+                        addresses.append(String(cString: buffer))
+                    }
+                }
+            }
+            current = item.ifa_next
+        }
+    }
+    return (addresses, SCDynamicStoreCopyLocalHostName(nil) as String?)
 }

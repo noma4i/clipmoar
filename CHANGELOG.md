@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Companion pairing invitations include direct network routes for Tailscale and local connections.
+
+### Fixed
+- Companion connections report unreachable endpoints instead of waiting indefinitely.
+
 ## [1.8.0] - 2026-11-01
 
 ### Added

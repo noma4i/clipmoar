@@ -1,6 +1,7 @@
 @testable import ClipMoar
 import CompanionKit
 import Foundation
+import Network
 import XCTest
 
 @MainActor final class CompanionServerTests: XCTestCase {
@@ -166,10 +167,11 @@ import XCTest
         XCTAssertTrue(try store.devices().isEmpty)
     }
 
-    func testPairingWindowPublishesAndRemovesInvite() throws {
+    func testPairingWindowPublishesAndRemovesInvite() async throws {
         let server = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices())
         server.start()
         server.startPairing()
+        try await waitForPort(server)
         XCTAssertEqual(try XCTUnwrap(server.invite).secret.count, 32)
         server.closePairing()
         XCTAssertNil(server.invite)
@@ -186,6 +188,47 @@ import XCTest
         connections.add(UUID()) { cancellations += 1 }
         server.revoke("device")
         XCTAssertEqual(cancellations, 2)
+    }
+
+    func testListenerRoutesAndBusyPortFallback() async throws {
+        let occupied = try NWListener(using: .tcp, on: .any)
+        let listening = expectation(description: "occupied port ready")
+        occupied.stateUpdateHandler = { state in if case .ready = state { listening.fulfill() } }
+        occupied.newConnectionHandler = { $0.cancel() }
+        occupied.start(queue: .global())
+        await fulfillment(of: [listening], timeout: 5)
+        let port = try XCTUnwrap(occupied.port?.rawValue)
+        let source: () -> ([String], String?) = { (["100.64.1.2", "100.65.2.3"], "test-mac") }
+        let busy = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices(), preferredPort: port, addressSource: source)
+        busy.start()
+        busy.startPairing()
+        try await waitForPort(busy)
+        XCTAssertNotEqual(busy.listeningPort, port)
+        XCTAssertNotNil(busy.error)
+        XCTAssertEqual(busy.invite?.hosts, ["100.64.1.2", "100.65.2.3", "test-mac.local"])
+        XCTAssertEqual(busy.invite?.port, busy.listeningPort)
+        busy.stop()
+        let released = expectation(description: "occupied port released")
+        occupied.stateUpdateHandler = { state in if case .cancelled = state { released.fulfill() } }
+        occupied.cancel()
+        await fulfillment(of: [released], timeout: 5)
+
+        let available = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices(), preferredPort: port, addressSource: source)
+        available.start()
+        available.startPairing()
+        try await waitForPort(available)
+        XCTAssertEqual(available.listeningPort, port)
+        XCTAssertNil(available.error)
+        available.stop()
+    }
+
+    private func waitForPort(_ server: CompanionServer) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        while server.listeningPort == nil, clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertNotNil(server.listeningPort)
     }
 
     private func makeImages(clipboard: FakeClipboard? = nil, history: FakeHistory? = nil) -> CompanionImageIngest {

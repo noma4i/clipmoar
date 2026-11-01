@@ -49,8 +49,12 @@ final class CompanionTests: XCTestCase {
     }
 
     func testPairingInviteURL() throws {
-        let invite = PairingInvite(macName: "Mac \u{1F4BB} Caf\u{E9}", secret: Data(0 ..< 32))
+        let invite = PairingInvite(macName: "Mac \u{1F4BB} Caf\u{E9}", secret: Data(0 ..< 32), port: 47823, hosts: ["100.64.1.2", "mac.local"])
         XCTAssertEqual(PairingInvite(url: invite.url), invite)
+        let old = PairingInvite(macName: "Mac", secret: Data(0 ..< 32))
+        let parsedOld = try XCTUnwrap(PairingInvite(url: old.url))
+        XCTAssertNil(parsedOld.port)
+        XCTAssertEqual(parsedOld.hosts, [])
         var components = try XCTUnwrap(URLComponents(url: invite.url, resolvingAgainstBaseURL: false))
         XCTAssertEqual(components.queryItems?.first(where: { $0.name == "key" })?.value?.count, 43)
         components.scheme = "https"
@@ -65,6 +69,26 @@ final class CompanionTests: XCTestCase {
         XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
         components.queryItems = [URLQueryItem(name: "v", value: "1"), URLQueryItem(name: "key", value: String(repeating: "A", count: 43))]
         XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
+    }
+
+    func testUnreachableConnectionFailsWithinTimeout() async throws {
+        let listener = try NWListener(using: .tcp, on: .any)
+        let listening = expectation(description: "listener ready")
+        listener.stateUpdateHandler = { state in if case .ready = state { listening.fulfill() } }
+        listener.newConnectionHandler = { $0.cancel() }
+        listener.start(queue: .global())
+        await fulfillment(of: [listening], timeout: 5)
+        let port = try XCTUnwrap(listener.port)
+        listener.cancel()
+        let connection = CompanionConnection(NWConnection(host: .ipv4(.loopback), port: port, using: .tcp))
+        let clock = ContinuousClock()
+        let start = clock.now
+        do {
+            try await connection.ready(timeout: .seconds(2))
+            XCTFail("Expected connection failure")
+        } catch {}
+        XCTAssertLessThan(start.duration(to: clock.now), .seconds(3))
+        connection.connection.cancel()
     }
 
     func testPairingHandshake() throws {

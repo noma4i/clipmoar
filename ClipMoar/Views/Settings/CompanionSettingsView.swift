@@ -36,6 +36,11 @@ struct CompanionSettingsView: View {
                         status("Running", color: .green)
                     }
                 }
+                if let port = server?.listeningPort {
+                    Text("Port: \(port)")
+                    Text("Hosts: \(server?.hosts.joined(separator: ", ") ?? "")")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack {
                     Text("Screen Recording")
                     Spacer()
