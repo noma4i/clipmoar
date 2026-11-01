@@ -4,9 +4,9 @@ import SwiftUI
 final class PreferencesWindowController: NSWindowController {
     private let settings: SettingsStore
 
-    init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder, transformHotkeyRecorder: HotkeyRecorder? = nil, onEditLook: (() -> Void)? = nil, updateService: UpdateService? = nil, statsService: StatsService? = nil) {
+    init(settings: SettingsStore, onVisibilityChange: @escaping () -> Void, hotkeyRecorder: HotkeyRecorder, transformHotkeyRecorder: HotkeyRecorder? = nil, onEditLook: (() -> Void)? = nil, updateService: UpdateService? = nil, statsService: StatsService? = nil, companionServer: CompanionServer? = nil, onCompanionChange: (() -> Void)? = nil) {
         self.settings = settings
-        let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder, transformHotkeyRecorder: transformHotkeyRecorder, onVisibilityChange: onVisibilityChange, onEditLook: onEditLook, updateService: updateService, statsService: statsService)
+        let settingsView = SettingsView(settings: settings, hotkeyRecorder: hotkeyRecorder, transformHotkeyRecorder: transformHotkeyRecorder, onVisibilityChange: onVisibilityChange, onEditLook: onEditLook, updateService: updateService, statsService: statsService, companionServer: companionServer, onCompanionChange: onCompanionChange)
         let hostingController = NSHostingController(rootView: settingsView)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 700),

@@ -1,0 +1,388 @@
+import CompanionKit
+import CryptoKit
+import Foundation
+import Network
+import Observation
+import Security
+
+struct CompanionDevice: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let key: Data
+}
+
+protocol CompanionDeviceStoring {
+    func devices() throws -> [CompanionDevice]
+    func save(_ device: CompanionDevice) throws
+    func revoke(_ id: String) throws
+}
+
+struct KeychainCompanionDevices: CompanionDeviceStoring {
+    private let service = "com.noma4i.ClipMoar.companion"
+
+    func devices() throws -> [CompanionDevice] {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                    kSecReturnAttributes as String: true, kSecReturnData as String: true,
+                                    kSecMatchLimit as String: kSecMatchLimitAll]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return [] }
+        guard status == errSecSuccess else { throw keychainError(status) }
+        return (result as? [[String: Any]] ?? []).compactMap { item in
+            guard let id = item[kSecAttrAccount as String] as? String,
+                  let name = item[kSecAttrLabel as String] as? String,
+                  let key = item[kSecValueData as String] as? Data else { return nil }
+            return CompanionDevice(id: id, name: name, key: key)
+        }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    func save(_ device: CompanionDevice) throws {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                    kSecAttrAccount as String: device.id]
+        let values: [String: Any] = [kSecAttrLabel as String: device.name, kSecValueData as String: device.key]
+        let status = SecItemUpdate(query as CFDictionary, values as CFDictionary)
+        if status == errSecItemNotFound {
+            let addStatus = SecItemAdd(query.merging(values) { _, new in new } as CFDictionary, nil)
+            guard addStatus == errSecSuccess else { throw keychainError(addStatus) }
+        } else if status != errSecSuccess {
+            throw keychainError(status)
+        }
+    }
+
+    func revoke(_ id: String) throws {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                    kSecAttrAccount as String: id]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw keychainError(status) }
+    }
+
+    private func keychainError(_ status: OSStatus) -> Error {
+        NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+    }
+}
+
+final class PairingWindow {
+    private(set) var pin: String?
+    private(set) var expiresAt: Date?
+    private var failures = 0
+    var isOpen: Bool {
+        pin != nil && (expiresAt ?? .distantPast) > Date()
+    }
+
+    func open() throws {
+        var random: UInt32 = 0
+        repeat {
+            guard SecRandomCopyBytes(kSecRandomDefault, MemoryLayout<UInt32>.size, &random) == errSecSuccess else {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecAllocate))
+            }
+        } while random >= UInt32.max - (UInt32.max % 1_000_000)
+        pin = String(format: "%06u", random % 1_000_000)
+        expiresAt = Date().addingTimeInterval(120)
+        failures = 0
+    }
+
+    func close() {
+        pin = nil
+        expiresAt = nil
+        failures = 0
+    }
+
+    func handshakeFailed() {
+        guard isOpen else { return }
+        failures += 1
+        if failures >= 5 { close() }
+    }
+}
+
+protocol CompanionImageWriting {
+    func writeImage(png: Data) throws
+}
+
+extension ClipboardActionService: CompanionImageWriting {}
+
+final class CompanionSession {
+    private let devices: CompanionDeviceStoring
+    private let pairing: PairingWindow
+    private let capturer: ScreenCapturing
+    private let clipboard: CompanionImageWriting
+    private var authenticated = false
+    private(set) var closed = false
+
+    init(devices: CompanionDeviceStoring, pairing: PairingWindow, capturer: ScreenCapturing, clipboard: CompanionImageWriting) {
+        self.devices = devices
+        self.pairing = pairing
+        self.capturer = capturer
+        self.clipboard = clipboard
+    }
+
+    func receive(_ message: Message) async -> Message? {
+        do {
+            if !authenticated {
+                switch message {
+                case let .hello(id):
+                    guard try devices.devices().contains(where: { $0.id == id }) else { return reject("Unknown device.") }
+                    authenticated = true
+                    return nil
+                case let .pairRequest(id, name):
+                    guard pairing.isOpen else { return reject("Pairing is closed.") }
+                    guard !id.isEmpty, id != "pair", !name.isEmpty else { return reject("Invalid device.") }
+                    var key = Data(count: 32)
+                    let status = key.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!) }
+                    guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
+                    try devices.save(CompanionDevice(id: id, name: name, key: key))
+                    pairing.close()
+                    closed = true
+                    return .pairGranted(key: key)
+                default: return reject("Send hello or pair request first.")
+                }
+            }
+            switch message {
+            case .listDisplays: return try await .displays(capturer.displays())
+            case let .capture(id): return try await .image(png: capturer.capture(displayId: id))
+            case let .paste(png):
+                try clipboard.writeImage(png: png)
+                return .ok
+            default: return reject("Unexpected message.")
+            }
+        } catch {
+            return .error(error.localizedDescription)
+        }
+    }
+
+    private func reject(_ text: String) -> Message {
+        closed = true
+        return .error(text)
+    }
+}
+
+final class CompanionConnections {
+    private var cancellations: [UUID: () -> Void] = [:]
+
+    func add(_ id: UUID, cancel: @escaping () -> Void) {
+        cancellations[id] = cancel
+    }
+
+    func remove(_ id: UUID) {
+        cancellations.removeValue(forKey: id)
+    }
+
+    func cancelAll(except retainedID: UUID? = nil) {
+        let pending = cancellations.filter { $0.key != retainedID }.map(\.value)
+        cancellations = cancellations.filter { $0.key == retainedID }
+        pending.forEach { $0() }
+    }
+}
+
+@Observable
+final class CompanionServer {
+    private(set) var pin: String?
+    private(set) var secondsRemaining = 0
+    private(set) var devices: [CompanionDevice] = []
+    private(set) var error: String?
+    private let store: CompanionDeviceStoring
+    private let capturer: ScreenCapturing
+    private let clipboard: CompanionImageWriting
+    private let pairing = PairingWindow()
+    private let connections: CompanionConnections
+    private var listener: NWListener?
+    private var timer: Timer?
+    private var enabled = false
+
+    init(capturer: ScreenCapturing, clipboard: CompanionImageWriting, store: CompanionDeviceStoring, connections: CompanionConnections = CompanionConnections()) {
+        self.capturer = capturer
+        self.clipboard = clipboard
+        self.store = store
+        self.connections = connections
+        do { devices = try store.devices() } catch { self.error = error.localizedDescription }
+    }
+
+    func start() {
+        enabled = true
+        refreshListener()
+    }
+
+    func setEnabled(_ value: Bool) {
+        guard enabled != value else { return }
+        if value { start() } else { stop() }
+    }
+
+    func stop() {
+        enabled = false
+        pairing.close()
+        updatePairingState()
+        timer?.invalidate()
+        timer = nil
+        listener?.cancel()
+        listener = nil
+        connections.cancelAll()
+    }
+
+    func startPairing() {
+        guard enabled else { return }
+        do {
+            try pairing.open()
+            updatePairingState()
+            timer?.invalidate()
+            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tick() }
+            refreshListener()
+        } catch { self.error = error.localizedDescription }
+    }
+
+    func closePairing() {
+        pairing.close()
+        timer?.invalidate()
+        timer = nil
+        updatePairingState()
+        refreshListener()
+    }
+
+    func revoke(_ id: String) {
+        do {
+            try store.revoke(id)
+            refreshListener()
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func tick() {
+        if !pairing.isOpen { closePairing() } else { updatePairingState() }
+    }
+
+    private func updatePairingState() {
+        pin = pairing.pin
+        secondsRemaining = max(0, Int(ceil(pairing.expiresAt?.timeIntervalSinceNow ?? 0)))
+    }
+
+    private func refreshListener() {
+        listener?.cancel()
+        listener = nil
+        connections.cancelAll()
+        guard enabled else { return }
+        do {
+            devices = try store.devices()
+            var keys = devices.map { (identity: $0.id, key: SymmetricKey(data: $0.key)) }
+            if pairing.isOpen, let pin = pairing.pin {
+                keys.append((identity: "pair", key: CompanionTLS.pairingKey(pin: pin)))
+            }
+            guard !keys.isEmpty else { return }
+            let listener = try NWListener(using: CompanionTLS.serverParameters(keys: keys))
+            listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: bonjourServiceType)
+            listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
+            listener.stateUpdateHandler = { [weak self] state in
+                if case let .failed(error) = state {
+                    self?.error = error.localizedDescription
+                    NSLog("[ClipMoar] companion listener: %@", error.localizedDescription)
+                }
+            }
+            self.listener = listener
+            listener.start(queue: .main)
+        } catch {
+            self.error = error.localizedDescription
+            NSLog("[ClipMoar] companion listener: %@", error.localizedDescription)
+        }
+    }
+
+    private func accept(_ connection: NWConnection) {
+        guard pin == nil || pairing.isOpen else { connection.cancel(); return }
+        let id = UUID()
+        let session = CompanionSession(devices: store, pairing: pairing, capturer: capturer, clipboard: clipboard)
+        let peer = CompanionPeer(connection: connection, session: session)
+        connections.add(id) { peer.cancel() }
+        peer.onEnd = { [weak self] ready in
+            guard let self else { return }
+            self.connections.remove(id)
+            if !ready, self.pairing.isOpen {
+                self.pairing.handshakeFailed()
+                if !self.pairing.isOpen { self.closePairing() }
+            }
+        }
+        peer.onPaired = { [weak self] in self?.closePairing() }
+        peer.onPairingGranted = { [weak self] in
+            self?.listener?.cancel()
+            self?.listener = nil
+            self?.connections.cancelAll(except: id)
+            self?.updatePairingState()
+        }
+        peer.start()
+    }
+}
+
+private final class CompanionPeer {
+    private let connection: NWConnection
+    private let session: CompanionSession
+    private var decoder = FrameDecoder()
+    private var ready = false
+    private var ended = false
+    var onEnd: ((Bool) -> Void)?
+    var onPaired: (() -> Void)?
+    var onPairingGranted: (() -> Void)?
+
+    init(connection: NWConnection, session: CompanionSession) {
+        self.connection = connection
+        self.session = session
+    }
+
+    func start() {
+        connection.stateUpdateHandler = { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+                self.ready = true
+                self.receive()
+            case .failed, .cancelled: self.finish()
+            default: break
+            }
+        }
+        connection.start(queue: .main)
+    }
+
+    func cancel() {
+        if !ended {
+            ended = true
+            onEnd?(true)
+        }
+        connection.cancel()
+    }
+
+    private func finish() {
+        guard !ended else { return }
+        ended = true
+        onEnd?(ready)
+    }
+
+    private func receive() {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, complete, error in
+            guard let self else { return }
+            do {
+                let messages = try data.map { try self.decoder.append($0).map(Message.init(frame:)) } ?? []
+                Task { @MainActor in
+                    for message in messages {
+                        guard let reply = await self.session.receive(message) else { continue }
+                        if case .pairGranted = reply { self.onPairingGranted?() }
+                        do {
+                            try await self.send(reply)
+                        } catch {
+                            if case .pairGranted = reply { self.onPaired?() }
+                            self.cancel()
+                            return
+                        }
+                        if case .pairGranted = reply {
+                            self.onPaired?()
+                            return
+                        }
+                        if self.session.closed { self.cancel(); return }
+                    }
+                    if complete || error != nil { self.cancel() } else { self.receive() }
+                }
+            } catch { self.cancel() }
+        }
+    }
+
+    private func send(_ message: Message) async throws {
+        let data = try message.encode()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            connection.send(content: data, completion: .contentProcessed { error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            })
+        }
+    }
+}

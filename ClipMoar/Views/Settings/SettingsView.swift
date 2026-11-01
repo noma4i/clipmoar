@@ -9,6 +9,8 @@ struct SettingsView: View {
     var onEditLook: (() -> Void)?
     var updateService: UpdateService?
     var statsService: StatsService?
+    var companionServer: CompanionServer?
+    var onCompanionChange: (() -> Void)?
 
     init(
         settings: SettingsStore,
@@ -18,6 +20,8 @@ struct SettingsView: View {
         onEditLook: (() -> Void)? = nil,
         updateService: UpdateService? = nil,
         statsService: StatsService? = nil,
+        companionServer: CompanionServer? = nil,
+        onCompanionChange: (() -> Void)? = nil,
         initialTab: String = "stats"
     ) {
         self.settings = settings
@@ -27,6 +31,8 @@ struct SettingsView: View {
         self.onEditLook = onEditLook
         self.updateService = updateService
         self.statsService = statsService
+        self.companionServer = companionServer
+        self.onCompanionChange = onCompanionChange
         _selectedTab = State(initialValue: initialTab)
     }
 
@@ -58,6 +64,8 @@ struct SettingsView: View {
                     .tag("ignore")
                 Label("AI", systemImage: "brain")
                     .tag("ai")
+                Label("Companion", systemImage: "ipad.and.iphone")
+                    .tag("companion")
 
                 Divider()
 
@@ -94,6 +102,8 @@ struct SettingsView: View {
                     IgnoreAppsSettingsView(settings: settings)
                 case "ai":
                     AISettingsView()
+                case "companion":
+                    CompanionSettingsView(settings: settings, server: companionServer, onChange: onCompanionChange)
                 case "about":
                     AboutSettingsView(updateService: updateService)
                 default:

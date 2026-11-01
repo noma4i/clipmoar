@@ -4,6 +4,7 @@
     import SwiftUI
 
     final class PreviewSettingsStore: SettingsStore {
+        var companionEnabled = false
         // Mutable settings snapshot used by previews instead of UserDefaults.
         var showInDock = true
         var showInMenuBar = true

@@ -2,6 +2,7 @@ import Carbon
 import Cocoa
 
 protocol SettingsStore: AnyObject {
+    var companionEnabled: Bool { get set }
     var showInDock: Bool { get set }
     var showInMenuBar: Bool { get set }
     var maxHistorySize: Int { get set }
@@ -127,6 +128,7 @@ enum PanelScreenMode: Int, CaseIterable {
 }
 
 enum Settings {
+    static let companionEnabled = "companionEnabled"
     static let showInDock = "showInDock"
     static let showInMenuBar = "showInMenuBar"
     static let maxHistorySize = "maxHistorySize"
@@ -312,6 +314,11 @@ enum PanelTextColor: Int, CaseIterable {
 }
 
 final class UserDefaultsSettingsStore: SettingsStore {
+    var companionEnabled: Bool {
+        get { defaults.bool(forKey: Settings.companionEnabled) }
+        set { defaults.set(newValue, forKey: Settings.companionEnabled) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -677,6 +684,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
 
     func registerDefaults() {
         defaults.register(defaults: [
+            Settings.companionEnabled: false,
             Settings.showInDock: true,
             Settings.showInMenuBar: true,
             Settings.maxHistorySize: 500,

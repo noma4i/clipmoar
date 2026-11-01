@@ -182,6 +182,7 @@ final class MockRepository: ClipboardRepository {
 }
 
 final class MockSettings: SettingsStore {
+    var companionEnabled = false
     var showInDock = true
     var showInMenuBar = true
     var maxHistorySize = 500

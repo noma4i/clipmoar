@@ -8,6 +8,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "ClipMoar",
+            dependencies: ["CompanionKit"],
             path: "ClipMoar",
             exclude: [
                 "Resources",

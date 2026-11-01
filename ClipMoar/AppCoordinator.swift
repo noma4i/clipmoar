@@ -13,6 +13,8 @@ final class AppCoordinator {
     private let ruleEngine: ClipboardRuleEngine
     private let updateService: UpdateService
     private let statsService: StatsService
+    private let companionServer: CompanionServer
+    private var settingsObserver: NSObjectProtocol?
     private let secureInputDetector = SecureInputDetector()
     private lazy var transformOverlay = TransformOverlayController(
         ruleEngine: ruleEngine,
@@ -73,7 +75,9 @@ final class AppCoordinator {
         transformHotkeyRecorder: transformHotkeyRecorder,
         onEditLook: { [weak self] in self?.enterLookEditor() },
         updateService: updateService,
-        statsService: statsService
+        statsService: statsService,
+        companionServer: companionServer,
+        onCompanionChange: { [weak self] in self?.applyCompanionSettings() }
     )
 
     init(
@@ -84,7 +88,9 @@ final class AppCoordinator {
         settings.registerDefaults()
         self.context = context
         repository = CoreDataClipboardRepository(context: context)
-        clipboardActions = ClipboardActionService()
+        let actions = ClipboardActionService()
+        clipboardActions = actions
+        companionServer = CompanionServer(capturer: ScreenCapturer(), clipboard: actions, store: KeychainCompanionDevices())
         let ruleEngine = ClipboardRuleEngine(presetStore: presetStore)
         self.ruleEngine = ruleEngine
         clipboardService = ClipboardService(repository: repository, settings: settings, ruleEngine: ruleEngine)
@@ -99,6 +105,10 @@ final class AppCoordinator {
     }
 
     func start() {
+        applyCompanionSettings()
+        settingsObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.applyCompanionSettings()
+        }
         setupStatusItem()
         setupHotkey()
         setupTransformHotkey()
@@ -114,6 +124,9 @@ final class AppCoordinator {
     }
 
     func stop() {
+        if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver) }
+        settingsObserver = nil
+        companionServer.stop()
         clipboardService.stopMonitoring()
         hotkeyService.unregister()
         transformHotkeyService.unregister()
@@ -130,6 +143,10 @@ final class AppCoordinator {
     func applyVisibilitySettings() {
         NSApp.setActivationPolicy(settings.showInDock ? .regular : .accessory)
         statusItem?.isVisible = settings.showInMenuBar
+    }
+
+    private func applyCompanionSettings() {
+        companionServer.setEnabled(settings.companionEnabled)
     }
 
     func reregisterHotkey() {
@@ -211,6 +228,7 @@ final class AppCoordinator {
             ("Images", "images", "", "photo"),
             ("Ignore Apps", "ignore", "", "nosign"),
             ("AI", "ai", "", "brain"),
+            ("Companion", "companion", "", "ipad.and.iphone"),
             ("About", "about", "", "info.circle"),
         ]
         for (title, tag, key, icon) in tabs {

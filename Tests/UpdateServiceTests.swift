@@ -238,6 +238,7 @@ final class UpdateServiceTests: XCTestCase {
 }
 
 private final class TestUpdateSettings: SettingsStore {
+    var companionEnabled = false
     var showInDock = true
     var showInMenuBar = true
     var maxHistorySize = 500

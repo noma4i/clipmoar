@@ -8,6 +8,16 @@ protocol ClipboardActionServicing: AnyObject {
 final class ClipboardActionService: ClipboardActionServicing {
     static let markerType = NSPasteboard.PasteboardType("com.clipmoar.marker")
 
+    func writeImage(png: Data) throws {
+        guard let image = NSImage(data: png), let tiff = image.tiffRepresentation else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setData(png, forType: .png)
+        pasteboard.setData(tiff, forType: .tiff)
+    }
+
     func writeToPasteboard(item: ClipboardItem) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
