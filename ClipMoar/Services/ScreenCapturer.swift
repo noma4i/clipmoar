@@ -27,11 +27,12 @@ struct ScreenCapturer: ScreenCapturing {
         let content = try await SCShareableContent.current
         return content.displays.map { display in
             let screen = NSScreen.screens.first { screenID($0) == display.displayID }
+            let mode = CGDisplayCopyDisplayMode(display.displayID)
             return DisplayInfo(
                 id: display.displayID,
                 name: screen?.localizedName ?? "Display",
-                width: CGDisplayPixelsWide(display.displayID),
-                height: CGDisplayPixelsHigh(display.displayID),
+                width: mode?.pixelWidth ?? CGDisplayPixelsWide(display.displayID),
+                height: mode?.pixelHeight ?? CGDisplayPixelsHigh(display.displayID),
                 isMain: display.displayID == CGMainDisplayID()
             )
         }
@@ -45,8 +46,9 @@ struct ScreenCapturer: ScreenCapturing {
             throw ScreenCaptureError.displayUnavailable
         }
         let config = SCStreamConfiguration()
-        config.width = CGDisplayPixelsWide(display.displayID)
-        config.height = CGDisplayPixelsHigh(display.displayID)
+        let mode = CGDisplayCopyDisplayMode(display.displayID)
+        config.width = mode?.pixelWidth ?? CGDisplayPixelsWide(display.displayID)
+        config.height = mode?.pixelHeight ?? CGDisplayPixelsHigh(display.displayID)
         let image = try await SCScreenshotManager.captureImage(
             contentFilter: SCContentFilter(display: display, excludingWindows: []),
             configuration: config
