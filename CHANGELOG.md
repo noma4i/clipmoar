@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.0] - 2026-11-02
 
 ### Added
 - Drag window for Screen Recording in Settings -> Companion.
