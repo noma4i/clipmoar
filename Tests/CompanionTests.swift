@@ -71,6 +71,39 @@ final class CompanionTests: XCTestCase {
         XCTAssertNil(try PairingInvite(url: XCTUnwrap(components.url)))
     }
 
+    func testConnectionWaitsForDelayedListener() async throws {
+        let reservation = try NWListener(using: .tcp, on: .any)
+        let reserved = expectation(description: "port reserved")
+        let released = expectation(description: "port released")
+        reservation.stateUpdateHandler = { state in
+            if case .ready = state { reserved.fulfill() }
+            if case .cancelled = state { released.fulfill() }
+        }
+        reservation.newConnectionHandler = { $0.cancel() }
+        reservation.start(queue: .global())
+        await fulfillment(of: [reserved], timeout: 5)
+        let port = try XCTUnwrap(reservation.port)
+        reservation.cancel()
+        await fulfillment(of: [released], timeout: 5)
+
+        let connection = CompanionConnection(NWConnection(host: .ipv4(.loopback), port: port, using: .tcp))
+        defer { connection.connection.cancel() }
+        let clock = ContinuousClock()
+        let start = clock.now
+        let readiness = Task { try await connection.ready(timeout: .seconds(3)) }
+        try await Task.sleep(for: .milliseconds(300))
+        let listener = try NWListener(using: .tcp, on: port)
+        defer { listener.cancel() }
+        listener.newConnectionHandler = { _ in }
+        listener.start(queue: .global())
+        do {
+            try await readiness.value
+        } catch CompanionConnectionError.timedOut {
+            XCTAssertNotNil(connection.lastWaitingError)
+            XCTAssertGreaterThanOrEqual(start.duration(to: clock.now), .milliseconds(2800))
+        }
+    }
+
     func testUnreachableConnectionFailsWithinTimeout() async throws {
         let listener = try NWListener(using: .tcp, on: .any)
         let listening = expectation(description: "listener ready")

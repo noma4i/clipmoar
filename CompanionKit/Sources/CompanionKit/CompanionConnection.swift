@@ -14,6 +14,7 @@ public final class CompanionConnection {
     private var decoder = FrameDecoder()
     private let stateLock = NSLock()
     private var readiness: Result<Void, Error>?
+    private var waitingError: NWError?
 
     public init(_ connection: NWConnection) {
         self.connection = connection
@@ -23,21 +24,24 @@ public final class CompanionConnection {
         connection.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             self.stateLock.lock()
-            let wasReady = self.readiness != nil
+            var startReceiving = false
             switch state {
             case .ready:
-                if self.readiness == nil { self.readiness = .success(()) }
-            case let .waiting(error), let .failed(error):
+                if self.readiness == nil {
+                    self.readiness = .success(())
+                    startReceiving = true
+                }
+            case let .waiting(error):
+                if self.readiness == nil { self.waitingError = error }
+            case let .failed(error):
                 if self.readiness == nil { self.readiness = .failure(error) }
             case .cancelled:
                 if self.readiness == nil { self.readiness = .failure(CompanionConnectionError.cancelled) }
             default: break
             }
             self.stateLock.unlock()
+            if startReceiving { self.receive() }
             switch state {
-            case let .waiting(error) where !wasReady:
-                self.continuation.finish(throwing: error)
-                self.connection.cancel()
             case let .failed(error): self.continuation.finish(throwing: error)
             case .cancelled: self.continuation.finish()
             default: break
@@ -45,7 +49,6 @@ public final class CompanionConnection {
         }
         continuation.onTermination = { [weak connection] _ in connection?.cancel() }
         connection.start(queue: queue)
-        receive()
     }
 
     public func ready(timeout: Duration) async throws {
@@ -54,7 +57,10 @@ public final class CompanionConnection {
         while true {
             try Task.checkCancellation()
             if let result = readinessResult() { return try result.get() }
-            guard clock.now < deadline else { throw CompanionConnectionError.timedOut }
+            guard clock.now < deadline else {
+                connection.cancel()
+                throw CompanionConnectionError.timedOut
+            }
             try await clock.sleep(until: min(deadline, clock.now.advanced(by: .milliseconds(20))))
         }
     }
@@ -63,6 +69,12 @@ public final class CompanionConnection {
         stateLock.lock()
         defer { stateLock.unlock() }
         return readiness
+    }
+
+    public var lastWaitingError: NWError? {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return waitingError
     }
 
     public func send(_ message: Message) async throws {
