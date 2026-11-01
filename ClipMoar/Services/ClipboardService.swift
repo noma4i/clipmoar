@@ -200,8 +200,7 @@ final class ClipboardService {
                     logger.log("[ClipMoar] skip: duplicate image file")
                     return
                 }
-                var finalData = compressImageIfNeeded(imageData)
-                finalData = processImageIfNeeded(finalData)
+                let finalData = prepareImage(imageData)
                 lastInsertedUUID = repository.insertImage(finalData, sourceAppBundleId: sourceAppBundleId, fingerprint: fingerprint)
                 repository.releaseMemory()
                 logger.log("[ClipMoar] inserted image from file: %@ (%d bytes)", urls[0].lastPathComponent, finalData.count)
@@ -266,8 +265,7 @@ final class ClipboardService {
                 return
             }
 
-            var finalData = compressImageIfNeeded(imageData)
-            finalData = processImageIfNeeded(finalData)
+            let finalData = prepareImage(imageData)
 
             if finalData != imageData {
                 let pb = NSPasteboard.general
@@ -366,6 +364,10 @@ final class ClipboardService {
         return data
     }
 
+    func prepareImage(_ data: Data) -> Data {
+        processImageIfNeeded(compressImageIfNeeded(data))
+    }
+
     private func processImageIfNeeded(_ data: Data) -> Data {
         let s = settings
         guard s.imageConvertToPNG || s.imageConvertToJPEG
@@ -376,8 +378,8 @@ final class ClipboardService {
     }
 
     private func compressImageIfNeeded(_ data: Data) -> Data {
-        guard settings.compressImages else { return data }
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+        guard settings.compressImages,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let origW = props[kCGImagePropertyPixelWidth] as? CGFloat,
               let origH = props[kCGImagePropertyPixelHeight] as? CGFloat

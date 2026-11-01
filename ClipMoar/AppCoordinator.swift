@@ -87,13 +87,16 @@ final class AppCoordinator {
         self.settings = settings
         settings.registerDefaults()
         self.context = context
-        repository = CoreDataClipboardRepository(context: context)
+        let repository = CoreDataClipboardRepository(context: context)
+        self.repository = repository
         let actions = ClipboardActionService()
         clipboardActions = actions
-        companionServer = CompanionServer(capturer: ScreenCapturer(), clipboard: actions, store: KeychainCompanionDevices())
         let ruleEngine = ClipboardRuleEngine(presetStore: presetStore)
         self.ruleEngine = ruleEngine
-        clipboardService = ClipboardService(repository: repository, settings: settings, ruleEngine: ruleEngine)
+        let clipboardService = ClipboardService(repository: repository, settings: settings, ruleEngine: ruleEngine)
+        self.clipboardService = clipboardService
+        let images = CompanionImageIngest(clipboard: actions, history: repository, prepare: clipboardService.prepareImage)
+        companionServer = CompanionServer(capturer: ScreenCapturer(), images: images, store: KeychainCompanionDevices())
         hotkeyService = HotkeyService(settings: settings)
         transformHotkeyService = HotkeyService(
             settings: settings,

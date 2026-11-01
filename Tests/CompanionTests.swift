@@ -9,7 +9,7 @@ final class CompanionTests: XCTestCase {
     func testFragmentedFrames() throws {
         var bytes = [UInt8](repeating: 0, count: 300 * 1024)
         XCTAssertEqual(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes), errSecSuccess)
-        let messages: [Message] = [.hello(deviceId: "device"), .image(png: Data(bytes))]
+        let messages: [Message] = [.hello(deviceId: "device"), .image(png: Data(bytes)), .paste(png: Data(bytes), session: "session")]
         let wire = try messages.reduce(into: Data()) { result, message in
             try result.append(message.encode())
         }
@@ -24,6 +24,14 @@ final class CompanionTests: XCTestCase {
     func testOversizedFrame() {
         var decoder = FrameDecoder()
         XCTAssertThrowsError(try decoder.append(Data([4, 0, 0, 1])))
+    }
+
+    func testInvalidPastePayloads() {
+        for payload in [Data(), Data([0]), Data([0, 2, 65]), Data([0, 1, 65]), Data([0, 0, 1]), Data([0, 129, 1])] {
+            XCTAssertThrowsError(try Message(frame: Frame(type: 2, payload: payload)))
+        }
+        XCTAssertThrowsError(try Message.paste(png: Data([1]), session: "").encode())
+        XCTAssertThrowsError(try Message.paste(png: Data([1]), session: String(repeating: "a", count: 129)).encode())
     }
 
     func testPairingHandshake() throws {

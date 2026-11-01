@@ -106,24 +106,56 @@ final class PairingWindow {
 }
 
 protocol CompanionImageWriting {
-    func writeImage(png: Data) throws
+    func writeImage(png: Data, marked: Bool) throws
 }
 
 extension ClipboardActionService: CompanionImageWriting {}
+
+protocol CompanionImageHistory: AnyObject {
+    func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
+    func replaceImage(uuid: UUID, data: Data, fingerprint: String) -> Bool
+    func moveToTop(uuid: UUID)
+}
+
+extension CoreDataClipboardRepository: CompanionImageHistory {}
+
+final class CompanionImageIngest {
+    private let clipboard: CompanionImageWriting
+    private let history: CompanionImageHistory
+    private let prepare: (Data) -> Data
+    private var sessions: [String: UUID] = [:]
+
+    init(clipboard: CompanionImageWriting, history: CompanionImageHistory, prepare: @escaping (Data) -> Data) {
+        self.clipboard = clipboard
+        self.history = history
+        self.prepare = prepare
+    }
+
+    func paste(png: Data, session: String) throws {
+        try clipboard.writeImage(png: png, marked: true)
+        let data = prepare(png)
+        let fingerprint = ContentFingerprint.hash(data: png)
+        if let uuid = sessions[session], history.replaceImage(uuid: uuid, data: data, fingerprint: fingerprint) {
+            history.moveToTop(uuid: uuid)
+        } else {
+            sessions[session] = history.insertImage(data, sourceAppBundleId: "com.noma4i.DrawMoar", fingerprint: fingerprint)
+        }
+    }
+}
 
 final class CompanionSession {
     private let devices: CompanionDeviceStoring
     private let pairing: PairingWindow
     private let capturer: ScreenCapturing
-    private let clipboard: CompanionImageWriting
+    private let images: CompanionImageIngest
     private var authenticated = false
     private(set) var closed = false
 
-    init(devices: CompanionDeviceStoring, pairing: PairingWindow, capturer: ScreenCapturing, clipboard: CompanionImageWriting) {
+    init(devices: CompanionDeviceStoring, pairing: PairingWindow, capturer: ScreenCapturing, images: CompanionImageIngest) {
         self.devices = devices
         self.pairing = pairing
         self.capturer = capturer
-        self.clipboard = clipboard
+        self.images = images
     }
 
     func receive(_ message: Message) async -> Message? {
@@ -150,8 +182,8 @@ final class CompanionSession {
             switch message {
             case .listDisplays: return try await .displays(capturer.displays())
             case let .capture(id): return try await .image(png: capturer.capture(displayId: id))
-            case let .paste(png):
-                try clipboard.writeImage(png: png)
+            case let .paste(png, session):
+                try images.paste(png: png, session: session)
                 return .ok
             default: return reject("Unexpected message.")
             }
@@ -192,16 +224,16 @@ final class CompanionServer {
     private(set) var error: String?
     private let store: CompanionDeviceStoring
     private let capturer: ScreenCapturing
-    private let clipboard: CompanionImageWriting
+    private let images: CompanionImageIngest
     private let pairing = PairingWindow()
     private let connections: CompanionConnections
     private var listener: NWListener?
     private var timer: Timer?
     private var enabled = false
 
-    init(capturer: ScreenCapturing, clipboard: CompanionImageWriting, store: CompanionDeviceStoring, connections: CompanionConnections = CompanionConnections()) {
+    init(capturer: ScreenCapturing, images: CompanionImageIngest, store: CompanionDeviceStoring, connections: CompanionConnections = CompanionConnections()) {
         self.capturer = capturer
-        self.clipboard = clipboard
+        self.images = images
         self.store = store
         self.connections = connections
         do { devices = try store.devices() } catch { self.error = error.localizedDescription }
@@ -295,7 +327,7 @@ final class CompanionServer {
     private func accept(_ connection: NWConnection) {
         guard pin == nil || pairing.isOpen else { connection.cancel(); return }
         let id = UUID()
-        let session = CompanionSession(devices: store, pairing: pairing, capturer: capturer, clipboard: clipboard)
+        let session = CompanionSession(devices: store, pairing: pairing, capturer: capturer, images: images)
         let peer = CompanionPeer(connection: connection, session: session)
         connections.add(id) { peer.cancel() }
         peer.onEnd = { [weak self] ready in

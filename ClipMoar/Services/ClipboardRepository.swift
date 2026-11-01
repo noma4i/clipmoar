@@ -128,6 +128,17 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         CoreDataStack.shared.saveIfNeeded()
     }
 
+    func replaceImage(uuid: UUID, data: Data, fingerprint: String) -> Bool {
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.predicate = NSPredicate(format: "uuid == %@", uuid as CVarArg)
+        request.fetchLimit = 1
+        guard let item = try? context.fetch(request).first else { return false }
+        item.imageData = data
+        item.fingerprint = fingerprint
+        CoreDataStack.shared.saveIfNeeded()
+        return true
+    }
+
     func removeItem(uuid: UUID) {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
         request.predicate = NSPredicate(format: "uuid == %@", uuid as CVarArg)

@@ -24,7 +24,7 @@ public enum Message: Equatable {
     case displays([DisplayInfo])
     case capture(displayId: UInt32?)
     case image(png: Data)
-    case paste(png: Data)
+    case paste(png: Data, session: String)
     case ok
     case error(String)
 
@@ -43,7 +43,13 @@ public enum Message: Equatable {
         let frame: Frame
         switch self {
         case let .image(png): frame = Frame(type: 1, payload: png)
-        case let .paste(png): frame = Frame(type: 2, payload: png)
+        case let .paste(png, session):
+            let bytes = Data(session.utf8)
+            guard !bytes.isEmpty, bytes.count <= 128 else { throw FrameError.invalidSession }
+            var payload = Data([UInt8(bytes.count >> 8), UInt8(bytes.count & 255)])
+            payload.append(bytes)
+            payload.append(png)
+            frame = Frame(type: 2, payload: payload)
         default:
             let value: Small
             switch self {
@@ -65,7 +71,14 @@ public enum Message: Equatable {
     public init(frame: Frame) throws {
         switch frame.type {
         case 1: self = .image(png: frame.payload)
-        case 2: self = .paste(png: frame.payload)
+        case 2:
+            let bytes = [UInt8](frame.payload)
+            guard bytes.count >= 2 else { throw FrameError.truncated }
+            let length = Int(bytes[0]) << 8 | Int(bytes[1])
+            guard length > 0, length <= 128 else { throw FrameError.invalidSession }
+            guard bytes.count > 2 + length else { throw FrameError.truncated }
+            guard let session = String(bytes: bytes[2 ..< 2 + length], encoding: .utf8) else { throw FrameError.invalidSession }
+            self = .paste(png: Data(bytes[(2 + length)...]), session: session)
         case 0:
             switch try JSONDecoder().decode(Small.self, from: frame.payload) {
             case let .hello(deviceId): self = .hello(deviceId: deviceId)

@@ -23,25 +23,38 @@ final class CompanionServerTests: XCTestCase {
         XCTAssertNil(capture.displayID)
     }
 
-    func testPasteWritesOriginalPNG() async {
+    func testPasteReplacesSessionAndMovesItToTop() async {
         let clipboard = FakeClipboard()
-        let session = makeSession(clipboard: clipboard)
+        let history = FakeHistory()
+        let session = makeSession(clipboard: clipboard, history: history)
         _ = await session.receive(.hello(deviceId: "device"))
-        let png = Data([1, 2, 3])
-        let result = await session.receive(.paste(png: png))
+        for byte: UInt8 in 1 ... 3 {
+            let result = await session.receive(.paste(png: Data([byte]), session: "s1"))
+            XCTAssertEqual(result, .ok)
+        }
+        XCTAssertEqual(history.items.map(\.data), [Data([3, 9])])
+        XCTAssertEqual(clipboard.png, Data([3]))
+        XCTAssertTrue(clipboard.marked)
+        let result = await session.receive(.paste(png: Data([4]), session: "s2"))
         XCTAssertEqual(result, .ok)
-        XCTAssertEqual(clipboard.png, png)
+        XCTAssertEqual(history.items.map(\.data), [Data([4, 9]), Data([3, 9])])
+        XCTAssertEqual(history.items.map(\.source), ["com.noma4i.DrawMoar", "com.noma4i.DrawMoar"])
+        XCTAssertEqual(clipboard.png, Data([4]))
+        XCTAssertTrue(clipboard.marked)
+        let updated = await session.receive(.paste(png: Data([5]), session: "s1"))
+        XCTAssertEqual(updated, .ok)
+        XCTAssertEqual(history.items.map(\.data), [Data([5, 9]), Data([4, 9])])
     }
 
     func testPairingRequiresOpenWindowAndPersistsKey() async throws {
         let store = FakeDevices()
         let window = PairingWindow()
-        let closed = CompanionSession(devices: store, pairing: window, capturer: FakeCapture(), clipboard: FakeClipboard())
+        let closed = CompanionSession(devices: store, pairing: window, capturer: FakeCapture(), images: makeImages())
         let rejected = await closed.receive(.pairRequest(deviceId: "new", deviceName: "iPad"))
         guard case .error = rejected else { return XCTFail("Expected an error") }
         XCTAssertTrue(try store.devices().isEmpty)
         try window.open()
-        let open = CompanionSession(devices: store, pairing: window, capturer: FakeCapture(), clipboard: FakeClipboard())
+        let open = CompanionSession(devices: store, pairing: window, capturer: FakeCapture(), images: makeImages())
         let granted = await open.receive(.pairRequest(deviceId: "new", deviceName: "iPad"))
         guard case let .pairGranted(key) = granted else { return XCTFail("Expected a key") }
         XCTAssertEqual(key.count, 32)
@@ -56,7 +69,7 @@ final class CompanionServerTests: XCTestCase {
             window.handshakeFailed()
         }
         let store = FakeDevices()
-        let session = CompanionSession(devices: store, pairing: window, capturer: FakeCapture(), clipboard: FakeClipboard())
+        let session = CompanionSession(devices: store, pairing: window, capturer: FakeCapture(), images: makeImages())
         let result = await session.receive(.pairRequest(deviceId: "new", deviceName: "iPad"))
         guard case .error = result else { return XCTFail("Expected an error") }
         XCTAssertTrue(try store.devices().isEmpty)
@@ -64,7 +77,7 @@ final class CompanionServerTests: XCTestCase {
 
     func testClosingPairingAndRevokingCancelConnections() {
         let connections = CompanionConnections()
-        let server = CompanionServer(capturer: FakeCapture(), clipboard: FakeClipboard(), store: FakeDevices(), connections: connections)
+        let server = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices(), connections: connections)
         var cancellations = 0
         connections.add(UUID()) { cancellations += 1 }
         server.closePairing()
@@ -74,10 +87,14 @@ final class CompanionServerTests: XCTestCase {
         XCTAssertEqual(cancellations, 2)
     }
 
-    private func makeSession(capture: FakeCapture = FakeCapture(), clipboard: FakeClipboard = FakeClipboard()) -> CompanionSession {
+    private func makeImages(clipboard: FakeClipboard = FakeClipboard(), history: FakeHistory = FakeHistory()) -> CompanionImageIngest {
+        CompanionImageIngest(clipboard: clipboard, history: history) { $0 + Data([9]) }
+    }
+
+    private func makeSession(capture: FakeCapture = FakeCapture(), clipboard: FakeClipboard = FakeClipboard(), history: FakeHistory = FakeHistory()) -> CompanionSession {
         let store = FakeDevices()
         try! store.save(CompanionDevice(id: "device", name: "iPad", key: Data(repeating: 1, count: 32)))
-        return CompanionSession(devices: store, pairing: PairingWindow(), capturer: capture, clipboard: clipboard)
+        return CompanionSession(devices: store, pairing: PairingWindow(), capturer: capture, images: makeImages(clipboard: clipboard, history: history))
     }
 }
 
@@ -114,7 +131,37 @@ private final class FakeCapture: ScreenCapturing {
 
 private final class FakeClipboard: CompanionImageWriting {
     var png: Data?
-    func writeImage(png: Data) throws {
+    var marked = false
+    func writeImage(png: Data, marked: Bool) throws {
         self.png = png
+        self.marked = marked
+    }
+}
+
+private final class FakeHistory: CompanionImageHistory {
+    struct Item {
+        let id: UUID
+        var data: Data
+        let source: String?
+        var fingerprint: String
+    }
+
+    var items: [Item] = []
+    func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID {
+        let id = UUID()
+        items.insert(Item(id: id, data: data, source: sourceAppBundleId, fingerprint: fingerprint), at: 0)
+        return id
+    }
+
+    func replaceImage(uuid: UUID, data: Data, fingerprint: String) -> Bool {
+        guard let index = items.firstIndex(where: { $0.id == uuid }) else { return false }
+        items[index].data = data
+        items[index].fingerprint = fingerprint
+        return true
+    }
+
+    func moveToTop(uuid: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == uuid }) else { return }
+        items.insert(items.remove(at: index), at: 0)
     }
 }

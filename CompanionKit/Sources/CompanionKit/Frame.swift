@@ -25,6 +25,7 @@ public enum FrameError: Error {
     case tooLarge
     case invalidType
     case truncated
+    case invalidSession
 }
 
 public struct FrameDecoder {
