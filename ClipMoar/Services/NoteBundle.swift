@@ -3,6 +3,7 @@ import Foundation
 
 struct NotePaths {
     let bundle: URL
+    var hasScreenshot = true
     var annotated: URL {
         bundle.appendingPathComponent("annotated.png")
     }
@@ -46,7 +47,10 @@ final class NoteBundle {
             }
         }
         lines.append(contentsOf: note.marks.filter { !used.contains($0.number) }.map(line))
-        lines.append(contentsOf: ["", "Image with marks: \(paths.annotated.path)", "Screenshot: \(paths.screenshot.path)", "Bundle: \(paths.bundle.path)"])
+        lines.append("")
+        lines.append("Image with marks: \(paths.annotated.path)")
+        if paths.hasScreenshot { lines.append("Screenshot: \(paths.screenshot.path)") }
+        lines.append("Bundle: \(paths.bundle.path)")
         return lines.joined(separator: "\n")
     }
 
@@ -74,10 +78,14 @@ final class NoteBundle {
             directory = base.appendingPathComponent("\(formatter.string(from: date))-\(suffix)", isDirectory: true)
         }
         try manager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let paths = NotePaths(bundle: directory)
+        let paths = NotePaths(bundle: directory, hasScreenshot: !screenshot.isEmpty)
         let text = Self.summary(note, paths: paths)
         try annotated.write(to: paths.annotated, options: .atomic)
-        try screenshot.write(to: paths.screenshot, options: .atomic)
+        if screenshot.isEmpty {
+            try? manager.removeItem(at: paths.screenshot)
+        } else {
+            try screenshot.write(to: paths.screenshot, options: .atomic)
+        }
         try text.write(to: directory.appendingPathComponent("summary.md"), atomically: true, encoding: .utf8)
         var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(note)) as! [String: Any]
         object["session"] = session

@@ -37,6 +37,29 @@ final class NoteBundleTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(Note.self, from: Data(contentsOf: directory.appendingPathComponent("note.json"))), updated)
     }
 
+    func testBundleWithoutScreenshotRemovesStaleOne() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let bundle = NoteBundle(base: base)
+        let marks = [NoteMark(number: 1, start: 5, x: 120, y: 840, width: 640, height: 90, on: "Xcode")]
+        let note = Note(displayName: "Display", width: 5120, height: 2880, duration: 42, marks: marks, phrases: [NotePhrase(start: 5, end: 10, text: "This line.", marks: [1])])
+        _ = try bundle.write(annotated: Data([1]), screenshot: Data([2]), note: note, session: "abcdefgh-123")
+        let directory = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: nil).first).standardizedFileURL
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("screenshot.png").path))
+        let text = try bundle.write(annotated: Data([3]), screenshot: Data(), note: note, session: "abcdefgh-123")
+        let expected = """
+        DrawMoar note · 0:42 · Display 5120x2880
+
+        ✎① 0:05 in Xcode, at 120,840 640x90
+          This line.
+
+        Image with marks: \(directory.path)/annotated.png
+        Bundle: \(directory.path)
+        """
+        XCTAssertEqual(text, expected)
+        XCTAssertEqual(try Set(FileManager.default.contentsOfDirectory(atPath: directory.path)), Set(["annotated.png", "summary.md", "note.json"]))
+    }
+
     func testDictationDoesNotCreateBundle() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: base) }

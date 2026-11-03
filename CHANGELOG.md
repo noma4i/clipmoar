@@ -5,6 +5,9 @@
 ### Added
 - Voice notes from DrawMoar paste a transcript with mark locations and file paths.
 
+### Changed
+- Voice note bundles no longer require the full screenshot, only the annotated image.
+
 ## [1.9.0] - 2026-11-02
 
 ### Added
