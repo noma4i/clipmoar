@@ -10,6 +10,10 @@
 - Voice note bundles no longer require the full screenshot, only the annotated image.
 - Permission drag helper is rebuilt as a guide at the bottom of System Settings, with the app tile flying in from the clicked button.
 
+### Fixed
+- A second ClipMoar copy activates the running one and quits instead of running alongside it.
+- Companion no longer listens on a random fallback port when 47823 is busy, so phones never pair to a temporary port.
+
 ## [1.9.0] - 2026-11-02
 
 ### Added

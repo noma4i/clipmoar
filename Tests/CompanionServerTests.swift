@@ -202,7 +202,7 @@ import XCTest
     }
 
     func testPairingWindowPublishesAndRemovesInvite() async throws {
-        let server = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices())
+        let server = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices(), preferredPort: UInt16.random(in: 50000 ..< 60000))
         server.start()
         server.startPairing()
         try await waitForPort(server)
@@ -224,7 +224,7 @@ import XCTest
         XCTAssertEqual(cancellations, 2)
     }
 
-    func testListenerRoutesAndBusyPortFallback() async throws {
+    func testListenerRoutesAndBusyPortHasNoFallback() async throws {
         let occupied = try NWListener(using: .tcp, on: .any)
         let listening = expectation(description: "occupied port ready")
         occupied.stateUpdateHandler = { state in if case .ready = state { listening.fulfill() } }
@@ -236,11 +236,13 @@ import XCTest
         let busy = CompanionServer(capturer: FakeCapture(), images: makeImages(), store: FakeDevices(), preferredPort: port, addressSource: source)
         busy.start()
         busy.startPairing()
-        try await waitForPort(busy)
-        XCTAssertNotEqual(busy.listeningPort, port)
-        XCTAssertNotNil(busy.error)
-        XCTAssertEqual(busy.invite?.hosts, ["100.64.1.2", "100.65.2.3", "test-mac.local"])
-        XCTAssertEqual(busy.invite?.port, busy.listeningPort)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        while busy.error == nil, clock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(busy.error, "Port \(port) is unavailable.")
+        XCTAssertNil(busy.listeningPort)
+        XCTAssertNil(busy.invite)
         busy.stop()
         let released = expectation(description: "occupied port released")
         occupied.stateUpdateHandler = { state in if case .cancelled = state { released.fulfill() } }

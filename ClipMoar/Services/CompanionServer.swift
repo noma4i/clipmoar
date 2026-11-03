@@ -357,21 +357,19 @@ final class CompanionServer {
             let (addresses, localName) = addressSource()
             let localHosts = localName.map { [$0 + ".local"] } ?? []
             hosts = Array(addresses.prefix(8 - localHosts.count)) + localHosts
-            try startListener(keys: keys, fallback: false)
+            try startListener(keys: keys)
         } catch {
             self.error = error.localizedDescription
         }
     }
 
-    private func startListener(keys: [(identity: String, key: SymmetricKey)], fallback: Bool) throws {
+    private func startListener(keys: [(identity: String, key: SymmetricKey)]) throws {
         let parameters = CompanionTLS.serverParameters(keys: keys)
         let listener: NWListener
         do {
-            listener = try NWListener(using: parameters, on: fallback ? .any : NWEndpoint.Port(rawValue: preferredPort)!)
+            listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: preferredPort)!)
         } catch {
-            guard !fallback else { throw error }
             self.error = "Port \(preferredPort) is unavailable."
-            try startListener(keys: keys, fallback: true)
             return
         }
         listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: bonjourServiceType)
@@ -382,18 +380,15 @@ final class CompanionServer {
             guard let self, let listener, self.listener === listener else { return }
             switch state {
             case .ready:
-                if !fallback { self.error = nil }
+                self.error = nil
                 self.listeningPort = listener.port?.rawValue
                 self.updatePairingState()
-            case let .failed(error):
+            case .failed:
                 listener.cancel()
-                if !fallback {
-                    self.error = "Port \(self.preferredPort) is unavailable."
-                    do { try self.startListener(keys: keys, fallback: true) }
-                    catch { self.error = error.localizedDescription }
-                } else {
-                    self.error = error.localizedDescription
-                }
+                self.listener = nil
+                self.listeningPort = nil
+                self.error = "Port \(self.preferredPort) is unavailable."
+                self.updatePairingState()
             default: break
             }
         }

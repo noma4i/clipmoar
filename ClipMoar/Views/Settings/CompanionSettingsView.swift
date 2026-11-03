@@ -84,8 +84,8 @@ struct CompanionSettingsView: View {
                     } else {
                         Button("Pair device") { server?.startPairing() }
                             .buttonStyle(.borderedProminent)
-                            .disabled(!enabled || server == nil)
-                        Text("Shows a QR code to scan with DrawMoar")
+                            .disabled(!enabled || server == nil || server?.error != nil)
+                        Text(server?.error ?? "Shows a QR code to scan with DrawMoar")
                             .foregroundStyle(.secondary)
                     }
                 }
