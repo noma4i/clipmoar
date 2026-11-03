@@ -205,6 +205,14 @@
     }
 
     @available(macOS 14.0, *)
+    #Preview("Floating Panel - Note Preview") {
+        let settings = PreviewFixtures.makeSettings(theme: .dark)
+        let layout = settings.panelConfiguration().layout
+        return FloatingClipboardPreviewHost(scenario: .notePreview, settings: settings)
+            .frame(width: layout.listWidth + layout.previewWidth, height: layout.panelHeight)
+    }
+
+    @available(macOS 14.0, *)
     #Preview("General Settings") {
         let settings = PreviewFixtures.makeSettings(theme: .dark)
         return GeneralSettingsView(

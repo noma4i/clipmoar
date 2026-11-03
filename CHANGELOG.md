@@ -4,6 +4,7 @@
 
 ### Added
 - Voice notes from DrawMoar paste a transcript with mark locations and file paths.
+- Voice note entries show the annotated image in the list and an animated transcript preview with mark badges.
 
 ### Changed
 - Voice note bundles no longer require the full screenshot, only the annotated image.

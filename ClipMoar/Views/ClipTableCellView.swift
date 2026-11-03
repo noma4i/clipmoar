@@ -40,6 +40,8 @@ final class ClipTableCellView: NSTableCellView {
                 Self.thumbnailCache.setObject(thumb, forKey: cacheKey, cost: data.count)
                 imageView?.image = thumb
             }
+        } else if let thumb = Self.noteThumbnail(item: item, size: iconSize) {
+            imageView?.image = thumb
         } else if item.isFile, let urls = item.fileURLs, let first = urls.first {
             let cacheKey = first.path as NSString
             if let cached = Self.iconCache.object(forKey: cacheKey) {
@@ -97,6 +99,18 @@ final class ClipTableCellView: NSTableCellView {
             return "\(fingerprint)_\(size)"
         }
         return "\(item.uuid?.uuidString ?? "img")_\(item.imageData?.count ?? 0)_\(size)"
+    }
+
+    private static func noteThumbnail(item: ClipboardItem, size: CGFloat) -> NSImage? {
+        guard let bundle = NotePreviewLoader.bundleURL(text: item.content, sourceAppBundleId: item.sourceAppBundleId) else { return nil }
+        let cacheKey = "note_\(bundle.path)_\(item.fingerprint ?? "")_\(size)" as NSString
+        if let cached = thumbnailCache.object(forKey: cacheKey) { return cached }
+        guard let annotated = NotePreviewLoader.load(text: item.content, sourceAppBundleId: item.sourceAppBundleId)?.annotated,
+              let data = try? Data(contentsOf: annotated),
+              let thumb = createThumbnail(from: data, maxPixelSize: size * 2) else { return nil }
+        thumb.size = NSSize(width: size, height: size)
+        thumbnailCache.setObject(thumb, forKey: cacheKey, cost: data.count)
+        return thumb
     }
 
     private static func createThumbnail(from data: Data, maxPixelSize: CGFloat) -> NSImage? {

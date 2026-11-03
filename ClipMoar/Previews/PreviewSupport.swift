@@ -1,5 +1,6 @@
 #if DEBUG
     import AppKit
+    import CompanionKit
     import CoreData
     import SwiftUI
 
@@ -228,10 +229,11 @@
         case list
         case textPreview
         case imagePreview
+        case notePreview
 
         var wantsExpandedPreview: Bool {
             switch self {
-            case .textPreview, .imagePreview:
+            case .textPreview, .imagePreview, .notePreview:
                 return true
             case .empty, .list:
                 return false
@@ -321,6 +323,8 @@
                     ),
                     makeTextItem(context: context, text: "Follow-up plain text item", sourceAppBundleId: "com.apple.Notes"),
                 ]
+            case .notePreview:
+                items = [makeNoteItem(context: context), makeTextItem(context: context, text: "Plain text item", sourceAppBundleId: "com.apple.Notes")]
             case .imagePreview:
                 items = [
                     makeImageItem(context: context, data: makePreviewImageData(), sourceAppBundleId: "com.apple.Preview"),
@@ -359,6 +363,31 @@
             item.appliedRule = appliedRule
             item.fingerprint = UUID().uuidString
             return item
+        }
+
+        static func makeNoteItem(context: NSManagedObjectContext) -> ClipboardItem {
+            let note = Note(
+                displayName: "Display",
+                width: 320,
+                height: 180,
+                duration: 42,
+                marks: [
+                    NoteMark(number: 1, start: 5, x: 20, y: 40, width: 120, height: 40, on: "Xcode"),
+                    NoteMark(number: 2, start: 19, x: 200, y: 90, width: 90, height: 50, on: nil),
+                    NoteMark(number: 3, start: 33, x: 60, y: 120, width: 80, height: 30, on: nil),
+                ],
+                phrases: [
+                    NotePhrase(start: 0, end: 4, text: "The build fails right after the first launch.", marks: []),
+                    NotePhrase(start: 5, end: 10, text: "This line is wrong and the title above it should wrap onto a second line.", marks: [1]),
+                    NotePhrase(start: 19, end: 22, text: "Check this part too.", marks: [2, 3]),
+                ]
+            )
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("clipmoar-preview-note", isDirectory: true)
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? makePreviewImageData().write(to: directory.appendingPathComponent("annotated.png"))
+            try? JSONEncoder().encode(note).write(to: directory.appendingPathComponent("note.json"))
+            let text = NoteBundle.summary(note, paths: NotePaths(bundle: directory, hasScreenshot: false))
+            return makeTextItem(context: context, text: text, sourceAppBundleId: NotePreviewLoader.sourceBundleId)
         }
 
         static func makeImageItem(context: NSManagedObjectContext, data: Data, sourceAppBundleId: String?) -> ClipboardItem {

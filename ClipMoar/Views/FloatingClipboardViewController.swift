@@ -39,6 +39,7 @@ final class FloatingClipboardViewController: NSViewController,
         case collapsed
         case text
         case image
+        case note
     }
 
     private let searchField = NSTextField()
@@ -52,12 +53,14 @@ final class FloatingClipboardViewController: NSViewController,
     private let previewTextView = NSTextView()
     private let previewScrollView = NSScrollView()
     private let previewImageView = NSImageView()
+    private let notePreviewView = NotePreviewView()
     private let previewMetaLabel = NSTextField(labelWithString: "")
     private let metaPill = NSView()
     private var rulePillView: NSView?
     private var previewWidthConstraint: NSLayoutConstraint!
     private var previewTextConstraints: [NSLayoutConstraint] = []
     private var previewImageConstraints: [NSLayoutConstraint] = []
+    private var previewNoteConstraints: [NSLayoutConstraint] = []
     private var searchFieldTop: NSLayoutConstraint?
     private var searchFieldHeight: NSLayoutConstraint?
     private var searchFieldLeading: NSLayoutConstraint?
@@ -443,6 +446,8 @@ final class FloatingClipboardViewController: NSViewController,
         previewContainer.addSubview(rulePill)
         previewContainer.addSubview(previewScrollView)
         previewContainer.addSubview(previewImageView)
+        previewContainer.addSubview(notePreviewView)
+        notePreviewView.isHidden = true
         previewContainer.addSubview(metaPill)
 
         rulePillView = rulePill
@@ -481,6 +486,13 @@ final class FloatingClipboardViewController: NSViewController,
             previewImageView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
             previewImageView.bottomAnchor.constraint(lessThanOrEqualTo: metaPill.topAnchor, constant: -8),
             imageHeightConstraint,
+        ]
+
+        previewNoteConstraints = [
+            notePreviewView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
+            notePreviewView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
+            notePreviewView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+            notePreviewView.bottomAnchor.constraint(equalTo: metaPill.topAnchor, constant: -8),
         ]
 
         applyPreviewLayout(mode: .collapsed)
@@ -627,10 +639,28 @@ final class FloatingClipboardViewController: NSViewController,
             applyPreviewLayout(mode: .collapsed)
             previewTextView.string = ""
             previewImageView.image = nil
+            notePreviewView.stop()
             rulePillView?.isHidden = true
             return
         }
 
+        let selected = stateController.state.selectedRow
+        let selectedItem = stateController.items.indices.contains(selected) ? stateController.items[selected] : nil
+        let note: NotePreview?
+        if case let .text(text) = previewState.content {
+            note = NotePreviewLoader.load(text: text, sourceAppBundleId: selectedItem?.sourceAppBundleId)
+        } else {
+            note = nil
+        }
+        if let note {
+            applyPreviewLayout(mode: .note)
+            previewTextView.string = ""
+            previewImageView.image = nil
+            notePreviewView.show(note, configuration: currentConfiguration)
+            updateRulePill(previewState)
+            return
+        }
+        notePreviewView.stop()
         switch previewState.content {
         case let .text(text):
             applyPreviewLayout(mode: .text)
@@ -645,7 +675,10 @@ final class FloatingClipboardViewController: NSViewController,
             previewTextView.string = ""
             previewImageView.image = nil
         }
+        updateRulePill(previewState)
+    }
 
+    private func updateRulePill(_ previewState: FloatingPanelPreviewState) {
         if let rule = previewState.ruleText, !rule.isEmpty {
             previewMetaLabel.stringValue = "Rule: \(rule)"
             rulePillView?.isHidden = false
@@ -661,6 +694,8 @@ final class FloatingClipboardViewController: NSViewController,
 
         NSLayoutConstraint.deactivate(previewTextConstraints)
         NSLayoutConstraint.deactivate(previewImageConstraints)
+        NSLayoutConstraint.deactivate(previewNoteConstraints)
+        notePreviewView.isHidden = mode != .note
 
         previewLayoutMode = mode
 
@@ -682,6 +717,12 @@ final class FloatingClipboardViewController: NSViewController,
             previewScrollView.isHidden = true
             previewImageView.isHidden = false
             NSLayoutConstraint.activate(previewImageConstraints)
+        case .note:
+            previewWidthConstraint.constant = desiredWidth
+            previewContainer.isHidden = false
+            previewScrollView.isHidden = true
+            previewImageView.isHidden = true
+            NSLayoutConstraint.activate(previewNoteConstraints)
         }
     }
 
