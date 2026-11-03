@@ -8,6 +8,7 @@
 
 ### Changed
 - Voice note bundles no longer require the full screenshot, only the annotated image.
+- Permission drag helper is rebuilt as a guide at the bottom of System Settings, with the app tile flying in from the clicked button.
 
 ## [1.9.0] - 2026-11-02
 

@@ -215,7 +215,7 @@ final class FloatingClipboardViewController: NSViewController,
     }
 
     @objc private func openAccessibilitySettings() {
-        PermissionDragWindow.show(.accessibility)
+        PermissionDragWindow.show(.accessibility, from: NSEvent.mouseLocation)
     }
 
     func updateAccessibilityBanner() {

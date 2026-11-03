@@ -76,7 +76,7 @@ struct AboutSettingsView: View {
         }
         .alert("Accessibility Permissions", isPresented: $showPermissionsAlert) {
             Button("Open System Settings") {
-                PermissionDragWindow.show(.accessibility)
+                PermissionDragWindow.show(.accessibility, from: NSEvent.mouseLocation)
             }
             Button("OK", role: .cancel) {}
         } message: {

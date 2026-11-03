@@ -55,7 +55,7 @@ struct CompanionSettingsView: View {
                         } else {
                             Button("Request access") {
                                 Self.screenAccessRequested = true
-                                PermissionDragWindow.show(.screenRecording)
+                                PermissionDragWindow.show(.screenRecording, from: NSEvent.mouseLocation)
                             }
                             .frame(width: 110)
                         }
