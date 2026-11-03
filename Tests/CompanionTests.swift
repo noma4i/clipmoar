@@ -6,6 +6,16 @@ import Security
 import XCTest
 
 final class CompanionTests: XCTestCase {
+    func testNoteFramesRoundTrip() throws {
+        let note = Note(displayName: "Display", width: 100, height: 200, duration: 12, marks: [], phrases: [NotePhrase(start: 0, end: 1, text: "Hello", marks: [])])
+        for images in [(Data([1, 2]), Data([3, 4])), (Data(), Data())] {
+            let message = Message.note(annotated: images.0, screenshot: images.1, note: note, session: "session")
+            var decoder = FrameDecoder()
+            let frames = try decoder.append(message.encode())
+            XCTAssertEqual(try frames.map { try Message(frame: $0) }, [message])
+        }
+    }
+
     func testFragmentedFrames() throws {
         var bytes = [UInt8](repeating: 0, count: 300 * 1024)
         XCTAssertEqual(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes), errSecSuccess)

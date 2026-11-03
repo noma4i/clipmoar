@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Voice notes from DrawMoar paste a transcript with mark locations and file paths.
+
 ## [1.9.0] - 2026-11-02
 
 ### Added

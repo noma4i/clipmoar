@@ -107,6 +107,7 @@ final class PairingWindow {
 
 @MainActor protocol CompanionImageWriting {
     func writeImage(png: Data, marked: Bool) throws
+    func writeNote(text: String, png: Data?) throws
 }
 
 extension ClipboardActionService: CompanionImageWriting {}
@@ -114,6 +115,8 @@ extension ClipboardActionService: CompanionImageWriting {}
 @MainActor protocol CompanionImageHistory: AnyObject {
     func insertImage(_ data: Data, sourceAppBundleId: String?, fingerprint: String) -> UUID
     func replaceImage(uuid: UUID, data: Data, fingerprint: String) -> Bool
+    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule: String?) -> UUID
+    func replaceText(uuid: UUID, text: String, fingerprint: String) -> Bool
     func moveToTop(uuid: UUID)
 }
 
@@ -128,15 +131,19 @@ extension Notification.Name {
     private let history: CompanionImageHistory
     private let prepare: (Data) -> Data
     private var sessions: [String: UUID] = [:]
+    private var textSessions = Set<String>()
+    nonisolated let bundles: NoteBundle
 
-    init(clipboard: CompanionImageWriting, history: CompanionImageHistory, prepare: @escaping (Data) -> Data) {
+    init(clipboard: CompanionImageWriting, history: CompanionImageHistory, bundles: NoteBundle = NoteBundle(), prepare: @escaping (Data) -> Data) {
         self.clipboard = clipboard
         self.history = history
         self.prepare = prepare
+        self.bundles = bundles
     }
 
     func paste(png: Data, session: String) throws {
         try clipboard.writeImage(png: png, marked: true)
+        guard !textSessions.contains(session) else { return }
         let data = prepare(png)
         let fingerprint = ContentFingerprint.hash(data: png)
         if let uuid = sessions[session], history.replaceImage(uuid: uuid, data: data, fingerprint: fingerprint) {
@@ -145,6 +152,18 @@ extension Notification.Name {
         } else {
             sessions[session] = history.insertImage(data, sourceAppBundleId: "com.noma4i.DrawMoar", fingerprint: fingerprint)
         }
+    }
+
+    func note(annotated: Data, screenshot: Data, note: Note, session: String) throws {
+        let text = try bundles.write(annotated: annotated, screenshot: screenshot, note: note, session: session)
+        try clipboard.writeNote(text: text, png: annotated.isEmpty ? nil : annotated)
+        let fingerprint = ContentFingerprint.hash(text: text)
+        if let uuid = sessions[session], history.replaceText(uuid: uuid, text: text, fingerprint: fingerprint) {
+            history.moveToTop(uuid: uuid)
+        } else {
+            sessions[session] = history.insertText(text, sourceAppBundleId: "com.noma4i.DrawMoar", fingerprint: fingerprint, appliedRule: nil)
+        }
+        textSessions.insert(session)
     }
 }
 
@@ -191,6 +210,9 @@ extension Notification.Name {
                 return .screenshot(png: result.png, windows: result.windows)
             case let .paste(png, session):
                 try images.paste(png: png, session: session)
+                return .ok
+            case let .note(annotated, screenshot, note, session):
+                try images.note(annotated: annotated, screenshot: screenshot, note: note, session: session)
                 return .ok
             default: return reject("Unexpected message.")
             }
@@ -257,6 +279,7 @@ final class CompanionServer {
     }
 
     func start() {
+        do { try images.bundles.removeExpired() } catch { self.error = error.localizedDescription }
         enabled = true
         refreshListener()
     }

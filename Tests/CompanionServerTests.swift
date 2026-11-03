@@ -5,6 +5,40 @@ import Network
 import XCTest
 
 @MainActor final class CompanionServerTests: XCTestCase {
+    func testNoteReplacesPasteAndLaterPasteDoesNotReplaceText() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let clipboard = FakeClipboard()
+        let history = FakeHistory()
+        let images = CompanionImageIngest(clipboard: clipboard, history: history, bundles: NoteBundle(base: base)) { $0 }
+        let store = FakeDevices()
+        try store.save(CompanionDevice(id: "device", name: "Phone", key: Data()))
+        let session = CompanionSession(devices: store, pairing: PairingWindow(), capturer: FakeCapture(), images: images)
+        _ = await session.receive(.hello(deviceId: "device"))
+        let first = Note(displayName: nil, width: 10, height: 10, duration: 1, marks: [], phrases: [NotePhrase(start: 0, end: 1, text: "First", marks: [])])
+        let second = Note(displayName: nil, width: 10, height: 10, duration: 2, marks: [], phrases: [NotePhrase(start: 0, end: 2, text: "Second", marks: [])])
+        let paste = await session.receive(.paste(png: Data([1]), session: "session"))
+        let firstResult = await session.receive(.note(annotated: Data([2]), screenshot: Data([3]), note: first, session: "session"))
+        XCTAssertEqual(paste, .ok)
+        XCTAssertEqual(firstResult, .ok)
+        XCTAssertEqual(history.items.count, 1)
+        XCTAssertTrue(history.items[0].text?.contains("First") == true)
+        XCTAssertEqual(clipboard.png, Data([2]))
+        XCTAssertEqual(clipboard.text, history.items[0].text)
+        let secondResult = await session.receive(.note(annotated: Data([4]), screenshot: Data([3]), note: second, session: "session"))
+        XCTAssertEqual(secondResult, .ok)
+        XCTAssertEqual(history.items.count, 1)
+        XCTAssertTrue(history.items[0].text?.contains("Second") == true)
+        let laterPaste = await session.receive(.paste(png: Data([5]), session: "session"))
+        XCTAssertEqual(laterPaste, .ok)
+        XCTAssertTrue(history.items[0].text?.contains("Second") == true)
+        XCTAssertEqual(clipboard.png, Data([5]))
+        let dictation = await session.receive(.note(annotated: Data(), screenshot: Data(), note: first, session: "dictation"))
+        XCTAssertEqual(dictation, .ok)
+        XCTAssertEqual(clipboard.text, "First")
+        XCTAssertNil(clipboard.png)
+    }
+
     func testCaptureBeforeHelloIsRejected() async {
         let capture = FakeCapture()
         let session = makeSession(capture: capture)
@@ -276,12 +310,19 @@ private final class FakeCapture: ScreenCapturing {
 
 private final class FakeClipboard: CompanionImageWriting {
     var png: Data?
+    var text: String?
     var marked = false
     var mainThreadCalls: [Bool] = []
     func writeImage(png: Data, marked: Bool) throws {
         mainThreadCalls.append(Thread.isMainThread)
         self.png = png
         self.marked = marked
+    }
+
+    func writeNote(text: String, png: Data?) throws {
+        self.text = text
+        self.png = png
+        marked = true
     }
 }
 
@@ -291,6 +332,7 @@ private final class FakeHistory: CompanionImageHistory {
         var data: Data
         let source: String?
         var fingerprint: String
+        var text: String? = nil
     }
 
     var items: [Item] = []
@@ -306,6 +348,20 @@ private final class FakeHistory: CompanionImageHistory {
         mainThreadCalls.append(Thread.isMainThread)
         guard let index = items.firstIndex(where: { $0.id == uuid }) else { return false }
         items[index].data = data
+        items[index].fingerprint = fingerprint
+        return true
+    }
+
+    func insertText(_ text: String, sourceAppBundleId: String?, fingerprint: String, appliedRule _: String?) -> UUID {
+        let id = UUID()
+        items.insert(Item(id: id, data: Data(), source: sourceAppBundleId, fingerprint: fingerprint, text: text), at: 0)
+        return id
+    }
+
+    func replaceText(uuid: UUID, text: String, fingerprint: String) -> Bool {
+        guard let index = items.firstIndex(where: { $0.id == uuid }) else { return false }
+        items[index].text = text
+        items[index].data = Data()
         items[index].fingerprint = fingerprint
         return true
     }

@@ -132,8 +132,21 @@ final class CoreDataClipboardRepository: ClipboardRepository {
         let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
         request.predicate = NSPredicate(format: "uuid == %@", uuid as CVarArg)
         request.fetchLimit = 1
-        guard let item = try? context.fetch(request).first else { return false }
+        guard let item = try? context.fetch(request).first, item.contentType == ClipboardItemType.image.rawValue else { return false }
         item.imageData = data
+        item.fingerprint = fingerprint
+        CoreDataStack.shared.saveIfNeeded()
+        return true
+    }
+
+    func replaceText(uuid: UUID, text: String, fingerprint: String) -> Bool {
+        let request: NSFetchRequest<ClipboardItem> = ClipboardItem.fetchRequest()
+        request.predicate = NSPredicate(format: "uuid == %@", uuid as CVarArg)
+        request.fetchLimit = 1
+        guard let item = try? context.fetch(request).first else { return false }
+        item.contentType = ClipboardItemType.text.rawValue
+        item.content = text
+        item.imageData = nil
         item.fingerprint = fingerprint
         CoreDataStack.shared.saveIfNeeded()
         return true
