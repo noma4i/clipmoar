@@ -238,7 +238,9 @@ import XCTest
         busy.startPairing()
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(5))
-        while busy.error == nil, clock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        while busy.error == nil, clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
         try await Task.sleep(for: .milliseconds(300))
         XCTAssertEqual(busy.error, "Port \(port) is unavailable.")
         XCTAssertNil(busy.listeningPort)
