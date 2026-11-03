@@ -7,28 +7,64 @@ private final class FlippedView: NSView {
     }
 }
 
+private final class RoundedImageView: NSView {
+    static let cornerRadius: CGFloat = 10
+    static let shadowInset: CGFloat = 8
+    var image: NSImage? {
+        didSet { needsDisplay = true }
+    }
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override func draw(_: NSRect) {
+        guard let image, image.size.width > 0, image.size.height > 0 else { return }
+        let available = bounds.insetBy(dx: Self.shadowInset, dy: Self.shadowInset)
+        guard available.width > 0, available.height > 0 else { return }
+        let scale = min(available.width / image.size.width, available.height / image.size.height)
+        let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+        let rect = NSRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2, width: size.width, height: size.height)
+        let path = NSBezierPath(roundedRect: rect, xRadius: Self.cornerRadius, yRadius: Self.cornerRadius)
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+        shadow.shadowBlurRadius = 6
+        shadow.shadowOffset = NSSize(width: 0, height: -2)
+        shadow.set()
+        NSColor.black.setFill()
+        path.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+        NSGraphicsContext.restoreGraphicsState()
+    }
+}
+
 final class NoteMarkBadge: NSView {
     static let side: CGFloat = 18
     private let ring = CALayer()
     private let digit = CATextLayer()
 
-    init(number: Int) {
+    init(number: Int, accent: NSColor) {
         super.init(frame: NSRect(x: 0, y: 0, width: Self.side, height: Self.side))
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
         let font = NSFont.systemFont(ofSize: 11, weight: .bold)
-        ring.frame = bounds
-        ring.backgroundColor = NSColor.white.cgColor
-        ring.cornerRadius = 5
-        ring.borderWidth = 1
-        ring.borderColor = NSColor(calibratedWhite: 0.1, alpha: 0.7).cgColor
+        ring.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        ring.bounds = CGRect(x: 0, y: 0, width: Self.side, height: Self.side)
+        ring.position = CGPoint(x: Self.side / 2, y: Self.side / 2)
+        ring.backgroundColor = accent.cgColor
+        ring.cornerRadius = Self.side / 2
         let lineHeight = ceil(font.ascender - font.descender)
-        digit.frame = CGRect(x: 0, y: (Self.side - lineHeight) / 2, width: Self.side, height: lineHeight)
-        digit.string = NSAttributedString(string: "\(number)", attributes: [
-            .font: font,
-            .foregroundColor: NSColor.black,
-            .paragraphStyle: { let style = NSMutableParagraphStyle(); style.alignment = .center; return style }(),
-        ])
+        let top = Self.side / 2 + font.ascender - font.capHeight / 2
+        digit.frame = CGRect(x: 0, y: top - lineHeight, width: Self.side, height: lineHeight)
+        digit.font = font
+        digit.fontSize = font.pointSize
+        digit.foregroundColor = NSColor.white.cgColor
+        digit.alignmentMode = .center
+        digit.string = "\(number)"
         digit.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
         ring.addSublayer(digit)
         layer?.addSublayer(ring)
@@ -63,22 +99,22 @@ private final class NotePhraseRow: NSView {
 
     init(time: Double?, text: String, marks: [Int], configuration: PanelConfiguration, font: NSFont) {
         accent = configuration.typography.accentColor
-        badges = marks.map { NoteMarkBadge(number: $0) }
+        badges = marks.map { NoteMarkBadge(number: $0, accent: configuration.typography.accentColor) }
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
-        highlight.cornerRadius = 6
+        highlight.cornerRadius = 10
         layer?.addSublayer(highlight)
 
         let pill = NSView()
         pill.translatesAutoresizingMaskIntoConstraints = false
         pill.wantsLayer = true
-        pill.layer?.cornerRadius = 9
-        pill.layer?.backgroundColor = accent.withAlphaComponent(0.3).cgColor
+        pill.layer?.cornerRadius = 10
+        pill.layer?.backgroundColor = accent.withAlphaComponent(0.2).cgColor
         let timeLabel = NSTextField(labelWithString: time.map(Self.format) ?? "")
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         timeLabel.font = .monospacedDigitSystemFont(ofSize: max(font.pointSize - 3, 10), weight: .medium)
-        timeLabel.textColor = configuration.preview.textColor
+        timeLabel.textColor = accent
         timeLabel.alignment = .center
         pill.addSubview(timeLabel)
         pill.isHidden = time == nil
@@ -90,11 +126,14 @@ private final class NotePhraseRow: NSView {
         label.drawsBackground = false
         label.isSelectable = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultHigh, for: .horizontal)
 
         let stack = NSStackView(views: badges)
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .horizontal
         stack.spacing = 4
+        let lineHeight = ceil(font.ascender - font.descender + font.leading)
+        let badgeTop = 8 + max(0, (lineHeight - NoteMarkBadge.side) / 2)
         stack.setContentHuggingPriority(.required, for: .horizontal)
         stack.setContentCompressionResistancePriority(.required, for: .horizontal)
 
@@ -102,21 +141,21 @@ private final class NotePhraseRow: NSView {
         addSubview(label)
         addSubview(stack)
         NSLayoutConstraint.activate([
-            pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            pill.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            pill.topAnchor.constraint(equalTo: topAnchor, constant: 7),
             pill.widthAnchor.constraint(equalToConstant: Self.pillWidth),
-            pill.heightAnchor.constraint(equalToConstant: 18),
+            pill.heightAnchor.constraint(equalToConstant: 20),
             timeLabel.centerXAnchor.constraint(equalTo: pill.centerXAnchor),
             timeLabel.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
 
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-
             label.leadingAnchor.constraint(equalTo: pill.trailingAnchor, constant: 8),
-            label.trailingAnchor.constraint(equalTo: stack.leadingAnchor, constant: -8),
-            label.topAnchor.constraint(equalTo: topAnchor, constant: 5),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
-            heightAnchor.constraint(greaterThanOrEqualToConstant: 30),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+
+            stack.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 6),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: badgeTop),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 34),
         ])
     }
 
@@ -135,7 +174,10 @@ private final class NotePhraseRow: NSView {
     }
 
     func setActive(_ active: Bool) {
-        highlight.backgroundColor = active ? accent.withAlphaComponent(0.55).cgColor : NSColor.clear.cgColor
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.25)
+        highlight.backgroundColor = active ? accent.withAlphaComponent(0.18).cgColor : NSColor.clear.cgColor
+        CATransaction.commit()
         for badge in badges {
             active ? badge.pulse() : badge.stopPulse()
         }
@@ -143,7 +185,7 @@ private final class NotePhraseRow: NSView {
 }
 
 final class NotePreviewView: NSView {
-    private let imageView = NSImageView()
+    private let imageView = RoundedImageView()
     private let scrollView = NSScrollView()
     private let stack = NSStackView()
     private var rows: [NotePhraseRow] = []
@@ -160,10 +202,6 @@ final class NotePreviewView: NSView {
         super.init(frame: frameRect)
         translatesAutoresizingMaskIntoConstraints = false
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignCenter
-        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true
@@ -176,21 +214,21 @@ final class NotePreviewView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 4
+        stack.spacing = 8
         document.addSubview(stack)
 
         addSubview(imageView)
         addSubview(scrollView)
         NSLayoutConstraint.activate([
-            imageView.topAnchor.constraint(equalTo: topAnchor),
-            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: topAnchor, constant: 12 - RoundedImageView.shadowInset),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12 - RoundedImageView.shadowInset),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: RoundedImageView.shadowInset - 12),
             imageView.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.4),
 
             scrollView.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 8),
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
 
             document.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
             stack.topAnchor.constraint(equalTo: document.topAnchor),

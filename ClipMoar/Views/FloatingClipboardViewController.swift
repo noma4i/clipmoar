@@ -490,8 +490,8 @@ final class FloatingClipboardViewController: NSViewController,
 
         previewNoteConstraints = [
             notePreviewView.topAnchor.constraint(equalTo: rulePill.bottomAnchor, constant: 4),
-            notePreviewView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 8),
-            notePreviewView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -8),
+            notePreviewView.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor),
+            notePreviewView.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor),
             notePreviewView.bottomAnchor.constraint(equalTo: metaPill.topAnchor, constant: -8),
         ]
 
